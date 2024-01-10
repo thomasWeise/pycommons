@@ -1,0 +1,24 @@
+#
+# Dependencies Required to Use `pycommons`
+#
+# In this file we list all the libraries that are required to use `pycommons`.
+# You must install them before using `pycommons`.
+# If you install `pycommons` via pip, i.e., do `pip install pycommons`, then this
+# is done automatically for you. Otherwise, you could do
+# `pip install --no-input --timeout 360 --retries 100 -r requirements.txt`
+# with a text file `requirements.txt` that has the exact same contents as this
+# file here.
+#
+# `pycommons` is available at https://thomasweise.github.io/pycommons.
+# This file is available at https://github.com/thomasWeise/pycommons.
+#
+# Below, we list each required library and specify the reason why it is
+# needed. Notice that these libraries may, in turn, depend on other libraries.
+# We cannot maintain a full list of these recursive dependencies.
+# Here we only list the top-level dependencies that are actually used by
+# `pycommons` directly.
+#
+
+# We offer some functionality based on `numpy`.
+numpy == 1.26.1
+
