@@ -14,7 +14,6 @@ def is_new() -> Callable[[str], bool]:
         it encounters any value `xx` and `False` for all values it has already
         seen
 
-    >>> from moptipy.utils.cache import is_new
     >>> check = is_new()
     >>> print(check("a"))
     True
