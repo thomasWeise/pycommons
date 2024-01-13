@@ -1,36 +1,36 @@
 """Test the simple cache."""
-from pycommons.cache import is_new
+from pycommons.cache import str_is_new
 
 
-def test_is_new() -> None:
-    """Test the is_new function."""
-    is_new_1 = is_new()
-    assert is_new_1 is not None
-    assert callable(is_new_1)
-    is_new_2 = is_new()
-    assert is_new_2 is not None
-    assert is_new_1 is not is_new_2
-    assert callable(is_new_2)
+def test_str_is_new() -> None:
+    """Test the str_is_new function."""
+    str_is_new_1 = str_is_new()
+    assert str_is_new_1 is not None
+    assert callable(str_is_new_1)
+    str_is_new_2 = str_is_new()
+    assert str_is_new_2 is not None
+    assert str_is_new_1 is not str_is_new_2
+    assert callable(str_is_new_2)
 
-    assert is_new_1("a")
-    assert is_new_2("a")
+    assert str_is_new_1("a")
+    assert str_is_new_2("a")
 
-    assert is_new_1("b")
-    assert is_new_1("c")
-    assert is_new_2("c")
+    assert str_is_new_1("b")
+    assert str_is_new_1("c")
+    assert str_is_new_2("c")
 
-    assert not is_new_1("a")
-    assert not is_new_2("c")
-    assert not is_new_1("b")
-    assert not is_new_1("c")
+    assert not str_is_new_1("a")
+    assert not str_is_new_2("c")
+    assert not str_is_new_1("b")
+    assert not str_is_new_1("c")
 
-    assert is_new_2("b")
-    assert not is_new_2("b")
+    assert str_is_new_2("b")
+    assert not str_is_new_2("b")
 
-    is_new_3 = is_new()
-    assert is_new_3("b")
-    assert is_new_3("c")
-    assert is_new_3("a")
-    assert not is_new_3("b")
-    assert not is_new_3("c")
-    assert not is_new_3("a")
+    str_is_new_3 = str_is_new()
+    assert str_is_new_3("b")
+    assert str_is_new_3("c")
+    assert str_is_new_3("a")
+    assert not str_is_new_3("b")
+    assert not str_is_new_3("c")
+    assert not str_is_new_3("a")

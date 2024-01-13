@@ -2,19 +2,19 @@
 from typing import Any, Callable
 
 
-def is_new() -> Callable[[str], bool]:
+def str_is_new() -> Callable[[str], bool]:
     """
-    Create a function returning `True` when seeing new values.
+    Create a function returning `True` when seeing new `str` values.
 
     Creates a function which returns `True` only the first time it receives a
-    given argument and `False` all subsequent times.
+    given string argument and `False` all subsequent times.
     This is based on https://stackoverflow.com/questions/27427067
 
-    :returns: a function `is_new(xx)` that will return `True` the first time
-        it encounters any value `xx` and `False` for all values it has already
-        seen
+    :returns: a function `str_is_new(xx)` that will return `True` the first
+        time it encounters any value `xx` and `False` for all values it has
+        already seen
 
-    >>> check = is_new()
+    >>> check = str_is_new()
     >>> print(check("a"))
     True
     >>> print(check("a"))

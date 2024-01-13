@@ -10,6 +10,11 @@ def type_name(tpe: type) -> str:
     :param tpe: the type
     :returns: the string
 
+    >>> try:
+    ...     type_name(None)
+    ... except TypeError as te:
+    ...     print(te)
+    type cannot be None.
     >>> type_name(type(None))
     'None'
     >>> type_name(int)
@@ -42,11 +47,21 @@ def type_name(tpe: type) -> str:
     >>> type_name(npx.random.Generator)
     'numpy.random._generator.Generator'
     """
+    if tpe is None:
+        raise TypeError("type cannot be None.")
     c1: str = str(tpe)
     if c1.startswith("<class '"):
         c1 = c1[8:-2]
     if c1 == "NoneType":
         return "None"
+    if hasattr(tpe, "__qualname__"):
+        c2: str = tpe.__qualname__
+        if hasattr(tpe, "__module__"):
+            module = tpe.__module__
+            if (module is not None) and (module != "builtins"):
+                c2 = f"{module}.{c2}"
+        if len(c2) > len(c1):
+            return c2
     return c1
 
 
@@ -58,6 +73,8 @@ def type_name_of(obj) -> str:
     :returns: the fully-qualified class name of the object
 
     >>> from pycommons.io.path import Path
+    >>> type_name_of(Path)
+    'type'
     >>> type_name_of(Path.file(__file__))
     'pycommons.io.path.Path'
     >>> from numpy.random import default_rng
@@ -73,31 +90,19 @@ def type_name_of(obj) -> str:
     >>> type_name_of(npx)
     'module'
     >>> type_name_of(npx.ndarray)
-    'numpy.type'
+    'type'
     >>> from typing import Callable
     >>> type_name_of(Callable)
     'typing._CallableType'
     >>> from math import sin
     >>> type_name_of(sin)
-    'math.builtin_function_or_method'
+    'builtin_function_or_method'
     """
     if obj is None:
         return "None"
-    c1: Final[str] = type_name(type(obj))
-    if hasattr(obj, "__class__"):
-        cls: Final[type] = obj.__class__
-        c2: str = type_name(cls)
-        if hasattr(cls, "__qualname__"):
-            c3: str = cls.__qualname__
-            if hasattr(obj, "__module__"):
-                module = obj.__module__
-                if (module is not None) and (module != "builtins"):
-                    c3 = f"{module}.{c3}"
-            if len(c3) > len(c2):
-                c2 = c3
-        if len(c2) > len(c1):
-            return c2
-    return c1
+    if isinstance(obj, type):
+        return "type"
+    return type_name(type(obj))
 
 
 def type_error(obj: Any, name: str,
