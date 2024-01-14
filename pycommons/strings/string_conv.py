@@ -63,6 +63,10 @@ def float_to_str(value: float) -> str:
     '1e20'
     >>> float_to_str(1e030)
     '1e30'
+    >>> float_to_str(0.0)
+    '0'
+    >>> float_to_str(-0.0)
+    '0'
     """
     if not isinstance(value, float):
         raise type_error(value, "value", float)

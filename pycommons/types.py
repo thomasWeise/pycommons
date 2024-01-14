@@ -62,7 +62,7 @@ def type_name(tpe: type) -> str:
                 c2 = f"{module}.{c2}"
         if len(c2) >= len(c1):
             return c2
-    return c1
+    return c1  # will probably never happen
 
 
 def type_name_of(obj) -> str:

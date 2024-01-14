@@ -39,6 +39,9 @@ def _canonicalize_path(path: str) -> str:
     A canonicalized path does not contain any relative components, is fully
     expanded, and, in case-insensitive file systems, using the normal case.
 
+    :param path: the path
+    :return: the canonicalized path
+
     >>> try:
     ...     _canonicalize_path(1)
     ... except TypeError as te:
@@ -93,9 +96,6 @@ join(dirname(realpath(getcwd())), "1.txt")
     >>> from os.path import isabs
     >>> isabs(_canonicalize_path(".."))
     True
-
-    :param path: the path
-    :return: the canonicalized path
     """
     if not isinstance(path, str):
         raise type_error(path, "path", str)
