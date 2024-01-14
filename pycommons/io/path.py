@@ -123,13 +123,46 @@ __ENCODINGS: Final[tuple[tuple[tuple[bytes, ...], str], ...]] = \
 
 
 def _get_text_encoding(filename: str) -> str:
-    """
+    r"""
     Get the text encoding from a BOM if present.
 
+    If no encoding BOM can be found, we return the standard UTF-8 encoding.
     Adapted from https://stackoverflow.com/questions/13590749.
 
     :param filename: the filename
     :return: the encoding
+
+    >>> from tempfile import mkstemp
+    >>> from os import close as osclose
+    >>> from os import remove as osremove
+    >>> (h, tf) = mkstemp()
+    >>> osclose(h)
+    >>> with open(tf, "wb") as out:
+    ...     out.write(b'\xef\xbb\xbf')
+    3
+    >>> _get_text_encoding(tf)
+    'utf-8-sig'
+    >>> with open(tf, "wb") as out:
+    ...     out.write(b'\xff\xfe\x00\x00')
+    4
+    >>> _get_text_encoding(tf)
+    'utf-32'
+    >>> with open(tf, "wb") as out:
+    ...     out.write(b'\x00\x00\xfe\xff')
+    4
+    >>> _get_text_encoding(tf)
+    'utf-32'
+    >>> with open(tf, "wb") as out:
+    ...     out.write(b'\xff\xfe')
+    2
+    >>> _get_text_encoding(tf)
+    'utf-16'
+    >>> with open(tf, "wb") as out:
+    ...     out.write(b'\xfe\xff')
+    2
+    >>> _get_text_encoding(tf)
+    'utf-16'
+    >>> osremove(tf)
     """
     with open(filename, "rb") as f:
         header = f.read(4)  # Read just the first four bytes.

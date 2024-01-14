@@ -5,8 +5,9 @@ This module provides two classes, :class:`~TempDir` for temporary directories
 and :class:`~TempFile` for temporary files. Both of them implement the
 `ContextManager` interface and will be deleted when going out of scope.
 """
-import os
 from contextlib import AbstractContextManager
+from os import close as osclose
+from os import remove as osremove
 from shutil import rmtree
 from tempfile import mkdtemp, mkstemp
 from typing import Final
@@ -283,7 +284,7 @@ class TempFile(Path, AbstractContextManager):
         (handle, path) = mkstemp(
             suffix=suffix, prefix=prefix,
             dir=None if base_dir is None else Path.directory(base_dir))
-        os.close(handle)
+        osclose(handle)
         return TempFile(path)
 
     def __enter__(self) -> "TempFile":
@@ -321,5 +322,5 @@ class TempFile(Path, AbstractContextManager):
         opn: Final[bool] = self.__is_open
         self.__is_open = False
         if opn:
-            os.remove(self)
+            osremove(self)
         return exception_type is None
