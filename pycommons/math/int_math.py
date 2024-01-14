@@ -531,10 +531,10 @@ def try_int_root(value: int, power: int,
     if root_base != 1:
         int_root = __bin_search_root(value, power)
 
-    # check again
+    # compute root power again
     root_power = int_root ** power
 
-    # from now on, root may be either and int or (more likely) a float.
+    # from now on, root may be either an int or (more likely) a float.
     root: int | float = int_root
     try:
         rest: int | float = try_int_div(value, root_power)
