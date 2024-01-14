@@ -102,12 +102,12 @@ join(dirname(realpath(getcwd())), "1.txt")
     if len(path) <= 0:
         raise ValueError("Path must not be empty.")
     path = normcase(abspath(realpath(expanduser(expandvars(path)))))
-    if not isinstance(path, str):
+    if not isinstance(path, str):  # this should never happen
         raise type_error(path, "canonicalized path", str)
-    if len(path) <= 0:
+    if len(path) <= 0:  # this should never happen either
         raise ValueError("Canonicalization must yield non-empty string, "
                          f"but returned {path!r}.")
-    if path in [".", ".."]:
+    if path in [".", ".."]:  # this should never happen, too
         raise ValueError(f"Canonicalization cannot yield {path!r}.")
     return path
 
@@ -162,6 +162,11 @@ def _get_text_encoding(filename: str) -> str:
     2
     >>> _get_text_encoding(tf)
     'utf-16'
+    >>> with open(tf, "wb") as out:
+    ...     out.write(b'\xaa\xf3')
+    2
+    >>> _get_text_encoding(tf)
+    'utf-8-sig'
     >>> osremove(tf)
     """
     with open(filename, "rb") as f:
@@ -467,8 +472,6 @@ dirname(__file__)))
         except FileExistsError:
             existed = True
         except Exception as err:
-            if isinstance(err, ValueError):
-                raise
             raise ValueError(
                 f"Error when trying to create file {self!r}.") from err
         self.enforce_file()
@@ -519,8 +522,6 @@ dirname(__file__)))
         except FileExistsError:
             pass
         except Exception as err:
-            if isinstance(err, ValueError):
-                raise
             raise ValueError(
                 f"Error when trying to create directory {self!r}.") from err
         self.enforce_dir()

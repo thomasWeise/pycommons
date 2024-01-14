@@ -411,6 +411,43 @@ def try_int_root(value: int, power: int,
     >>> (abs(1.797E308 - try_int_root(int(1.797E308), 10) ** 10)
     ...     < abs(1.797E308 - (int(1.797E308) ** 0.1) ** 10))
     True
+    >>> try:
+    ...     try_int_root(1.0, 1)
+    ... except TypeError as te:
+    ...     print(te)
+    value should be an instance of int but is float, namely '1.0'.
+    >>> try:
+    ...     try_int_root(1, 2.0)
+    ... except TypeError as te:
+    ...     print(te)
+    power should be an instance of int but is float, namely '2.0'.
+    >>> try:
+    ...     try_int_root(3.0, 1.0)
+    ... except TypeError as te:
+    ...     print(te)
+    value should be an instance of int but is float, namely '3.0'.
+    >>> try:
+    ...     try_int_root(1, -1)
+    ... except ValueError as ve:
+    ...     print(ve)
+    power must be positive but is -1.
+    >>> try:
+    ...     try_int_root(1, 0)
+    ... except ValueError as ve:
+    ...     print(ve)
+    power must be positive but is 0.
+    >>> try:
+    ...     try_int_root(-1, 2)
+    ... except ValueError as ve:
+    ...     print(ve)
+    value must not be negative, but is -1.
+    >>> try:
+    ...     try_int_root(-2, -1)
+    ... except ValueError as ve:
+    ...     print(ve)
+    power must be positive but is -1.
+    >>> try_int_root(10, 1)
+    10
     """
     if not isinstance(value, int):
         raise type_error(value, "value", int)
@@ -431,6 +468,7 @@ def try_int_root(value: int, power: int,
     if root_power >= value:
         if root_power == value:
             return int_root  # ok, we are done
+        # we should never get here
         raise ValueError(f"{int_root}**{power}={root_power} > {value}?")
 
     # Now try to remove integer factors from the value and the root,
@@ -463,6 +501,7 @@ def try_int_root(value: int, power: int,
     if root_power >= value:
         if root_power == value:
             return root_base * int_root  # ok, we are done
+        # we should never get here
         raise ValueError(f"{int_root}**{power}={root_power} > {value}?")
 
     # from now on, root may be either and int or (more likely) a float.
