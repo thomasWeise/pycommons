@@ -391,6 +391,23 @@ def try_int_root(value: int, power: int,
     """
     Compute `value**(1/power)` where `value` and `power` are both integers.
 
+    If possible, i.e., if the result can be represented as integer without
+    loss of precision, then this function will return an integer.
+    Otherwise, it will return a `float`.
+    However, there may be the situation that `value` is so large and `power`
+    is small enough so that the result will be bigger than the maximum
+    possible `float` value but it can also not be represented as integer
+    properly.
+    Instead of returning `inf`, this function will then re-raise the
+    encountered `OverflowError` (if `none_on_overflow == False`) or return
+    `None`, which is the default case (`none_of_overflow == True`).
+
+    When roots are imprecise floats and multiple results are possible that
+    lead to the same deviation from the original `value`, then smaller root
+    values are preferred.
+
+    This function may be very slow.
+
     :param value: the integer value to compute the root of
     :param power: the integer power of the root
     :param none_on_overflow: `True` if `None` should be returned if we
@@ -448,6 +465,24 @@ def try_int_root(value: int, power: int,
     power must be positive but is -1.
     >>> try_int_root(10, 1)
     10
+    >>> try_int_root(1, 10)
+    1
+    >>> try_int_root(124323874289348237482378273423742387423874723423847, 234)
+    1.6371153964116552
+    >>> try_int_root(99999999999999999999999999999999999999999999999999999, 3)
+    464158883361277889
+    >>> try_int_root(99999999999999999999999999999999999999999999999999999999\
+99999999999999999999999999999999999999999999999999999999999999999999999999999\
+99999999999999999999999999999999999999999999999999999999999999999999999999, 3)
+    999999999999999999999999999999999999999999999999999999999999999999999
+    >>> import sys
+    >>> print(try_int_root(int(sys.float_info.max) ** 2, 33333))
+    None
+    >>> try:
+    ...     try_int_root(int(sys.float_info.max) ** 2, 33333, False)
+    ... except OverflowError as ove:
+    ...     print(ove)
+    int too large to convert to float
     """
     if not isinstance(value, int):
         raise type_error(value, "value", int)
@@ -498,11 +533,6 @@ def try_int_root(value: int, power: int,
 
     # check again
     root_power = int_root ** power
-    if root_power >= value:
-        if root_power == value:
-            return root_base * int_root  # ok, we are done
-        # we should never get here
-        raise ValueError(f"{int_root}**{power}={root_power} > {value}?")
 
     # from now on, root may be either and int or (more likely) a float.
     root: int | float = int_root
@@ -521,15 +551,16 @@ def try_int_root(value: int, power: int,
         diff = abs((root ** power) - value)
         root2: int | float = __try_int(exp(log(value) / root))
         diff2: int | float = abs((root2 ** power) - value)
-        if diff2 < diff:
+        if diff2 < diff:  # probably not possible, but who knows
             diff = diff2
             root = root2
         root2 = __try_int(2 ** (log2(value) / root))
         diff2 = abs((root2 ** power) - value)
-        if diff2 < diff:
+        if diff2 < diff:  # probably not possible, but who knows
             diff = diff2
             root = root2
 
+        # hard-core manual search
         rdn = root
         rup = root
         while True:
@@ -542,7 +573,7 @@ def try_int_root(value: int, power: int,
         while True:
             rup = nextafter(rup, inf)
             apd = abs((rup ** power) - value)
-            if apd > diff:
+            if apd >= diff:
                 break
             diff = apd
             root = rup
