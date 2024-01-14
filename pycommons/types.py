@@ -60,7 +60,7 @@ def type_name(tpe: type) -> str:
             module = tpe.__module__
             if (module is not None) and (module != "builtins"):
                 c2 = f"{module}.{c2}"
-        if len(c2) > len(c1):
+        if len(c2) >= len(c1):
             return c2
     return c1
 

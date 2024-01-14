@@ -15,6 +15,9 @@ class Outer:
         class Inner:
             """The inner class."""
 
+            def a(self) -> None:
+                """Do nothing."""
+
 
 def test_type_name() -> None:
     """Test the type name."""
@@ -67,3 +70,4 @@ def test_type_name_of() -> None:
     assert type_name_of(None) == "None"
     assert type_name_of(np.array([1])) == "numpy.ndarray"
     assert type_name_of(Path("/bla/")) == "pycommons.io.path.Path"
+    assert type_name_of(Outer.Middle.Inner.a) == "function"
