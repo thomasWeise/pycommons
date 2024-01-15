@@ -65,26 +65,21 @@ def type_name_of(obj) -> str:
     'type'
     >>> type_name_of(Path.file(__file__))
     'pycommons.io.path.Path'
-    >>> from numpy.random import default_rng
-    >>> type_name_of(default_rng())
-    'numpy.random._generator.Generator'
     >>> type_name_of(None)
     'None'
     >>> type_name_of(int)
     'type'
     >>> type_name_of(print)
     'builtin_function_or_method'
-    >>> import numpy as npx
-    >>> type_name_of(npx)
-    'module'
-    >>> type_name_of(npx.ndarray)
-    'type'
     >>> from typing import Callable
     >>> type_name_of(Callable)
     'typing._CallableType'
     >>> from math import sin
     >>> type_name_of(sin)
     'builtin_function_or_method'
+    >>> import pycommons.io as iox
+    >>> type_name_of(iox)
+    'module'
     """
     if obj is None:
         return "None"
