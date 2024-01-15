@@ -1,5 +1,4 @@
 """Test the type."""
-import numpy as np
 from pytest import raises
 
 from pycommons.io.path import Path
@@ -41,7 +40,6 @@ def test_type_name() -> None:
     with raises(TypeError) as excinfo:
         type_name(None)  # noqa
     assert str(excinfo.value) == "type cannot be None."
-    assert type_name(np.ndarray) == "numpy.ndarray"
     assert type_name(Path) == "pycommons.io.path.Path"
 
 
@@ -68,6 +66,5 @@ def test_type_name_of() -> None:
     assert (type_name_of(Outer.Middle.Inner())
             == "test_types.Outer.Middle.Inner")
     assert type_name_of(None) == "None"
-    assert type_name_of(np.array([1])) == "numpy.ndarray"
     assert type_name_of(Path("/bla/")) == "pycommons.io.path.Path"
     assert type_name_of(Outer.Middle.Inner.a) == "function"

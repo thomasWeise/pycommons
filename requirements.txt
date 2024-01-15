@@ -18,7 +18,3 @@
 # Here we only list the top-level dependencies that are actually used by
 # `pycommons` directly.
 #
-
-# We offer some functionality based on `numpy`.
-numpy == 1.26.1
-

@@ -1,7 +1,6 @@
 """Integer maths routines."""
 
-import contextlib
-from math import exp, inf, isfinite, isqrt, log, log2, nextafter
+from math import isfinite
 from typing import Final
 
 from pycommons.types import type_error
@@ -55,7 +54,7 @@ def __try_int(val: float) -> int | float:
     return val
 
 
-def try_int(val: int | float) -> int | float:
+def try_int(value: int | float) -> int | float:
     """
     Attempt to convert a float to an integer.
 
@@ -65,11 +64,12 @@ def try_int(val: int | float) -> int | float:
     `-9007199254740992...9007199254740992`, i.e., the range where `+1` and
     `-1` work without loss of precision.
 
-    :param val: the input value, which must either be `int` or `float`
-    :return: an `int` if `val` can be represented as `int` without loss of
+    :param value: the input value, which must either be `int` or `float`
+    :return: an `int` if `value` can be represented as `int` without loss of
         precision, `val` otherwise
-    :raises TypeError: if `val` is neither an instance of `int` nor of `float`
-    :raises ValueError: if `val` is a `float`, but not finite
+    :raises TypeError: if `value` is neither an instance of `int` nor of
+        `float`
+    :raises ValueError: if `value` is a `float`, but not finite
 
     >>> print(type(try_int(10.5)))
     <class 'float'>
@@ -100,7 +100,7 @@ def try_int(val: int | float) -> int | float:
     ...     try_int("blab")  # noqa  # type: off
     ... except TypeError as te:
     ...     print(te)
-    val should be an instance of any in {float, int} but is str, namely \
+    value should be an instance of any in {float, int} but is str, namely \
 'blab'.
     >>> type(try_int(9007199254740992.0))
     <class 'int'>
@@ -118,17 +118,17 @@ def try_int(val: int | float) -> int | float:
     >>> type(try_int(-too_big))
     <class 'float'>
     """
-    if isinstance(val, int):
-        return val
-    if isinstance(val, float):
-        if not isfinite(val):
-            raise ValueError(f"Value must be finite, but is {val}.")
-        if _DBL_INT_LIMIT_N <= val <= DBL_INT_LIMIT_P:
-            a = int(val)
-            if a == val:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if not isfinite(value):
+            raise ValueError(f"Value must be finite, but is {value}.")
+        if _DBL_INT_LIMIT_N <= value <= DBL_INT_LIMIT_P:
+            a = int(value)
+            if a == value:
                 return a
-        return val
-    raise type_error(val, "val", (int, float))
+        return value
+    raise type_error(value, "value", (int, float))
 
 
 def try_int_div(a: int, b: int) -> int | float:
@@ -357,225 +357,3 @@ def try_float_div(a: int | float, b: int | float) -> int | float:
     if not isfinite(val):
         raise ValueError(f"Result must be finite, but is {a}/{b}={val}.")
     return __try_int(val)
-
-
-def __bin_search_root(value: int, power: int) -> int:
-    """
-    Search a truncated integer root via binary search.
-
-    :param value: the integer value to compute the root of
-    :param power: the integer power of the root
-    :returns: the integer root, truncated if necessary
-    """
-    int_sqrt: Final[int] = isqrt(value)
-    if power == 2:
-        return int_sqrt
-
-    # compute the maximum base root
-    root_min: int = 1
-    root_max: int = (int_sqrt - 1) if value > 3 else 1
-    while root_max >= root_min:
-        root_mid = isqrt(root_min * root_max)
-        power_mid = root_mid ** power
-        if power_mid > value:
-            root_max = root_mid - 1
-        elif power_mid < value:
-            root_min = root_mid + 1
-        else:
-            return root_mid
-    return root_max
-
-
-def try_int_root(value: int, power: int,
-                 none_on_overflow: bool = True) -> int | float | None:
-    """
-    Compute `value**(1/power)` where `value` and `power` are both integers.
-
-    If possible, i.e., if the result can be represented as integer without
-    loss of precision, then this function will return an integer.
-    Otherwise, it will return a `float`.
-    However, there may be the situation that `value` is so large and `power`
-    is small enough so that the result will be bigger than the maximum
-    possible `float` value but it can also not be represented as integer
-    properly.
-    Instead of returning `inf`, this function will then re-raise the
-    encountered `OverflowError` (if `none_on_overflow == False`) or return
-    `None`, which is the default case (`none_of_overflow == True`).
-
-    When roots are imprecise floats and multiple results are possible that
-    lead to the same deviation from the original `value`, then smaller root
-    values are preferred.
-
-    This function may be very slow.
-
-    :param value: the integer value to compute the root of
-    :param power: the integer power of the root
-    :param none_on_overflow: `True` if `None` should be returned if we
-        encounter an :class:`OverflowError`, `False` if we should simply
-        re-raise it
-    :returns: the root, or `None` if we encounter an overflow
-
-    >>> try_int_root(100, 2)
-    10
-    >>> try_int_root(100, 3) - (100 ** (1/3))
-    0.0
-    >>> try_int_root(123100, 23) - (123100 ** (1/23))
-    0.0
-    >>> 123100**1000 - try_int_root(123100**1000, 1000)**1000
-    0
-    >>> 11**290 - try_int_root(11**290, 290)**290
-    0
-    >>> (abs(1.797E308 - try_int_root(int(1.797E308), 10) ** 10)
-    ...     < abs(1.797E308 - (int(1.797E308) ** 0.1) ** 10))
-    True
-    >>> try:
-    ...     try_int_root(1.0, 1)
-    ... except TypeError as te:
-    ...     print(te)
-    value should be an instance of int but is float, namely '1.0'.
-    >>> try:
-    ...     try_int_root(1, 2.0)
-    ... except TypeError as te:
-    ...     print(te)
-    power should be an instance of int but is float, namely '2.0'.
-    >>> try:
-    ...     try_int_root(3.0, 1.0)
-    ... except TypeError as te:
-    ...     print(te)
-    value should be an instance of int but is float, namely '3.0'.
-    >>> try:
-    ...     try_int_root(1, -1)
-    ... except ValueError as ve:
-    ...     print(ve)
-    power must be positive but is -1.
-    >>> try:
-    ...     try_int_root(1, 0)
-    ... except ValueError as ve:
-    ...     print(ve)
-    power must be positive but is 0.
-    >>> try:
-    ...     try_int_root(-1, 2)
-    ... except ValueError as ve:
-    ...     print(ve)
-    value must not be negative, but is -1.
-    >>> try:
-    ...     try_int_root(-2, -1)
-    ... except ValueError as ve:
-    ...     print(ve)
-    power must be positive but is -1.
-    >>> try_int_root(10, 1)
-    10
-    >>> try_int_root(1, 10)
-    1
-    >>> try_int_root(124323874289348237482378273423742387423874723423847, 234)
-    1.6371153964116552
-    >>> try_int_root(99999999999999999999999999999999999999999999999999999, 3)
-    464158883361277889
-    >>> try_int_root(99999999999999999999999999999999999999999999999999999999\
-99999999999999999999999999999999999999999999999999999999999999999999999999999\
-99999999999999999999999999999999999999999999999999999999999999999999999999, 3)
-    999999999999999999999999999999999999999999999999999999999999999999999
-    >>> import sys
-    >>> print(try_int_root(int(sys.float_info.max) ** 2, 33333))
-    None
-    >>> try:
-    ...     try_int_root(int(sys.float_info.max) ** 2, 33333, False)
-    ... except OverflowError as ove:
-    ...     print(ove)
-    int too large to convert to float
-    """
-    if not isinstance(value, int):
-        raise type_error(value, "value", int)
-    if not isinstance(power, int):
-        raise type_error(power, "power", int)
-    if power <= 0:
-        raise ValueError(f"power must be positive but is {power}.")
-    if value <= 1:
-        if value < 0:
-            raise ValueError(f"value must not be negative, but is {value}.")
-        return value
-    if power == 1:
-        return value
-
-    # first, approximate root with crude binary search
-    int_root: int = __bin_search_root(value, power)
-    root_power: int = int_root ** power
-    if root_power >= value:
-        if root_power == value:
-            return int_root  # ok, we are done
-        # we should never get here
-        raise ValueError(f"{int_root}**{power}={root_power} > {value}?")
-
-    # Now try to remove integer factors from the value and the root,
-    # to achieve a more accurate division of the rest.
-    # This is probably extremely inefficient.
-    root_base: int = 1
-    i: int = 2
-    end: int = min(10_000, int_root)
-    while i < end:
-        div: int = i ** power
-        if (value % div) == 0:
-            root_base *= i
-            value //= div
-            int_root = (int_root + i - 1) // i
-            if int_root < end:
-                end = int_root
-        else:
-            i += 1
-
-    # value is now reduced by any integer factor that we can pull out
-    # of the root. These factors are aggregated in root_base.
-    # If root_base != 1, we need to re-compute the root of the remainder
-    # inside value. Whatever root we now compute of value, we must multiply
-    # it with root_base.
-    if root_base != 1:
-        int_root = __bin_search_root(value, power)
-
-    # compute root power again
-    root_power = int_root ** power
-
-    # from now on, root may be either an int or (more likely) a float.
-    root: int | float = int_root
-    try:
-        rest: int | float = try_int_div(value, root_power)
-        rest_root: int | float = __try_int(rest ** (1.0 / power))
-        root = __try_int(root * rest_root)
-    except OverflowError:  # as ofe:
-        if none_on_overflow:
-            return None
-        raise  # raises ofe again
-
-    # OK, we got an approximate root of what remains of value.
-    # Let's see if we can refine it.
-    with contextlib.suppress(OverflowError):
-        diff = abs((root ** power) - value)
-        root2: int | float = __try_int(exp(log(value) / root))
-        diff2: int | float = abs((root2 ** power) - value)
-        if diff2 < diff:  # probably not possible, but who knows
-            diff = diff2
-            root = root2
-        root2 = __try_int(2 ** (log2(value) / root))
-        diff2 = abs((root2 ** power) - value)
-        if diff2 < diff:  # probably not possible, but who knows
-            diff = diff2
-            root = root2
-
-        # hard-core manual search
-        rdn = root
-        rup = root
-        while True:
-            rdn = nextafter(rdn, -inf)
-            apd = abs((rdn ** power) - value)
-            if apd > diff:
-                break
-            diff = apd
-            root = rdn
-        while True:
-            rup = nextafter(rup, inf)
-            apd = abs((rup ** power) - value)
-            if apd >= diff:
-                break
-            diff = apd
-            root = rup
-
-    return root_base * __try_int(root)

@@ -1,4 +1,4 @@
-"""Test the interaction with the file system and temp files."""
+"""Test the temporary files and directories."""
 from os.path import basename, dirname, exists, getsize, isdir, isfile, join
 
 from pycommons.io.path import Path
