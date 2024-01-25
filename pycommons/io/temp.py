@@ -53,7 +53,7 @@ class TempDir(Path, AbstractContextManager):
         ...         pass
         ... except TypeError as te:
         ...     print(te)
-        path should be an instance of str but is int, namely '1'.
+        descriptor '__len__' requires a 'str' object but received a 'int'
         >>> from os.path import dirname
         >>> with TempDir.create(dirname(__file__)) as td:
         ...     pass
@@ -160,7 +160,7 @@ class TempFile(Path, AbstractContextManager):
         ...     TempFile.create(1)
         ... except TypeError as te:
         ...     print(te)
-        path should be an instance of str but is int, namely '1'.
+        descriptor '__len__' requires a 'str' object but received a 'int'
         >>> try:
         ...     TempFile.create("")
         ... except ValueError as ve:

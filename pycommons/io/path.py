@@ -30,7 +30,6 @@ from pycommons.io.streams import as_input_stream, as_output_stream
 from pycommons.strings.enforce import (
     enforce_non_empty_str,
 )
-from pycommons.types import type_error
 
 
 def _canonicalize_path(path: str) -> str:
@@ -47,13 +46,13 @@ def _canonicalize_path(path: str) -> str:
     ...     _canonicalize_path(1)
     ... except TypeError as te:
     ...     print(te)
-    path should be an instance of str but is int, namely '1'.
+    descriptor '__len__' requires a 'str' object but received a 'int'
 
     >>> try:
     ...     _canonicalize_path(None)
     ... except TypeError as te:
     ...     print(te)
-    path should be an instance of str but is None.
+    descriptor '__len__' requires a 'str' object but received a 'NoneType'
 
     >>> try:
     ...     _canonicalize_path("")
@@ -98,17 +97,10 @@ join(dirname(realpath(getcwd())), "1.txt")
     >>> isabs(_canonicalize_path(".."))
     True
     """
-    if not isinstance(path, str):
-        raise type_error(path, "path", str)
-    if len(path) <= 0:
+    if str.__len__(path) <= 0:
         raise ValueError("Path must not be empty.")
     path = normcase(abspath(realpath(expanduser(expandvars(path)))))
-    if not isinstance(path, str):  # this should never happen
-        raise type_error(path, "canonicalized path", str)
-    if len(path) <= 0:  # this should never happen either
-        raise ValueError("Canonicalization must yield non-empty string, "
-                         f"but returned {path!r}.")
-    if path in [".", ".."]:  # this should never happen, too
+    if (str.__len__(path) <= 0) or (path in [".", ".."]):
         raise ValueError(f"Canonicalization cannot yield {path!r}.")
     return path
 
@@ -319,12 +311,12 @@ join(dirname(__file__), "b"))
         ...     Path(dirname(__file__)).contains(1)
         ... except TypeError as te:
         ...     print(te)
-        path should be an instance of str but is int, namely '1'.
+        descriptor '__len__' requires a 'str' object but received a 'int'
         >>> try:
         ...     Path(dirname(__file__)).contains(None)
         ... except TypeError as te:
         ...     print(te)
-        path should be an instance of str but is None.
+        descriptor '__len__' requires a 'str' object but received a 'NoneType'
         >>> try:
         ...     Path(dirname(__file__)).contains("")
         ... except ValueError as ve:
@@ -410,22 +402,22 @@ dirname(__file__)))
         ...     Path(dirname(__file__)).resolve_inside(None)
         ... except TypeError as te:
         ...     print(te)
-        relative_path should be an instance of str but is None.
+        descriptor '__len__' requires a 'str' object but received a 'NoneType'
         >>> try:
         ...     Path(dirname(__file__)).resolve_inside(2)
         ... except TypeError as te:
         ...     print(te)
-        relative_path should be an instance of str but is int, namely '2'.
+        descriptor '__len__' requires a 'str' object but received a 'int'
         >>> try:
         ...     Path(__file__).resolve_inside("")
         ... except ValueError as ve:
-        ...     print("Stripped relative path cannot become empty" in str(ve))
-        True
+        ...     print(ve)
+        Relative path must not be empty.
         """
-        if not isinstance(relative_path, str):
-            raise type_error(relative_path, "relative_path", str)
-        rp: Final[str] = relative_path.strip()
-        if len(rp) == 0:
+        if str.__len__(relative_path) == 0:
+            raise ValueError("Relative path must not be empty.")
+        rp: Final[str] = str.strip(relative_path)
+        if str.__len__(rp) == 0:
             raise ValueError("Stripped relative path cannot become empty, "
                              f"but {relative_path!r} does.")
         opath: Final[Path] = Path.path(join(self, relative_path))
@@ -773,12 +765,12 @@ dirname(__file__)))
         ...     Path.path(None)
         ... except TypeError as te:
         ...     print(te)
-        path should be an instance of str but is None.
+        descriptor '__len__' requires a 'str' object but received a 'NoneType'
         >>> try:
         ...     Path.path(1)
         ... except TypeError as te:
         ...     print(te)
-        path should be an instance of str but is int, namely '1'.
+        descriptor '__len__' requires a 'str' object but received a 'int'
         >>> try:
         ...     Path.path("")
         ... except ValueError as ve:
