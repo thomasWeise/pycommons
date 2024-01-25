@@ -126,7 +126,8 @@ def enforce_non_empty_str_without_ws(value: Any) -> str:
 
 #: text that is forbidden in a URL
 __URL_FORBIDDEN: Final[Pattern] = _compile(
-    REGEX_WHITESPACE_OR_NEWLINE.pattern[:-1] + r"|://.*://|\.\.|/\./|[\\%*])")
+    REGEX_WHITESPACE_OR_NEWLINE.pattern[:-1]
+    + r"|@.*@|://.*://|\.\.|/\./|[\\%*])")
 
 
 def __check_url_part(part: Any) -> str:
@@ -138,6 +139,8 @@ def __check_url_part(part: Any) -> str:
     """
     if not (0 < str.__len__(part) < 255):
         raise ValueError(f"Url part {part!r} has invalid length {len(part)}.")
+    if part in (".", ".."):
+        raise ValueError(f"Url part {part!r} is invalid.")
     the_match: Final[Match | None] = search(__URL_FORBIDDEN, part)
     if the_match is not None:
         raise ValueError(f"Url {part!r} contains the forbidden "
@@ -150,15 +153,17 @@ def __check_url_part(part: Any) -> str:
 
 def enforce_simple_url(value: Any) -> str:
     r"""
-    Enforce that a string is a valid url without whitespace and shenanigans.
+    Enforce that a string is a valid url without any shenanigans.
 
-    This function is a very crude method used to unsure that a string is
+    This function is a very crude method used to ensure that a string is
     a very simple and valid URL as it may occur in a GitHub page. We do not
-    permit white spaces, '*'s, `%`-based escapes, backslashes,
-    `.` directories, or `..` elements in the URL. '://' is only allowed to
-    occur once.
+    permit white spaces, '*'s, `%`s, backslashes, `.` directories, or `..`
+    elements in the URL. '://' is only allowed to occur once.
 
     Also, only `http`, `https`, and `ssh` are permitted as schema.
+    '@' is only permitted in urls starting with 'ssh://' and must only occur
+    at most once. URLs must be less than 255 characters long.
+
     As a result of these tight limitations, the URLs which pass this method
     should be relatively safe.
 
@@ -217,6 +222,21 @@ def enforce_simple_url(value: Any) -> str:
     ... except ValueError as ve:
     ...     print(ve)
     Non-ssh URL must not contain '@', but 'http://user@12.com' does.
+    >>> try:
+    ...     enforce_simple_url("http://" + ("a" * 250))
+    ... except ValueError as ve:
+    ...     print(str(ve)[-30:])
+    aaaaa' has invalid length 257.
+    >>> try:
+    ...     enforce_simple_url("http://.")
+    ... except ValueError as ve:
+    ...     print(ve)
+    Url part '.' is invalid.
+    >>> try:
+    ...     enforce_simple_url("http://user@git.com/@1")
+    ... except ValueError as ve:
+    ...     print(ve)
+    Url 'http://user@git.com/@1' contains the forbidden part '@git.com/@'.
     """
     url = __check_url_part(value)
     res = urlparse(url)

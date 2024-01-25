@@ -27,9 +27,6 @@ from os.path import (
 from typing import Callable, Final, Iterator, TextIO, cast
 
 from pycommons.io.streams import as_input_stream, as_output_stream
-from pycommons.strings.enforce import (
-    enforce_non_empty_str,
-)
 
 
 def _canonicalize_path(path: str) -> str:
@@ -59,6 +56,12 @@ def _canonicalize_path(path: str) -> str:
     ... except ValueError as ve:
     ...     print(ve)
     Path must not be empty.
+
+    >>> try:
+    ...     _canonicalize_path(" ")
+    ... except ValueError as ve:
+    ...     print(ve)
+    Path must not start or end with white space, but ' ' does.
 
     >>> from os.path import dirname
     >>> _canonicalize_path(dirname(realpath(__file__)) + "/..") == \
@@ -99,6 +102,9 @@ join(dirname(realpath(getcwd())), "1.txt")
     """
     if str.__len__(path) <= 0:
         raise ValueError("Path must not be empty.")
+    if str.strip(path) != path:
+        raise ValueError("Path must not start or end with white space, "
+                         f"but {path!r} does.")
     path = normcase(abspath(realpath(expanduser(expandvars(path)))))
     if (str.__len__(path) <= 0) or (path in [".", ".."]):
         raise ValueError(f"Canonicalization cannot yield {path!r}.")
@@ -413,13 +419,17 @@ dirname(__file__)))
         ... except ValueError as ve:
         ...     print(ve)
         Relative path must not be empty.
+        >>> try:
+        ...     Path(__file__).resolve_inside(" ")
+        ... except ValueError as ve:
+        ...     print(ve)
+        Relative path must not start or end with white space, but ' ' does.
         """
         if str.__len__(relative_path) == 0:
             raise ValueError("Relative path must not be empty.")
-        rp: Final[str] = str.strip(relative_path)
-        if str.__len__(rp) == 0:
-            raise ValueError("Stripped relative path cannot become empty, "
-                             f"but {relative_path!r} does.")
+        if str.strip(relative_path) != relative_path:
+            raise ValueError("Relative path must not start or end with white "
+                             f"space, but {relative_path!r} does.")
         opath: Final[Path] = Path.path(join(self, relative_path))
         self.enforce_contains(opath)
         return opath
@@ -741,11 +751,43 @@ dirname(__file__)))
 
         :param base_path: the string
         :return: a relative path
-        :raises ValueError: if this path is not inside `base_path`
+        :raises ValueError: if this path is not inside `base_path` or the
+            relativization result is otherwise invalid
+
+        >>> from os.path import dirname
+        >>> f = Path.file(__file__)
+        >>> d1 = Path.directory(dirname(f))
+        >>> d2 = Path.directory(dirname(d1))
+        >>> d3 = Path.directory(dirname(d2))
+        >>> f.relative_to(d1)
+        'path.py'
+        >>> f.relative_to(d2)
+        'io/path.py'
+        >>> f.relative_to(d3)
+        'pycommons/io/path.py'
+        >>> d1.relative_to(d3)
+        'pycommons/io'
+        >>> d1.relative_to(d1)
+        '.'
+        >>> try:
+        ...     d1.relative_to(f)
+        ... except ValueError as ve:
+        ...     print(str(ve)[-30:])
+        does not identify a directory.
+        >>> try:
+        ...     d2.relative_to(d1)
+        ... except ValueError as ve:
+        ...     print(str(ve)[-28:])
+        python/pycommons/pycommons'.
         """
         opath: Final[Path] = Path.path(base_path)
         opath.enforce_contains(self)
-        return enforce_non_empty_str(relpath(self, opath))
+        rv: Final[str] = relpath(self, opath)
+        if (str.__len__(rv) == 0) or (str.strip(rv) is not rv):
+            raise ValueError(
+                f"Invalid relative path {rv!r} resulting from relativizing "
+                f"{self!r} to {base_path!r}={opath!r}.")
+        return rv
 
     @staticmethod
     def path(path: str) -> "Path":
