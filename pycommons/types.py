@@ -3,18 +3,15 @@ from types import MappingProxyType
 from typing import Any, Final, Iterable, Mapping, TypeVar
 
 
-def type_name(tpe: type) -> str:
+def type_name(tpe: type | None) -> str:
     """
     Convert a type to a string which represents its name.
 
     :param tpe: the type
     :returns: the string
 
-    >>> try:
-    ...     type_name(None)
-    ... except TypeError as te:
-    ...     print(te)
-    type cannot be None.
+    >>> type_name(None)
+    'None'
     >>> type_name(type(None))
     'None'
     >>> type_name(int)
@@ -36,7 +33,7 @@ def type_name(tpe: type) -> str:
     'typing.Callable'
     """
     if tpe is None:
-        raise TypeError("type cannot be None.")
+        return "None"
     c1: str = str(tpe)
     if c1.startswith("<class '"):
         c1 = c1[8:-2]
@@ -53,7 +50,7 @@ def type_name(tpe: type) -> str:
     return c1  # will probably never happen
 
 
-def type_name_of(obj) -> str:
+def type_name_of(obj: Any) -> str:
     """
     Get the fully-qualified class name of an object.
 
@@ -104,6 +101,12 @@ def type_error(obj: Any, name: str,
     TypeError("var should be an instance of int but is float, namely '1.3'.")
     >>> type_error("x", "z", (int, float)).args[0]
     "z should be an instance of any in {float, int} but is str, namely 'x'."
+    >>> type_error("x", "z", (int, float, None)).args[0]
+    "z should be an instance of any in {None, float, int} but is str, namely \
+'x'."
+    >>> type_error("x", "z", (int, float, type(None))).args[0]
+    "z should be an instance of any in {None, float, int} but is str, namely \
+'x'."
     >>> type_error("f", "q", call=True).args[0]
     "q should be a callable but is str, namely 'f'."
     >>> type_error("1", "2", bool, call=True).args[0]
@@ -113,7 +116,7 @@ def type_error(obj: Any, name: str,
     """
     exp: str = ""
     if isinstance(expected, Iterable):
-        exp = ", ".join(sorted([type_name(e) for e in expected]))
+        exp = ", ".join(sorted(map(type_name, expected)))
         exp = f"an instance of any in {{{exp}}}"
     elif expected is not None:
         exp = f"an instance of {type_name(expected)}"
@@ -321,31 +324,3 @@ def immutable_mapping(a: Mapping[K, V]) -> Mapping[K, V]:
     if isinstance(a, MappingProxyType):
         return a
     return MappingProxyType(a)
-
-
-def must_be_str(value: Any) -> str:
-    """
-    Return the input if it is a string, otherwise throw an error.
-
-    :param value: the value
-    :return: `value` if `isinstance(value, str)`
-    :raises TypeError: if not `isinstance(value, str)`
-
-    >>> must_be_str("1")
-    '1'
-    >>> must_be_str("")
-    ''
-    >>> try:
-    ...     must_be_str(1)
-    ... except TypeError as te:
-    ...     print(te)
-    value should be an instance of str but is int, namely '1'.
-    >>> try:
-    ...     must_be_str(None)
-    ... except TypeError as te:
-    ...     print(te)
-    value should be an instance of str but is None.
-    """
-    if not isinstance(value, str):
-        raise type_error(value, "value", str)
-    return value

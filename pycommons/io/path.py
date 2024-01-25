@@ -9,7 +9,6 @@ and so on.
 """
 
 import codecs
-from io import TextIOBase
 from os import O_CREAT, O_EXCL, makedirs
 from os import close as osclose
 from os import open as osopen
@@ -23,13 +22,15 @@ from os.path import (
     join,
     normcase,
     realpath,
+    relpath,
 )
-from re import MULTILINE
-from re import compile as _compile
-from typing import Final, Iterable, Pattern, cast
+from typing import Callable, Final, Iterator, TextIO, cast
 
-from pycommons.strings.regex import regex_sub
-from pycommons.types import must_be_str, type_error
+from pycommons.io.streams import as_input_stream, as_output_stream
+from pycommons.strings.enforce import (
+    enforce_non_empty_str,
+)
+from pycommons.types import type_error
 
 
 def _canonicalize_path(path: str) -> str:
@@ -176,11 +177,6 @@ def _get_text_encoding(filename: str) -> str:
             if header.find(bom) == 0:
                 return encoding
     return UTF8
-
-
-#: a pattern used to clean up training white space
-_PATTERN_TRAILING_WHITESPACE: Final[Pattern] = \
-    _compile(r"[ \t]+\n", flags=MULTILINE)
 
 
 class Path(str):
@@ -526,7 +522,7 @@ dirname(__file__)))
                 f"Error when trying to create directory {self!r}.") from err
         self.enforce_dir()
 
-    def open_for_read(self) -> TextIOBase:
+    def __open_for_read(self) -> TextIO:
         r"""
         Open this file for reading text.
 
@@ -537,87 +533,60 @@ dirname(__file__)))
         :return: the file open for reading
         :raises ValueError: if the path does not identify a file
 
-        >>> with Path(__file__).open_for_read() as rd:
+        >>> with Path(__file__)._Path__open_for_read() as rd:
         ...     print(f"{len(rd.readline())}")
         ...     print(f"{rd.readline()!r}")
         4
         'The class `Path` for handling paths to files and directories.\n'
         >>> from os.path import dirname
         >>> try:
-        ...     with Path(dirname(__file__)).open_for_read():
+        ...     with Path(dirname(__file__))._Path__open_for_read():
         ...         pass
         ... except ValueError as ve:
-        ...     print("does not identify a file." in str(ve))
-        True
+        ...     print(str(ve)[-25:])
+        does not identify a file.
         """
         self.enforce_file()
-        return cast(TextIOBase, open(  # noqa
-            self, encoding=_get_text_encoding(self), errors="strict"))
+        return open(  # noqa: SIM115
+            self, encoding=_get_text_encoding(self), errors="strict")
 
-    def read_all_list(self) -> list[str]:
+    def open_for_read(self) -> Iterator[str]:
         r"""
-        Read all the lines in a file and return a list of them.
+        Open this file for reading text.
 
-        Return a list of all lines in a file. The white space on the
-        right-hand side of the lines is stripped. If the path does not
-        identify a file, an error is thrown. If the file is empty, an error
-        is thrown. In other words, if this routine returns successfully,
-        the list it returns will not be empty. All strings in the list will
-        be right-stripped. In other words, they will not contain any newline
-        or other space characters on the right side.
+        The resulting text stream will automatically use the right encoding
+        and take any encoding error serious. If the path does not identify an
+        existing file, an exception is thrown. The text stream is returned in
+        form of an `Iterator` of strings. To each line returned by this
+        iterator, :meth:`str.rstrip` is applied. The underlying stream is
+        closed once the iteration is finished or the iterator leaves the scope.
 
-        Different from :meth:`~read_all_str`, the contents of the file are
-        packaged nicely into a list of strings line-by-line.
+        :return: the file open for reading
+        :raises ValueError: if the path does not identify a file
 
-        :return: the list of strings of text
-        :raises ValueError: if the path does not identify a file or if the
-            file it identifies is empty
-
-        >>> Path(__file__).read_all_list()[1]
+        >>> siter = Path(__file__).open_for_read()
+        >>> print(f"{len(next(siter))}")
+        3
+        >>> next(siter)
         'The class `Path` for handling paths to files and directories.'
+        >>> del siter
         >>> from os.path import dirname
         >>> try:
-        ...     Path(dirname(__file__)).read_all_list()
+        ...     for s in Path(dirname(__file__)).open_for_read():
+        ...         pass
         ... except ValueError as ve:
-        ...     print("does not identify a file." in str(ve))
-        True
-        >>> from tempfile import mkstemp
-        >>> from os import remove as osremovex
-        >>> h, p = mkstemp(text=True)
-        >>> osclose(h)
-        >>> try:
-        ...     Path(p).read_all_list()
-        ... except ValueError as ve:
-        ...     print("contains no text." in str(ve))
-        True
-        >>> with open(p, "wt") as tx:
-        ...     tx.write("aa\n")
-        ...     tx.write(" bb   ")
-        3
-        6
-        >>> Path(p).read_all_list()
-        ['aa', ' bb']
-        >>> osremovex(p)
+        ...     print(str(ve)[-25:])
+        does not identify a file.
         """
-        with self.open_for_read() as reader:
-            ret: list[str] = reader.readlines()
-        if not isinstance(ret, list):  # this should never happen
-            raise type_error(ret, f"return value of reading {self!r}", list)
-        if len(ret) <= 0:  # if the file is empty, throw an error
-            raise ValueError(f"File {self!r} contains no text.")
-        for i, s in enumerate(ret):
-            if not isinstance(s, str):  # this should never happen
-                raise type_error(s, f"read[{i}]", str)
-            ret[i] = s.rstrip()  # remove trailing white space and newlines
-        return ret
+        return as_input_stream(self.__open_for_read())
 
     def read_all_str(self) -> str:
         r"""
         Read a file as a single string.
 
-        Different from :meth:`read_all_list`, the text is not stripped of any
-        white space. It is presented as a single string exactly in the way it
-        was written to the file.
+        Read the complete contents of a file as a single string. If the file
+        is empty, an exception will be raised. No modification is applied to
+        the text that is read.
 
         :return: the single string of text
         :raises ValueError: if the path does not identify a file or if the
@@ -627,10 +596,10 @@ dirname(__file__)))
         'The class `Path` for handl'
         >>> from os.path import dirname
         >>> try:
-        ...     Path(dirname(__file__)).read_all_list()
+        ...     Path(dirname(__file__)).read_all_str()
         ... except ValueError as ve:
-        ...     print("does not identify a file." in str(ve))
-        True
+        ...     print(str(ve)[-25:])
+        does not identify a file.
         >>> from tempfile import mkstemp
         >>> from os import remove as osremovex
         >>> h, p = mkstemp(text=True)
@@ -638,8 +607,8 @@ dirname(__file__)))
         >>> try:
         ...     Path(p).read_all_str()
         ... except ValueError as ve:
-        ...     print("contains no text." in str(ve))
-        True
+        ...     print(str(ve)[-19:])
+        ' contains no text.
         >>> with open(p, "wt") as tx:
         ...     tx.write("aa\n")
         ...     tx.write(" bb   ")
@@ -649,15 +618,13 @@ dirname(__file__)))
         'aa\n bb   '
         >>> osremovex(p)
         """
-        with self.open_for_read() as reader:
-            ret: str = reader.read()
-        if not isinstance(ret, str):  # this should never happen
-            raise type_error(ret, f"return value of reading {self!r}", str)
-        if len(ret) <= 0:  # if the file is empty, throw an error
+        with self.__open_for_read() as reader:
+            res: Final[str] = reader.read()
+        if str.__len__(res) <= 0:
             raise ValueError(f"File {self!r} contains no text.")
-        return ret
+        return res
 
-    def open_for_write(self) -> TextIOBase:
+    def __open_for_write(self) -> TextIO:
         """
         Open the file for writing UTF-8 encoded text.
 
@@ -671,11 +638,44 @@ dirname(__file__)))
         >>> from os import remove as osremovex
         >>> h, p = mkstemp(text=True)
         >>> osclose(h)
-        >>> with Path(p).open_for_write() as wd:
+        >>> with Path(p)._Path__open_for_write() as wd:
         ...     wd.write("1234")
         4
         >>> Path(p).read_all_str()
         '1234'
+        >>> osremovex(p)
+        >>> from os.path import dirname
+        >>> try:
+        ...     with Path(dirname(__file__))._Path__open_for_write() as wd:
+        ...         pass
+        ... except ValueError as ve:
+        ...     print("does not identify a file." in str(ve))
+        True
+        """
+        self.ensure_file_exists()
+        return open(  # noqa: SIM115
+            self, mode="w", encoding="utf-8", errors="strict")
+
+    def open_for_write(self) -> Callable[[str], None]:
+        r"""
+        Open the file for writing UTF-8 encoded text.
+
+        If the path cannot be opened for writing, some error will be raised.
+
+        :return: a function which accepts line strings (no `\n` termination is
+            needed). You can pass the text to this function line-by-line. As
+            soon as it leaves the scope, the text stream will be closed.
+        :raises ValueError: if the path does not identify a file or such a
+            file cannot be created
+
+        >>> from tempfile import mkstemp
+        >>> from os import remove as osremovex
+        >>> h, p = mkstemp(text=True)
+        >>> osclose(h)
+        >>> with Path(p).open_for_write() as wd:
+        ...     wd("1234")
+        >>> Path(p).read_all_str()
+        '1234\n'
         >>> osremovex(p)
         >>> from os.path import dirname
         >>> try:
@@ -685,79 +685,75 @@ dirname(__file__)))
         ...     print("does not identify a file." in str(ve))
         True
         """
-        self.ensure_file_exists()
-        return cast(TextIOBase, open(  # noqa
-            self, mode="w", encoding="utf-8", errors="strict"))
+        return as_output_stream(self.__open_for_write())
 
-    def write_all(self, contents: str | Iterable[str]) -> None:
+    def write_all_str(self, contents: str) -> None:
         r"""
-        Write all the lines to this file.
+        Write the given string to the file.
+
+        The string `contents` is written to a file. If it does not end
+        with `\n`, then `\n` will automatically be appended. No other changes
+        are applied to `contents`. `contents` must be a `str` and it must not
+        be empty.
 
         :param contents: the contents to write
         :raises TypeError: if the contents are not a string or an `Iterable`
             of strings
-        :raises ValueError: if the contents are empty or if the path is not a
-            file or it cannot be opened as a file
+        :raises ValueError: if the path is not a file or it cannot be opened
+            as a file or the `contents` are an empty string
 
         >>> from tempfile import mkstemp
         >>> from os import remove as osremovex
         >>> h, p = mkstemp(text=True)
         >>> osclose(h)
         >>> try:
-        ...     Path(p).write_all(None)
+        ...     Path(p).write_all_str(None)
         ... except TypeError as te:
-        ...     print(str(te)[6:])
-        ts should be an instance of any in {str, typing.Iterable} but is None.
+        ...     print(str(te))
+        descriptor '__len__' requires a 'str' object but received a 'NoneType'
         >>> try:
-        ...     Path(p).write_all(["1", 3])
+        ...     Path(p).write_all_str(["a"])
         ... except TypeError as te:
-        ...     print(te)
-        value should be an instance of str but is int, namely '3'.
+        ...     print(str(te))
+        descriptor '__len__' requires a 'str' object but received a 'list'
+        >>> Path(p).write_all_str("\na\nb")
+        >>> Path(p).read_all_str()
+        '\na\nb\n'
+        >>> Path(p).write_all_str(" \na\n b ")
+        >>> Path(p).read_all_str()
+        ' \na\n b \n'
         >>> try:
-        ...     Path(p).write_all([""])
+        ...     Path(p).write_all_str("")
         ... except ValueError as ve:
-        ...     print(ve)
-        Writing empty text is not permitted.
-        >>> try:
-        ...     Path(p).write_all("")
-        ... except ValueError as ve:
-        ...     print(ve)
-        Writing empty text is not permitted.
-        >>> try:
-        ...     Path(p).write_all(["", ""])
-        ... except ValueError as ve:
-        ...     print(ve)
-        Text becomes empty after removing trailing whitespace?
-        >>> Path(p).write_all(["", "a", "b  "])
-        >>> print(Path(p).read_all_list())
-        ['', 'a', 'b']
-        >>> Path(p).write_all(" \na\n b ")
-        >>> print(Path(p).read_all_list())
-        ['', 'a', ' b']
+        ...     print(str(ve)[:34])
+        Cannot write empty content to file
         >>> osremovex(p)
         >>> from os.path import dirname
         >>> try:
-        ...     Path(dirname(__file__)).write_all("a")
+        ...     Path(dirname(__file__)).write_all_str("a")
         ... except ValueError as ve:
         ...     print("does not identify a file." in str(ve))
         True
         """
-        if not isinstance(contents, str):
-            if not isinstance(contents, Iterable):
-                raise type_error(contents, "contents", (str, Iterable))
-            contents = "\n".join(map(str.rstrip, map(must_be_str, contents)))
-        if len(contents) == 0:  # empty content is not OK
-            raise ValueError("Writing empty text is not permitted.")
-        # get rid of the white space trailing in lines
-        contents = regex_sub(_PATTERN_TRAILING_WHITESPACE,
-                             "\n", contents.rstrip())
-        if len(contents) <= 0:  # empty after removing trailing white space
-            raise ValueError(
-                "Text becomes empty after removing trailing whitespace?")
-        with self.open_for_write() as writer:
+        ll: Final[int] = str.__len__(contents)
+        if ll <= 0:
+            raise ValueError(f"Cannot write empty content to file {self!r}.")
+        with self.__open_for_write() as writer:
             writer.write(contents)
-            if contents[-1] != "\n":  # that will always be the case...
+            if contents[ll - 1] != "\n":
                 writer.write("\n")
+
+    def relative_to(self, base_path: str) -> str:
+        """
+        Compute a relative path of this path towards the given base path.
+
+        :param base_path: the string
+        :return: a relative path
+        :raises ValueError: if this path is not inside `base_path`
+        """
+        opath: Final[Path] = Path.path(base_path)
+        opath.enforce_contains(self)
+        return enforce_non_empty_str(relpath(self, opath))
 
     @staticmethod
     def path(path: str) -> "Path":

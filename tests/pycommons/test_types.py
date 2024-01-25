@@ -1,5 +1,4 @@
 """Test the type."""
-from pytest import raises
 
 from pycommons.io.path import Path
 from pycommons.types import type_name, type_name_of
@@ -37,9 +36,7 @@ def test_type_name() -> None:
     assert type_name(Outer) == "test_types.Outer"
     assert type_name(Outer.Middle) == "test_types.Outer.Middle"
     assert type_name(Outer.Middle.Inner) == "test_types.Outer.Middle.Inner"
-    with raises(TypeError) as excinfo:
-        type_name(None)  # noqa
-    assert str(excinfo.value) == "type cannot be None."
+    assert type_name(None) == "None"
     assert type_name(Path) == "pycommons.io.path.Path"
 
 

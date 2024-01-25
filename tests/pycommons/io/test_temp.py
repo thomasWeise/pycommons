@@ -74,7 +74,7 @@ def test_file_write() -> None:
         assert s.startswith(tds)
         assert s.endswith("a.txt")
         assert not exists(s)
-        s.write_all("xx")
+        s.write_all_str("xx")
         assert exists(s)
         assert isfile(s)
         assert getsize(s) > 0
@@ -99,7 +99,7 @@ def test_file_ensure_exists() -> None:
         assert getsize(s) == 0
         assert not existed
 
-        s.write_all("blablabla")
+        s.write_all_str("blablabla")
 
         old_size = getsize(s)
         assert old_size > 0

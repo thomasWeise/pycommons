@@ -25,21 +25,14 @@ def test_write_all_read_all_and_enforce_exists() -> None:
     """Test writing and reading text as well as enforcing existence."""
     with TempFile.create() as tf:
         with pytest.raises(ValueError):
-            tf.write_all([])
-        with pytest.raises(ValueError):
-            tf.write_all("")
-        with pytest.raises(ValueError):
-            tf.write_all(" ")
+            tf.write_all_str("")
+        tf.write_all_str(" ")
         with pytest.raises(TypeError):
-            tf.write_all(cast(str, 2))
+            tf.write_all_str(cast(str, 2))
 
-        tf.write_all(" \nbla\n\n x \n99 x   y\n\n")
-        assert tf.read_all_str() == "\nbla\n\n x\n99 x   y\n"
-        assert tf.read_all_list() == ["", "bla", "", " x", "99 x   y"]
-
-        tf.write_all([" ", "bla", "", " x ", "99 x   y", ""])
-        assert tf.read_all_str() == "\nbla\n\n x\n99 x   y\n"
-        assert tf.read_all_list() == ["", "bla", "", " x", "99 x   y"]
+        ls = " \nbla\n\n x \n99 x   y\n\n"
+        tf.write_all_str(ls)
+        assert tf.read_all_str() == ls
 
         tf.enforce_file()
         tf.ensure_file_exists()
@@ -71,11 +64,11 @@ def test_enforce_exists() -> None:
         with pytest.raises(ValueError):
             td.ensure_file_exists()
         with pytest.raises(ValueError):
-            td.write_all("test")
+            td.write_all_str("test")
         with pytest.raises(TypeError):
-            td.write_all(cast(str, 2))
+            td.write_all_str(cast(str, 2))
         with pytest.raises(ValueError):
-            td.write_all("")
+            td.write_all_str("")
 
 
 def test_enforce_contains_and_empty_readall() -> None:
@@ -107,8 +100,6 @@ def test_enforce_contains_and_empty_readall() -> None:
                 tf1.enforce_contains(td1)
             with pytest.raises(ValueError):
                 tf1.read_all_str()
-            with pytest.raises(ValueError):
-                tf1.read_all_list()
 
         with TempFile.create(directory=td1) as tf2:
             assert os.path.exists(tf2)
