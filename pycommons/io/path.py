@@ -777,8 +777,8 @@ dirname(__file__)))
         >>> try:
         ...     d2.relative_to(d1)
         ... except ValueError as ve:
-        ...     print(str(ve)[-28:])
-        python/pycommons/pycommons'.
+        ...     print(str(ve)[-21:])
+        pycommons/pycommons'.
         """
         opath: Final[Path] = Path.path(base_path)
         opath.enforce_contains(self)
