@@ -201,6 +201,14 @@ def input_stream(get_str: Callable[[], str],
     ...     print(f)
     closed.
 
+    >>> print(list(input_stream(_get(["a", "x"]), _close)))
+    closed.
+    ['a', 'x']
+
+    >>> print(list(input_stream(_get(["a  ", " x\n\n "]), _close)))
+    closed.
+    ['a', ' x']
+
     >>> for f in input_stream(_get(["y", "e"]), _close):
     ...     print(f)
     ...     break
@@ -257,6 +265,23 @@ def input_stream(get_str: Callable[[], str],
     12
     closed.
     descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> def _get2(l: list[str]) -> Callable[[], str]:
+    ...     __i: int = 0
+    ...     def __get() -> str:
+    ...         nonlocal __i
+    ...         nonlocal  l
+    ...         __i += 1
+    ...         if __i > len(l):
+    ...             raise ValueError("Crash!")
+    ...         return l[__i - 1]
+    ...     return __get
+    >>> try:
+    ...     print(list(input_stream(_get2(["12", "x"]), _close)))
+    ... except ValueError as ve:
+    ...     print(ve)
+    closed.
+    Crash!
     """
     if not callable(closer):
         raise type_error(closer, "closer", call=True)
@@ -318,6 +343,11 @@ def as_input_stream(stream: TextIOBase | TextIO) -> Iterator[str]:
     ...     print(s.rstrip())
     ...     break
     123
+    >>> stre.closed
+    True
+    >>> stre = open(p, "rt")
+    >>> print(list(as_input_stream(stre)))
+    ['123', '456']
     >>> stre.closed
     True
     >>> osremovex(p)

@@ -13,7 +13,6 @@ from tempfile import mkdtemp, mkstemp
 from typing import Final
 
 from pycommons.io.path import Path
-from pycommons.types import type_error
 
 
 class TempDir(Path, AbstractContextManager):
@@ -136,7 +135,7 @@ class TempFile(Path, AbstractContextManager):
     def create(directory: str | None = None,
                prefix: str | None = None,
                suffix: str | None = None) -> "TempFile":
-        """
+        r"""
         Create a temporary file that will be deleted when going out of scope.
 
         :param directory: a root directory or `TempDir` instance
@@ -170,22 +169,47 @@ class TempFile(Path, AbstractContextManager):
         ...     TempFile.create(None, 1)
         ... except TypeError as te:
         ...     print(te)
-        prefix should be an instance of str but is int, namely '1'.
+        descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
         >>> try:
         ...     TempFile.create(None, None, 1)
         ... except TypeError as te:
         ...     print(te)
-        suffix should be an instance of str but is int, namely '1'.
+        descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
         >>> try:
         ...     TempFile.create(None, "")
         ... except ValueError as ve:
         ...     print(ve)
-        Prefix cannot be empty if specified.
+        Stripped prefix cannot be empty if specified.
         >>> try:
         ...     TempFile.create(None, None, "")
         ... except ValueError as ve:
         ...     print(ve)
-        Suffix cannot be empty if specified.
+        Stripped suffix cannot be empty if specified.
+        >>> try:
+        ...     TempFile.create(None, None, "bla.")
+        ... except ValueError as ve:
+        ...     print(ve)
+        Stripped suffix must not end with '.', but 'bla.' does.
+        >>> try:
+        ...     TempFile.create(None, None, "bl/a")
+        ... except ValueError as ve:
+        ...     print(ve)
+        Suffix must contain neither '/' nor '\', but 'bl/a' does.
+        >>> try:
+        ...     TempFile.create(None, None, "b\\la")
+        ... except ValueError as ve:
+        ...     print(ve)
+        Suffix must contain neither '/' nor '\', but 'b\\la' does.
+        >>> try:
+        ...     TempFile.create(None, "bl/a", None)
+        ... except ValueError as ve:
+        ...     print(ve)
+        Prefix must contain neither '/' nor '\', but 'bl/a' does.
+        >>> try:
+        ...     TempFile.create(None, "b\\la", None)
+        ... except ValueError as ve:
+        ...     print(ve)
+        Prefix must contain neither '/' nor '\', but 'b\\la' does.
         >>> from os.path import dirname
         >>> bd = Path.directory(dirname(__file__))
         >>> with TempFile.create(bd) as tf:
@@ -262,18 +286,25 @@ class TempFile(Path, AbstractContextManager):
         False
         """
         if prefix is not None:
-            if not isinstance(prefix, str):
-                raise type_error(prefix, "prefix", str)
-            prefix = prefix.strip()
-            if len(prefix) == 0:
-                raise ValueError("Prefix cannot be empty if specified.")
+            prefix = str.strip(prefix)
+            if str.__len__(prefix) == 0:
+                raise ValueError(
+                    "Stripped prefix cannot be empty if specified.")
+            if ("/" in prefix) or ("\\" in prefix):
+                raise ValueError("Prefix must contain neither '/' nor"
+                                 f" '\\', but {prefix!r} does.")
 
         if suffix is not None:
-            if not isinstance(suffix, str):
-                raise type_error(suffix, "suffix", str)
-            suffix = suffix.strip()
-            if len(suffix) == 0:
-                raise ValueError("Suffix cannot be empty if specified.")
+            suffix = str.strip(suffix)
+            if str.__len__(suffix) == 0:
+                raise ValueError(
+                    "Stripped suffix cannot be empty if specified.")
+            if suffix.endswith("."):
+                raise ValueError("Stripped suffix must not end "
+                                 f"with '.', but {suffix!r} does.")
+            if ("/" in suffix) or ("\\" in suffix):
+                raise ValueError("Suffix must contain neither '/' nor"
+                                 f" '\\', but {suffix!r} does.")
 
         if directory is not None:
             base_dir = Path.path(directory)

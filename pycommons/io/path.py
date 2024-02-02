@@ -15,6 +15,7 @@ from os import open as osopen
 from os.path import (
     abspath,
     commonpath,
+    dirname,
     expanduser,
     expandvars,
     isdir,
@@ -24,9 +25,11 @@ from os.path import (
     realpath,
     relpath,
 )
+from os.path import basename as osbasename
 from typing import Callable, Final, Iterator, TextIO, cast
 
 from pycommons.io.streams import as_input_stream, as_output_stream
+from pycommons.types import check_int_range
 
 
 def _canonicalize_path(path: str) -> str:
@@ -737,12 +740,11 @@ dirname(__file__)))
         ...     print("does not identify a file." in str(ve))
         True
         """
-        ll: Final[int] = str.__len__(contents)
-        if ll <= 0:
+        if str.__len__(contents) <= 0:
             raise ValueError(f"Cannot write empty content to file {self!r}.")
         with self.__open_for_write() as writer:
             writer.write(contents)
-            if contents[ll - 1] != "\n":
+            if contents[-1] != "\n":
                 writer.write("\n")
 
     def relative_to(self, base_path: str) -> str:
@@ -788,6 +790,77 @@ dirname(__file__)))
                 f"Invalid relative path {rv!r} resulting from relativizing "
                 f"{self!r} to {base_path!r}={opath!r}.")
         return rv
+
+    def up(self, levels: int = 1) -> "Path":
+        """
+        Go up the directory tree for a given number of times.
+
+        Get a `Path` identifying the containing directory, or its containing
+        directory, depending on the number of `levels` specified.
+
+        :param levels: the number levels to go up: `1` for getting the
+            directly containing directory, `2` for the next higher directory,
+            and so on.
+        :return: the resulting path
+
+        >>> f = Path.file(__file__)
+        >>> print(f.up()[-13:])
+        /pycommons/io
+        >>> print(f.up(1)[-13:])
+        /pycommons/io
+        >>> print(f.up(2)[-10:])
+        /pycommons
+        >>> try:
+        ...     f.up(0)
+        ... except ValueError as ve:
+        ...     print(ve)
+        levels=0 is invalid, must be in 1..255.
+        >>> try:
+        ...     f.up(None)
+        ... except TypeError as te:
+        ...     print(te)
+        levels should be an instance of int but is None.
+        >>> try:
+        ...     f.up('x')
+        ... except TypeError as te:
+        ...     print(te)
+        levels should be an instance of int but is str, namely 'x'.
+        >>> try:
+        ...     f.up(255)
+        ... except ValueError as ve:
+        ...     print(str(ve)[:70])
+        Cannot go up from directory '/' anymore when going up for 255 levels f
+        """
+        s: str = self
+        for _ in range(check_int_range(levels, "levels", 1, 255)):
+            old: str = s
+            s = dirname(s)
+            if (str.__len__(s) == 0) or (s == old):
+                raise ValueError(
+                    f"Cannot go up from directory {old!r} anymore when going "
+                    f"up for {levels} levels from {self!r}.")
+        return Path.directory(s)
+
+    def basename(self) -> str:
+        """
+        Get the name of the file or directory identified by this path.
+
+        :return: the name of the file or directory
+
+        >>> Path.file(__file__).basename()
+        'path.py'
+        >>> Path.file(__file__).up(2).basename()
+        'pycommons'
+        >>> try:
+        ...     Path("/").basename()
+        ... except ValueError as ve:
+        ...     print(ve)
+        Invalid basename '' of path '/'.
+        """
+        s: Final[str] = osbasename(self)
+        if str.__len__(s) <= 0:
+            raise ValueError(f"Invalid basename {s!r} of path {self!r}.")
+        return s
 
     @staticmethod
     def path(path: str) -> "Path":
