@@ -1,9 +1,11 @@
 """Converting stuff to strings-."""
 
+from datetime import datetime
 from math import isnan
 from typing import Final
 
 from pycommons.math.int_math import __try_int
+from pycommons.strings import NBDASH, NBSP
 from pycommons.types import type_error
 
 
@@ -590,3 +592,67 @@ def str_to_int_or_none(value: str | None) -> int | None:
     if len(vv) <= 0:
         return None
     return int(vv)
+
+
+#: the format for time
+__DATE_FORMAT: Final[str] = f"%Y{NBDASH}%m{NBDASH}%d"
+#: the format for date and time
+__DATE_TIME_FORMAT_NO_TZ: Final[str] = f"{__DATE_FORMAT}{NBSP}%H:%M"
+#: the format for date and time
+__DATE_TIME_FORMAT_TZ: Final[str] = f"{__DATE_TIME_FORMAT_NO_TZ}{NBSP}%Z"
+
+
+def datetime_to_date_str(date: datetime) -> str:
+    """
+    Convert a datetime object to a date string.
+
+    :param date: the date
+    :return: the date string
+
+    >>> datetime_to_date_str(datetime(1999, 12, 21))
+    '1999\u201112\u201121'
+    >>> try:
+    ...     datetime_to_date_str(None)
+    ... except TypeError as te:
+    ...     print(te)
+    date should be an instance of datetime.datetime but is None.
+    >>> try:
+    ...     datetime_to_date_str(1)
+    ... except TypeError as te:
+    ...     print(te)
+    date should be an instance of datetime.datetime but is int, namely '1'.
+    """
+    if not isinstance(date, datetime):
+        raise type_error(date, "date", datetime)
+    return date.strftime(__DATE_FORMAT)
+
+
+def datetime_to_datetime_str(dateandtime: datetime) -> str:
+    r"""
+    Convert a datetime object to a date-time string.
+
+    :param dateandtime: the date and time
+    :return: the date-time string
+
+    >>> datetime_to_datetime_str(datetime(1999, 12, 21, 13, 42, 23))
+    '1999\u201112\u201121\xa013:42'
+    >>> from datetime import timezone
+    >>> datetime_to_datetime_str(datetime(1999, 12, 21, 13, 42,
+    ...                                   tzinfo=timezone.utc))
+    '1999\u201112\u201121\xa013:42\xa0UTC'
+    >>> try:
+    ...     datetime_to_datetime_str(None)
+    ... except TypeError as te:
+    ...     print(te)
+    dateandtime should be an instance of datetime.datetime but is None.
+    >>> try:
+    ...     datetime_to_datetime_str(1)
+    ... except TypeError as te:
+    ...     print(str(te)[:60])
+    dateandtime should be an instance of datetime.datetime but i
+    """
+    if not isinstance(dateandtime, datetime):
+        raise type_error(dateandtime, "dateandtime", datetime)
+    return dateandtime.strftime(
+        __DATE_TIME_FORMAT_NO_TZ if dateandtime.tzinfo is None
+        else __DATE_TIME_FORMAT_TZ)

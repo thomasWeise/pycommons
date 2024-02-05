@@ -53,9 +53,6 @@ def __get_prog(file: str) -> str:
     :param file: the calling python script
     :return: the program string
     """
-    if not isinstance(file, str):
-        raise type_error(file, "file", str)
-
     # get the module minus the base path and extension
     module: str = Path.file(file)
     end: int = len(module)
@@ -281,6 +278,12 @@ def make_epilog(
     >>> make_epilog("This is a test.", 2011, 2030, "Test User",
     ...             "Test License", "http://testurl", "test@test.com")[:50]
     'This is a test.\n\nCopyright\xa0©\xa02011\u20112030,\xa0Test\xa0User,'
+    >>> ex = (f"This is a test.\n\nCopyright\xa0©\xa02011\u2011{cy},"
+    ...        "\xa0Test\xa0User, Test\xa0License, http://testurl, "
+    ...        "test@test.com")
+    >>> make_epilog("This is a test.", 2011, None, "Test User",
+    ...             "Test License", "http://testurl", "test@test.com") == ex
+    True
     >>> make_epilog("This is a test.", 2011, 2030, "Test User",
     ...             "Test License", "http://testurl", "test@test.com")[50:]
     ' Test\xa0License, http://testurl, test@test.com'
