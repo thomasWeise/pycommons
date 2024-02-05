@@ -29,6 +29,45 @@ def __check_url_part(part: Any, forbidden: Pattern) -> str:
     :param part: the part
     :param forbidden: the pattern of forbidden text
     :return: the url as str
+
+    >>> try:
+    ...     __check_url_part("", __URL_FORBIDDEN_1)
+    ... except ValueError as ve:
+    ...     print(ve)
+    Url part '' has invalid length 0.
+
+    >>> try:
+    ...     __check_url_part(" ", __URL_FORBIDDEN_1)
+    ... except ValueError as ve:
+    ...     print(ve)
+    Url part ' ' contains the forbidden text ' '.
+
+    >>> try:
+    ...     __check_url_part("Äquator", __URL_FORBIDDEN_1)
+    ... except ValueError as ve:
+    ...     print(ve)
+    URL part 'Äquator' contains non-ASCII characters.
+
+    >>> try:
+    ...     __check_url_part("2" * 260, __URL_FORBIDDEN_1)
+    ... except ValueError as ve:
+    ...     print(str(ve)[:60])
+    Url part '22222222222222222222222222222222222222222222222222
+
+    >>> try:
+    ...     __check_url_part(None, __URL_FORBIDDEN_1)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'NoneType'
+
+    >>> try:
+    ...     __check_url_part(2, __URL_FORBIDDEN_1)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> isinstance(__check_url_part("123", __URL_FORBIDDEN_1), str)
+    True
     """
     if not (0 < str.__len__(part) < 255):
         raise ValueError(f"Url part {part!r} has invalid length {len(part)}.")
