@@ -26,9 +26,13 @@ from os.path import (
     relpath,
 )
 from os.path import basename as osbasename
-from typing import Callable, Final, Iterator, TextIO, cast
+from typing import Final, Iterator, TextIO, cast
 
-from pycommons.io.streams import as_input_stream, as_output_stream
+from pycommons.io.streams import (
+    StrCallCtxMgr,
+    as_input_stream,
+    as_output_stream,
+)
 from pycommons.types import check_int_range
 
 
@@ -661,7 +665,7 @@ dirname(__file__)))
         return open(  # noqa: SIM115
             self, mode="w", encoding="utf-8", errors="strict")
 
-    def open_for_write(self) -> Callable[[str], None]:
+    def open_for_write(self) -> StrCallCtxMgr:
         r"""
         Open the file for writing UTF-8 encoded text.
 

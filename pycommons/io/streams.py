@@ -41,6 +41,7 @@ from typing import (
     Generator,
     Iterable,
     Iterator,
+    Protocol,
     TextIO,
     cast,
 )
@@ -369,6 +370,42 @@ def as_input_stream(stream: TextIOBase | TextIO) -> Iterator[str]:
     return input_stream(stream.readline, stream.close)
 
 
+class StrCallCtxMgr(Protocol):
+    """
+    A callable context manager.
+
+    In order to allow MyPy to properly handle the return values of
+    :func:`~output_stream` and :func:`~as_output_stream`, this token protocol
+    unites the interfaces :class:`typing.Callable` and
+    :class:`contextlib.AbstractContextManager`.
+    """
+
+    def __call__(self, text: str) -> None:
+        """
+        Invoke the actual consumer.
+
+        :param text: the text to be passed in
+        """
+
+    def __enter__(self) -> Callable[[str], None]:
+        """
+        Enter the context.
+
+        :return: itself
+        """
+
+    def __exit__(self, _, __, ___) -> bool:
+        """
+        Exit the context.
+
+        :param _: the exception type
+        :param __: the exception value
+        :param ___: the whatever
+        :return: `True` if the exception should be re-raised, if any, `False`
+            otherwise
+        """
+
+
 @contextmanager
 def __output_stream(write: Callable[[str], Any], close: Callable[[], Any],
                     suffix: str | None) \
@@ -452,7 +489,7 @@ def __output_stream(write: Callable[[str], Any], close: Callable[[], Any],
 
 def output_stream(write: Callable[[str], Any],
                   close: Callable[[], Any],
-                  suffix: str | None = "\n") -> Callable[[str], None]:
+                  suffix: str | None = "\n") -> StrCallCtxMgr:
     """
     Convert a function pair to a context-managed output stream.
 
@@ -481,6 +518,8 @@ def output_stream(write: Callable[[str], Any],
     >>> h, p = mkstemp(text=True)
     >>> osclosex(h)
     >>> wt = open(p, "wt")
+    >>> callable(output_stream(wt.write, wt.close))
+    True
     >>> with output_stream(wt.write, wt.close) as cons:
     ...     cons("1")
     ...     cons("2  ")
@@ -573,10 +612,10 @@ def output_stream(write: Callable[[str], Any],
     if (suffix is not None) and (not isinstance(suffix, str)):
         close()
         raise type_error(suffix, "suffix", (str, None))
-    return cast(Callable[[str], None], __output_stream(write, close, suffix))
+    return cast(StrCallCtxMgr, __output_stream(write, close, suffix))
 
 
-def as_output_stream(stream: TextIOBase | TextIO) -> Callable[[str], None]:
+def as_output_stream(stream: TextIOBase | TextIO) -> StrCallCtxMgr:
     """
     Turn a stream into an output consumer for single lines.
 
