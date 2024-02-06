@@ -2,7 +2,7 @@
 
 from re import MULTILINE, Match, subn
 from re import compile as _compile
-from typing import Callable, Final, Pattern
+from typing import Callable, Final, Iterable, Pattern
 
 from pycommons.types import type_error
 
@@ -19,6 +19,7 @@ def regex_sub(search: str | Pattern,
         a :class:`re.Match` instance and returning a replacement string
     :param inside: the string in which to search/replace
     :return: the new string after the recursive replacement
+    :raises TypeError: if any of the parameters is not of the right type
 
     >>> regex_sub('[ \t]+\n', '\n', ' bla \nxyz\tabc\t\n')
     ' bla\nxyz\tabc\n'
@@ -158,6 +159,7 @@ def normalize_trailing_spaces(text: str) -> str:
 
     :param text: the text
     :return: the text, minus all white space trailing any *line*
+    :raises TypeError: if `text` is not an instance of `str`
 
     >>> normalize_trailing_spaces("a")
     'a\n'
@@ -169,8 +171,95 @@ def normalize_trailing_spaces(text: str) -> str:
     '\n'
     >>> normalize_trailing_spaces("  a \n\t\n\t \n \t\t\nb  \n\t \n\n")
     '  a\n\n\n\nb\n'
+    >>> try:
+    ...     normalize_trailing_spaces(None)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'NoneType'
+    >>> try:
+    ...     normalize_trailing_spaces(1)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
     """
     if str.__len__(text) == 0:
         return "\n"
     text = str.rstrip(regex_sub(__PATTERN_TRAILING_WHITESPACE, "\n", text))
     return text + "\n"
+
+
+def get_prefix_str(strings: str | Iterable[str]) -> str:
+    r"""
+    Compute the common prefix of an iterable of strings.
+
+    :param strings: the iterable of strings
+    :return: the common prefix
+    :raises TypeError: if the input is not a string, iterable of string,
+        or contains any non-string element (before the prefix is determined)
+        Notice: If the prefix is determined as the empty string, then the
+        search is stopped. If some non-`str` items follow later in `strings`,
+        then these may not raise a `TypeError`
+
+    >>> get_prefix_str(["abc", "acd"])
+    'a'
+    >>> get_prefix_str(["xyz", "gsdf"])
+    ''
+    >>> get_prefix_str([])
+    ''
+    >>> get_prefix_str(["abx"])
+    'abx'
+    >>> get_prefix_str(("abx", ))
+    'abx'
+    >>> get_prefix_str({"abx", })
+    'abx'
+    >>> get_prefix_str("abx")
+    'abx'
+    >>> get_prefix_str(("\\relative.path", "\\relative.figure",
+    ...     "\\relative.code"))
+    '\\relative.'
+    >>> get_prefix_str({"\\relative.path", "\\relative.figure",
+    ...     "\\relative.code"})
+    '\\relative.'
+
+    >>> try:
+    ...     get_prefix_str(None)
+    ... except TypeError as te:
+    ...     print(te)
+    strings should be an instance of any in {str, typing.Iterable} but is None.
+    >>> try:
+    ...     get_prefix_str(1)
+    ... except TypeError as te:
+    ...     print(str(te)[:60])
+    strings should be an instance of any in {str, typing.Iterabl
+    >>> try:
+    ...     get_prefix_str(["abc", "acd", 2, "x"])
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+    >>> try:
+    ...     get_prefix_str(["abc", "acd", None, "x"])
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'NoneType'
+    >>> get_prefix_str(["xyz", "gsdf", 5])
+    ''
+    """
+    if isinstance(strings, str):
+        return strings
+    if not isinstance(strings, Iterable):
+        raise type_error(strings, "strings", (str, Iterable))
+    prefix: str | None = None
+    prefix_len: int = -1
+    for current in strings:  # iterate over all strings
+        current_len: int = str.__len__(current)
+        if prefix is None:  # no prefix set yet
+            prefix = current
+            prefix_len = current_len
+        else:  # we got a prefix
+            for i in range(min(prefix_len, current_len)):
+                if prefix[i] != current[i]:
+                    prefix_len = i
+                    break
+        if prefix_len == 0:
+            return ""
+    return "" if prefix is None else prefix[0:prefix_len]

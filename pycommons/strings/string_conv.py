@@ -14,11 +14,11 @@ def float_to_str(value: float) -> str:
     Convert `float` to a string.
 
     The floating point value `value` is converted to a string.
-    A `ValueError` is thrown if `value` is `NaN`.
-    A `TypeError` is thrown if `value` is not a `float`.
 
     :param value: the floating point value
     :return: the string representation
+    :raises TypeError: if `value` is not a `float`
+    :raises ValueError: if `value` is not a number
 
     >>> float_to_str(1.3)
     '1.3'
@@ -74,11 +74,11 @@ def float_to_str(value: float) -> str:
         raise type_error(value, "value", float)
     if value == 0.0:
         return "0"
-    s = (repr(value).replace("e-0", "e-").replace("e+0", "e")
-         .replace("e+", "e"))
+    s = str.replace(str.replace(str.replace(
+        float.__repr__(value), "e-0", "e-"), "e+0", "e"), "e+", "e")
     if isnan(value):
         raise ValueError(f"{value!r} => {str(s)!r} is not a permitted float.")
-    if s.endswith(".0"):
+    if str.endswith(s, ".0"):
         return s[:-2]
     return s
 
@@ -87,13 +87,12 @@ def bool_to_str(value: bool) -> str:
     """
     Convert a Boolean value to a string.
 
-    If `value == True`, then `"T"` is returned.
-    If `value == False`, then `"F"` is returned.
-    Otherwise, a `TypeError` is thrown.
     This function is the inverse of :func:`str_to_bool`.
 
     :param value: the Boolean value
-    :return: the string
+    :returns `"T"`: if `value == True`
+    :returns `"F"`: if `value == False`
+    :raises TypeError: if `value` is not a `bool`
 
     >>> print(bool_to_str(True))
     T
@@ -119,14 +118,13 @@ def str_to_bool(value: str) -> bool:
     """
     Convert a string to a boolean value.
 
-    If `value == "T"`, then `True` is returned.
-    If `value == "F"`, then `False` is returned.
-    If `value` is a different `str`, a `ValueError` is thrown.
-    Otherwise, a `TypeError` is thrown.
     This function is the inverse of :func:`bool_to_str`.
 
     :param value: the string value
-    :return: the boolean value
+    :returns `True`: if `value == "T"`
+    :returns `False`: if `value == "F"`
+    :raises TypeError: if `value` is not a string
+    :raises ValueError: if `value` is neither `T` nor `F`
 
     >>> str_to_bool("T")
     True
@@ -141,19 +139,18 @@ def str_to_bool(value: str) -> bool:
     ...     str_to_bool(1)
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of str but is int, namely '1'.
+    descriptor '__len__' requires a 'str' object but received a 'int'
     >>> try:
     ...     str_to_bool(None)
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of str but is None.
+    descriptor '__len__' requires a 'str' object but received a 'NoneType'
     """
-    if not isinstance(value, str):
-        raise type_error(value, "value", str)
-    if value == "T":
-        return True
-    if value == "F":
-        return False
+    if str.__len__(value) == 1:
+        if value == "T":
+            return True
+        if value == "F":
+            return False
     raise ValueError(f"Expected 'T' or 'F', but got {value!r}.")
 
 
@@ -170,6 +167,10 @@ def num_to_str(value: int | float) -> str:
 
     :param value: the value
     :return: the string
+    :raises TypeError: if `value` is a `bool` (notice that `bool` is a
+        subclass of `int`) or any other type that is neither `int` nor
+        `float`.
+    :raises ValueError: if `value` is not-a-number
 
     >>> num_to_str(1)
     '1'
@@ -210,7 +211,8 @@ namely 'False'.
     """
     if isinstance(value, bool):
         raise type_error(value, "value", (int, float))
-    return str(value) if isinstance(value, int) else float_to_str(value)
+    return int.__str__(value) if isinstance(value, int) \
+        else float_to_str(value)
 
 
 def num_or_none_to_str(value: int | float | None) -> str:
@@ -222,6 +224,12 @@ def num_or_none_to_str(value: int | float | None) -> str:
 
     :param value: the value
     :return: the string representation, `""` for `None`
+    :returns `""`: if `value is None`
+    :returns `num_to_str(value)`: otherwise
+    :raises TypeError: if `value` not `Nont` but instead is a `bool`
+        (notice that `bool` is a subclass of `int`) or any other type that
+        is neither `int` nor `float`.
+    :raises ValueError: if `value` is not-a-number
 
     >>> print(repr(num_or_none_to_str(None)))
     ''
@@ -262,6 +270,10 @@ def int_or_none_to_str(value: int | None) -> str:
 
     :param value: the value
     :return: the string representation, `''` for `None`
+    :returns `""`: if `value is None`
+    :returns `int.__str__(value)`: otherwise
+    :raises TypeError: if `value` is a `bool` (notice that `bool` is a
+        subclass of `int`) or any other non-`int` type.
 
     >>> print(repr(int_or_none_to_str(None)))
     ''
@@ -289,7 +301,7 @@ def int_or_none_to_str(value: int | None) -> str:
         return ""
     if isinstance(value, bool) or (not isinstance(value, int)):
         raise type_error(value, "value", int)
-    return str(value)
+    return int.__str__(value)
 
 
 def __str_to_num_or_none(value: str | None,
@@ -322,7 +334,7 @@ def __str_to_num_or_none(value: str | None,
     ...     __str_to_num_or_none(21, False)
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of str but is int, namely '21'.
+    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
     >>> try:
     ...     __str_to_num_or_none("nan", False)
     ... except ValueError as ve:
@@ -360,7 +372,7 @@ def __str_to_num_or_none(value: str | None,
     ...     __str_to_num_or_none(None, False)
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of str but is None.
+    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object
     >>> try:
     ...     __str_to_num_or_none(" ", False)
     ... except ValueError as ve:
@@ -380,10 +392,8 @@ def __str_to_num_or_none(value: str | None,
     """
     if (value is None) and none_is_ok:
         return None
-    if not isinstance(value, str):
-        raise type_error(value, "value", str)
-    vv: Final[str] = value.strip().lower()
-    if len(vv) <= 0:
+    vv: Final[str] = str.lower(str.strip(value))
+    if str.__len__(vv) <= 0:
         if none_is_ok:
             return None
         raise ValueError(f"Value {value!r} becomes empty after stripping, "
@@ -416,6 +426,9 @@ def str_to_num(value: str) -> int | float:
     :param value: the string value
     :return: the `int` or `float`: Integers are preferred to be used whereever
         possible
+    :raises TypeError: if `value` is not a `str`
+    :raises ValueError: if `value` is a `str` but cannot be converted to an
+        integer (base-10) or converts to a `float` which is not a number
 
     >>> print(type(str_to_num("15.0")))
     <class 'int'>
@@ -429,7 +442,7 @@ def str_to_num(value: str) -> int | float:
     ...     str_to_num(21)
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of str but is int, namely '21'.
+    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
     >>> try:
     ...     str_to_num("nan")
     ... except ValueError as ve:
@@ -467,7 +480,7 @@ def str_to_num(value: str) -> int | float:
     ...     str_to_num(None)
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of str but is None.
+    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object
     >>> try:
     ...     str_to_num("")
     ... except ValueError as ve:
@@ -492,6 +505,9 @@ def str_to_num_or_none(value: str | None) -> int | float | None:
 
     :param value: the string value
     :return: the `int` or `float` or `None`
+    :raises TypeError: if `value` is neither a `str` nor `None`
+    :raises ValueError: if `value` is a `str` but cannot be converted to an
+        integer (base-10) or converts to a `float` which is not a number
 
     >>> print(type(str_to_num_or_none("15.0")))
     <class 'int'>
@@ -505,7 +521,7 @@ def str_to_num_or_none(value: str | None) -> int | float | None:
     ...     str_to_num_or_none(21)
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of str but is int, namely '21'.
+    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
     >>> try:
     ...     str_to_num_or_none("nan")
     ... except ValueError as ve:
@@ -564,6 +580,9 @@ def str_to_int_or_none(value: str | None) -> int | None:
 
     :param value: the string value, or `None`
     :return: the int or None
+    :raises TypeError: if `value` is neither a `str` nor `None`
+    :raises ValueError: if `value` is a `str` but cannot be base-10 converted
+        to an integer
 
     >>> print(str_to_int_or_none(""))
     None
@@ -608,6 +627,8 @@ def datetime_to_date_str(date: datetime) -> str:
 
     :param date: the date
     :return: the date string
+    :raises TypeError: if `date` is not an instance of
+        :class:`datetime.datetime`.
 
     >>> datetime_to_date_str(datetime(1999, 12, 21))
     '1999\u201112\u201121'
@@ -633,6 +654,8 @@ def datetime_to_datetime_str(dateandtime: datetime) -> str:
 
     :param dateandtime: the date and time
     :return: the date-time string
+    :raises TypeError: if `dateandtime` is not an instance of
+        :class:`datetime.datetime`.
 
     >>> datetime_to_datetime_str(datetime(1999, 12, 21, 13, 42, 23))
     '1999\u201112\u201121\xa013:42'
