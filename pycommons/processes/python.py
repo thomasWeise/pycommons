@@ -88,7 +88,7 @@ __BASE_PATHS: Final[tuple[Path, ...]] = tuple(sorted((p for p in {
 
 
 def python_command(
-        file: str, use_short_interpreter: bool = True) -> tuple[str, ...]:
+        file: str, use_short_interpreter: bool = True) -> list[str]:
     """
     Get a python command that could be used to interpret the given file.
 
@@ -100,27 +100,28 @@ def python_command(
     :param file: the python script
     :param use_short_interpreter: use the short interpreter path, for
         reabability and maybe portablity, or the full path?
-    :return: a tuple that can be passed to the shell to run that program
+    :return: a list that can be passed to the shell to run that program, see,
+        e.g., :func:`pycommons.processes.shell.exec_text_process`.
 
     >>> python_command(os.__file__)
-    ('python3', '-m', 'os')
+    ['python3', '-m', 'os']
     >>> python_command(__file__)
-    ('python3', '-m', 'pycommons.processes.python')
+    ['python3', '-m', 'pycommons.processes.python']
     >>> from tempfile import mkstemp
     >>> from os import remove as osremovex
     >>> from os import close as osclosex
     >>> h, p = mkstemp(text=True)
     >>> osclosex(h)
-    >>> python_command(p) == (PYTHON_INTERPRETER_SHORT, p)
+    >>> python_command(p) == [PYTHON_INTERPRETER_SHORT, p]
     True
-    >>> python_command(p, False) == (PYTHON_INTERPRETER, p)
+    >>> python_command(p, False) == [PYTHON_INTERPRETER, p]
     True
     >>> osremovex(p)
     >>> h, p = mkstemp(dir=Path.file(__file__).up(), text=True)
     >>> osclosex(h)
-    >>> python_command(p) == (PYTHON_INTERPRETER_SHORT, p)
+    >>> python_command(p) == [PYTHON_INTERPRETER_SHORT, p]
     True
-    >>> python_command(p, False) == (PYTHON_INTERPRETER, p)
+    >>> python_command(p, False) == [PYTHON_INTERPRETER, p]
     True
     >>> osremovex(p)
     >>> the_pack = Path.file(__file__).up()
@@ -128,9 +129,9 @@ def python_command(
     ...                suffix=".py", text=True)
     >>> osclosex(h)
     >>> the_str = p[len(the_pack.up(2)) + 1:-3].replace(os.sep, '.')
-    >>> python_command(p) == (PYTHON_INTERPRETER_SHORT, "-m", the_str)
+    >>> python_command(p) == [PYTHON_INTERPRETER_SHORT, "-m", the_str]
     True
-    >>> python_command(p, False) == (PYTHON_INTERPRETER, "-m", the_str)
+    >>> python_command(p, False) == [PYTHON_INTERPRETER, "-m", the_str]
     True
     >>> osremovex(p)
     """
@@ -155,5 +156,5 @@ def python_command(
     interpreter: Final[str] = PYTHON_INTERPRETER_SHORT \
         if use_short_interpreter else PYTHON_INTERPRETER
     if is_module:
-        return interpreter, "-m", module[start:end].replace(os.sep, ".")
-    return interpreter, module
+        return [interpreter, "-m", module[start:end].replace(os.sep, ".")]
+    return [interpreter, module]

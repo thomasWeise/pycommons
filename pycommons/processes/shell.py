@@ -5,7 +5,7 @@ from os import getcwd
 from typing import Callable, Final, Iterable, Mapping
 
 from pycommons.io.console import logger
-from pycommons.io.path import Path
+from pycommons.io.path import UTF8, Path
 from pycommons.types import check_int_range, type_error
 
 
@@ -25,19 +25,29 @@ def exec_text_process(
     r"""
     Execute a text-based command.
 
+    The goal is to provide a relatively safe and tightly specified way to
+    invoke a command-line tool or short sub-process with text-based input and
+    output. There always has to be a timeout value (by default one hour). The
+    text encoding is set to strict UTF-8.
+
     The command is executed and its stdout and stderr and return code are
-    captured. If the command had a non-zero exit code, an exception is thrown.
+    captured. If the command had a non-zero exit code, a `ValueError` is
+    thrown.
     The command itself, as well as the parameters are logged if `log_call` is
-    `True`. If `wants_stdout` is `True`, the command's stdout is returned.
-    Otherwise, `None` is returned.
+    `True`. If `wants_stdout` is `True`, the command's stdout is returned as
+    string. Otherwise, `None` is returned.
     All spaces are stripped from all command strings and all command strings
     that become empty this way are discarded.
+
+    If you want to invoke another Python script by spawning a new interpreter,
+    you can construct the `command` parameter by using
+    :func:`~pycommons.processes.python.python_command`.
 
     :param command: the command to execute, either a single string or a
         sequence of strings. All white space will be stripped from the strings
         and all strings that then become empty are dropped.
-    :param timeout: the timeout in seconds, must be less than 1000 hours and
-        at least 1 second
+    :param timeout: the timeout in seconds, must not be more than 1000 hours
+        and at least 1 second; by default it is one hour
     :param cwd: the directory to run inside, or `None` if not specified, in
         which case the program will be executed in the current work directory
         (see :func:`os.getcwd`)
@@ -46,13 +56,26 @@ def exec_text_process(
     :param exit_code_to_str: an optional map converting return codes that are
         different from `0` to strings
     :param check_stderr: provide an error message if any error is found in
-        stderr, or `None` or the empty string otherwise
+        stderr, or `None` or the empty string otherwise. If this function
+        is not `None` and does neither return `None` nor a string only
+        composed of white space (or being empty), then a `ValueError` with
+        the appropriat message is raised, regardless of the return code of the
+        process.
     :param stdin: optional data to be written to stdin, `None` to write
         nothing to the program's stdin
-    :param log_call: should any log output be generated?
-    :param log_stdin: should the data passed to stdin be logged?
-    :param log_stdout: should the data read from stdout be logged?
-    :param log_stderr: should the data read from stderr be logged?
+    :param log_call: should any log output be generated? If `True`, then a
+        message is written via :func:`~pycommons.io.console.logger` before and
+        after the process is executed; see `log_stdin`, `log_stdout`, and
+        `log_stderr` for which information should be included in the log
+        message.
+    :param log_stdin: should the data passed to stdin be logged? Only used if
+        `log_call == True`.
+    :param log_stdout: should the data read from stdout be logged? Only used if
+        `log_call == True`.
+    :param log_stderr: should the data read from stderr be logged? Only used if
+        `log_call == True`.
+    :raises TypeError: if any argument has the wrong type
+    :raises ValueError: if invoking the process fails for any other reason
 
     >>> exec_text_process(("echo", "123"), wants_stdout=True, log_call=False)
     '123\n'
@@ -274,6 +297,8 @@ def exec_text_process(
         "timeout": timeout,
         "capture_output": True,
         "cwd": wd,
+        "errors": "strict",
+        "encoding": UTF8,
     }
 
     if stdin is not None:
