@@ -1,12 +1,10 @@
 """The parser for command line arguments."""
 
-import os.path
-import sys
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import datetime, timezone
 from typing import Final
 
-from pycommons.io.path import Path
+from pycommons.processes.python import python_command
 from pycommons.strings import NBDASH, NBSP
 from pycommons.types import check_int_range, type_error
 
@@ -15,55 +13,6 @@ __DEFAULT_ARGUMENTS: Final[ArgumentParser] = ArgumentParser(
     add_help=False,
     formatter_class=ArgumentDefaultsHelpFormatter,
 )
-
-
-def __get_python_interpreter_short() -> str:
-    """
-    Get the python interpreter.
-
-    :returns: the fully-qualified path
-    """
-    inter: Final[Path] = Path.file(sys.executable)
-    bn = inter.basename()
-    if bn.startswith("python3."):
-        bn2 = bn[:7]
-        interp2 = os.path.join(inter.up(), bn2)
-        if os.path.exists(interp2) and os.path.isfile(interp2) \
-                and (Path.file(interp2) == inter):
-            return bn2
-    return bn
-
-
-#: The python interpreter in short form.
-__INTERPRETER_SHORT: Final[str] = __get_python_interpreter_short()
-del __get_python_interpreter_short
-
-#: the base path of the latexgit package
-__BASE_PATH: Final[str] = Path.file(__file__).up(3) + os.sep
-
-
-def __get_prog(file: str) -> str:
-    """
-    Get the program as to be displayed by the help screen.
-
-    The result of this function applied to the `__file__` special
-    variable should be put into the `prog` argument of the constructor
-    of :class:`argparse.ArgumentParser`.
-
-    :param file: the calling python script
-    :return: the program string
-    """
-    # get the module minus the base path and extension
-    module: str = Path.file(file)
-    end: int = len(module)
-    start: int = 0
-    if module.endswith(".py"):
-        end -= 3
-    if module.startswith(__BASE_PATH):
-        start += len(__BASE_PATH)
-    module = module[start:end].replace(os.sep, ".")
-
-    return f"{__INTERPRETER_SHORT} -m {module}"
 
 
 def make_argparser(file: str, description: str, epilog: str) -> ArgumentParser:
@@ -173,7 +122,7 @@ def make_argparser(file: str, description: str, epilog: str) -> ArgumentParser:
     if str.__len__(epilog) <= 10:
         raise ValueError(f"invalid epilog={epilog!r}.")
     return ArgumentParser(
-        parents=[__DEFAULT_ARGUMENTS], prog=__get_prog(file),
+        parents=[__DEFAULT_ARGUMENTS], prog=" ".join(python_command(file)),
         description=description, epilog=epilog,
         formatter_class=__DEFAULT_ARGUMENTS.formatter_class)
 
