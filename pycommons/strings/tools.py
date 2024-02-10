@@ -7,11 +7,94 @@ from typing import Callable, Final, Iterable, Pattern
 from pycommons.types import type_error
 
 
-def regex_sub(search: str | Pattern,
-              replace: str | Callable[[Match], str],
-              inside: str) -> str:
+def replace_str(find: str, replace: str, src: str) -> str:
+    """
+    Perform a recursive replacement of strings.
+
+    After applying this function, there will not be any occurence of `find`
+    left in `src`. All of them will have been replaced by `replace`. If that
+    produces new instances of `find`, these will be replaced as well
+    *unless they do not make the string shorter*. In other words, the
+    replacement is continued only if the new string becomes shorter.
+
+    See :func:`replace_regex` for regular-expression based replacements.
+
+    :param find: the string to find
+    :param replace: the string with which it will be replaced
+    :param src: the string in which we search
+    :return: the string `src`, with all occurrences of find replaced by replace
+    :raises TypeError: if any of the parameters are not strings
+
+    >>> replace_str("a", "b", "abc")
+    'bbc'
+    >>> replace_str("aa", "a", "aaaaa")
+    'a'
+    >>> replace_str("aba", "a", "abaababa")
+    'aa'
+    >>> replace_str("aba", "aba", "abaababa")
+    'abaababa'
+    >>> replace_str("aa", "aa", "aaaaaaaa")
+    'aaaaaaaa'
+    >>> replace_str("a", "aa", "aaaaaaaa")
+    'aaaaaaaaaaaaaaaa'
+    >>> replace_str("a", "xx", "aaaaaaaa")
+    'xxxxxxxxxxxxxxxx'
+
+    >>> try:
+    ...     replace_str(None, "a", "b")
+    ... except TypeError as te:
+    ...     print(te)
+    replace() argument 1 must be str, not None
+
+    >>> try:
+    ...     replace_str(1, "a", "b")
+    ... except TypeError as te:
+    ...     print(te)
+    replace() argument 1 must be str, not int
+
+    >>> try:
+    ...     replace_str("a", None, "b")
+    ... except TypeError as te:
+    ...     print(te)
+    replace() argument 2 must be str, not None
+
+    >>> try:
+    ...     replace_str("x", 1, "b")
+    ... except TypeError as te:
+    ...     print(te)
+    replace() argument 2 must be str, not int
+
+    >>> try:
+    ...     replace_str("a", "v", None)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'NoneType'
+
+    >>> try:
+    ...     replace_str("x", "xy", 1)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+    """
+    new_len: int = str.__len__(src)
+    while True:
+        src = src.replace(find, replace)
+        old_len: int = new_len
+        new_len = str.__len__(src)
+        if new_len >= old_len:
+            return src
+
+
+def replace_regex(search: str | Pattern,
+                  replace: str | Callable[[Match], str],
+                  inside: str) -> str:
     r"""
     Replace all occurrences of 'search' in 'inside' with 'replace'.
+
+    This replacement procedure is done repetitively and recursively until
+    no occurrence of `search` is found anymore. This, of course, may lead
+    to an endless loop, so a `ValueError` is thrown if there are too many
+    recursive replacements.
 
     :param search: the regular expression to search, either a string or a
         pattern
@@ -20,18 +103,20 @@ def regex_sub(search: str | Pattern,
     :param inside: the string in which to search/replace
     :return: the new string after the recursive replacement
     :raises TypeError: if any of the parameters is not of the right type
+    :raises ValueError: if there are 100000 recursive replacements or more,
+        indicating that there could be an endless loop
 
-    >>> regex_sub('[ \t]+\n', '\n', ' bla \nxyz\tabc\t\n')
+    >>> replace_regex('[ \t]+\n', '\n', ' bla \nxyz\tabc\t\n')
     ' bla\nxyz\tabc\n'
-    >>> regex_sub('[0-9]A', 'X', '23A7AA')
+    >>> replace_regex('[0-9]A', 'X', '23A7AA')
     '2XXA'
     >>> from re import compile as cpx
-    >>> regex_sub(cpx('[0-9]A'), 'X', '23A7AA')
+    >>> replace_regex(cpx('[0-9]A'), 'X', '23A7AA')
     '2XXA'
     >>> def __repl(a):
     ...     print(repr(a))
     ...     return "y"
-    >>> regex_sub("a.b", __repl, "albaab")
+    >>> replace_regex("a.b", __repl, "albaab")
     <re.Match object; span=(0, 3), match='alb'>
     <re.Match object; span=(3, 6), match='aab'>
     'yy'
@@ -40,7 +125,7 @@ def regex_sub(search: str | Pattern,
     ...     ss = a.group()
     ...     print(ss)
     ...     return "axb"
-    >>> regex_sub("aa.bb", __repl, "aaaaaxbbbbb")
+    >>> replace_regex("aa.bb", __repl, "aaaaaxbbbbb")
     <re.Match object; span=(3, 8), match='aaxbb'>
     aaxbb
     <re.Match object; span=(2, 7), match='aaxbb'>
@@ -50,59 +135,61 @@ def regex_sub(search: str | Pattern,
     <re.Match object; span=(0, 5), match='aaxbb'>
     aaxbb
     'axb'
-    >>> regex_sub("aa.bb", "axb", "aaaaaxbbbbb")
+    >>> replace_regex("aa.bb", "axb", "aaaaaxbbbbb")
     'axb'
-    >>> regex_sub("aa.bb", "axb", "".join("a" * 100 + "y" + "b" * 100))
+    >>> replace_regex("aa.bb", "axb", "".join("a" * 100 + "y" + "b" * 100))
     'axb'
-    >>> regex_sub("aa.bb", "axb", "".join("a" * 10000 + "y" + "b" * 10000))
+    >>> replace_regex("aa.bb", "axb",
+    ...               "".join("a" * 10000 + "y" + "b" * 10000))
     'axb'
     >>> try:
-    ...    regex_sub(1, "1", "2")
+    ...    replace_regex(1, "1", "2")
     ... except TypeError as te:
     ...    print(str(te)[0:60])
     search should be an instance of any in {str, typing.Pattern}
     >>> try:
-    ...    regex_sub(None, "1", "2")
+    ...    replace_regex(None, "1", "2")
     ... except TypeError as te:
     ...    print(te)
     search should be an instance of any in {str, typing.Pattern} but is None.
     >>> try:
-    ...    regex_sub("x", 2, "2")
+    ...    replace_regex("x", 2, "2")
     ... except TypeError as te:
     ...    print(te)
     replace should be an instance of str or a callable but is int, namely '2'.
     >>> try:
-    ...    regex_sub("x", None, "2")
+    ...    replace_regex("x", None, "2")
     ... except TypeError as te:
     ...    print(te)
     replace should be an instance of str or a callable but is None.
     >>> try:
-    ...    regex_sub(1, 1, "2")
+    ...    replace_regex(1, 1, "2")
     ... except TypeError as te:
     ...    print(str(te)[0:60])
     search should be an instance of any in {str, typing.Pattern}
     >>> try:
-    ...    regex_sub("yy", "1", 3)
+    ...    replace_regex("yy", "1", 3)
     ... except TypeError as te:
     ...    print(te)
     inside should be an instance of str but is int, namely '3'.
     >>> try:
-    ...    regex_sub("adad", "1", None)
+    ...    replace_regex("adad", "1", None)
     ... except TypeError as te:
     ...    print(te)
     inside should be an instance of str but is None.
     >>> try:
-    ...    regex_sub(1, "1", 3)
+    ...    replace_regex(1, "1", 3)
     ... except TypeError as te:
     ...    print(str(te)[0:60])
     search should be an instance of any in {str, typing.Pattern}
     >>> try:
-    ...    regex_sub(1, 3, 5)
+    ...    replace_regex(1, 3, 5)
     ... except TypeError as te:
     ...    print(str(te)[0:60])
     search should be an instance of any in {str, typing.Pattern}
     >>> try:
-    ...     regex_sub("abab|baab|bbab|aaab|aaaa|bbbb", "baba", "ababababab")
+    ...     replace_regex("abab|baab|bbab|aaab|aaaa|bbbb", "baba",
+    ...                   "ababababab")
     ... except ValueError as ve:
     ...     print(str(ve)[:50])
     Too many replacements, pattern re.compile('abab|ba
@@ -148,7 +235,7 @@ __PATTERN_TRAILING_WHITESPACE: Final[Pattern] = \
              flags=MULTILINE)
 
 
-def normalize_trailing_spaces(text: str) -> str:
+def normalize_trailing_space(text: str) -> str:
     r"""
     Normalize all trailing white space from in the lines in the given text.
 
@@ -161,30 +248,31 @@ def normalize_trailing_spaces(text: str) -> str:
     :return: the text, minus all white space trailing any *line*
     :raises TypeError: if `text` is not an instance of `str`
 
-    >>> normalize_trailing_spaces("a")
+    >>> normalize_trailing_space("a")
     'a\n'
-    >>> normalize_trailing_spaces("a ")
+    >>> normalize_trailing_space("a ")
     'a\n'
-    >>> normalize_trailing_spaces("a \n\n \n ")
+    >>> normalize_trailing_space("a \n\n \n ")
     'a\n'
-    >>> normalize_trailing_spaces("")
+    >>> normalize_trailing_space("")
     '\n'
-    >>> normalize_trailing_spaces("  a \n\t\n\t \n \t\t\nb  \n\t \n\n")
+    >>> normalize_trailing_space("  a \n\t\n\t \n \t\t\nb  \n\t \n\n")
     '  a\n\n\n\nb\n'
     >>> try:
-    ...     normalize_trailing_spaces(None)
+    ...     normalize_trailing_space(None)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'NoneType'
     >>> try:
-    ...     normalize_trailing_spaces(1)
+    ...     normalize_trailing_space(1)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
     """
     if str.__len__(text) == 0:
         return "\n"
-    text = str.rstrip(regex_sub(__PATTERN_TRAILING_WHITESPACE, "\n", text))
+    text = str.rstrip(replace_regex(
+        __PATTERN_TRAILING_WHITESPACE, "\n", text))
     return text + "\n"
 
 
@@ -263,3 +351,174 @@ def get_prefix_str(strings: str | Iterable[str]) -> str:
         if prefix_len == 0:
             return ""
     return "" if prefix is None else prefix[0:prefix_len]
+
+
+def split_str(text: str, sep: str = "\n") -> Iterable[str]:
+    r"""
+    Convert a string to an iterable of strings by splitting it.
+
+    All the lines in `text` are rstripped, meaning that all trailing white
+    space is removed from them. Leading white space is not removed.
+
+    :param text: the original text string
+    :param sep: the separator, by default the newline character
+    :return: the lines
+    :raises TypeError: if `text` or `sep` are not strings
+    :raises ValueError: if `sep` is the empty string
+
+    >>> list(split_str("x"))
+    ['x']
+    >>> list(split_str("x\ny"))
+    ['x', 'y']
+    >>> list(split_str("x  \ny  "))
+    ['x', 'y']
+    >>> list(split_str(" x  \ny  "))
+    [' x', 'y']
+    >>> list(split_str("\n123\n  456\n789 \n 10\n\n"))
+    ['', '123', '  456', '789', ' 10', '', '']
+    >>> list(split_str(""))
+    ['']
+
+    >>> list(split_str("x", "a"))
+    ['x']
+    >>> list(split_str("xay", "a"))
+    ['x', 'y']
+    >>> list(split_str("x  ay  ", "a"))
+    ['x', 'y']
+    >>> list(split_str(" x  ay  ", "a"))
+    [' x', 'y']
+    >>> list(split_str("a123a  456a789 a 10aa", "a"))
+    ['', '123', '  456', '789', ' 10', '', '']
+    >>> list(split_str(""))
+    ['']
+
+    >>> try:
+    ...     split_str(1)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+    >>> try:
+    ...     split_str(None)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'NoneType'
+
+    >>> try:
+    ...     split_str("xax", 1)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+    >>> try:
+    ...     split_str("xax", None)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'NoneType'
+    >>> try:
+    ...     split_str("xax", "")
+    ... except ValueError as ve:
+    ...     print(ve)
+    Invalid separator string '' for text 'xax'.
+    """
+    if str.__len__(text) <= 0:
+        return ("", )
+    if str.__len__(sep) <= 0:
+        raise ValueError(
+            f"Invalid separator string {sep!r} for text {text!r}.")
+    return map(str.rstrip, text.split(sep))
+
+
+def join_str(lines: Iterable[str],
+             trailing_sep: bool = True,
+             sep: str = "\n") -> str:
+    r"""
+    Convert an iterable of strings to a single string joined by a separator.
+
+    All the strings in `lines` are right-stripped of trailing white space.
+    They are then concatenated with the separator `sep`, which, by default, is
+    the newline character `'\n'`.
+    The result is again right-stripped of trailing white space.
+    If `trailing_sep` is `True`, then, finally `sep` is appended.
+
+    :param lines: the lines
+    :param trailing_sep: should there be a separator appended at the end?
+    :param sep: the separator string to be used, by default the newline
+        character.
+    :return: the single string
+    :raises TypeError: if either `lines`, `sep`, or `trailing_sep` are of the
+        wrong type or if `lines` contains any non-string
+
+    >>> join_str(["a", "b", "", "c", ""])
+    'a\nb\n\nc\n'
+    >>> join_str(["a", "b", "", "c"])
+    'a\nb\n\nc\n'
+    >>> join_str(["a", "b", "", "c"], sep="")
+    'abc'
+
+    >>> join_str(["a", "b", "", "c", ""], trailing_sep=True)
+    'a\nb\n\nc\n'
+    >>> join_str(["a", "b", "", "c"], trailing_sep=True)
+    'a\nb\n\nc\n'
+    >>> join_str(("a", "b", "", "c"), trailing_sep=False)
+    'a\nb\n\nc'
+    >>> join_str(["a", "b", "", "c", ""], trailing_sep=False)
+    'a\nb\n\nc'
+    >>> join_str(("a  ", "b", " ", "c ", ""), trailing_sep=False)
+    'a\nb\n\nc'
+
+    >>> join_str(["a", "b", "", "c", ""], sep="y", trailing_sep=True)
+    'aybyycy'
+    >>> join_str(["a", "b", "", "c"], sep="y", trailing_sep=True)
+    'aybyycy'
+    >>> join_str(("a", "b", "", "c"), sep="y", trailing_sep=False)
+    'aybyyc'
+    >>> join_str(["a", "b", "", "c", ""], sep="y", trailing_sep=False)
+    'aybyyc'
+    >>> join_str(("a  ", "b", " ", "c ", ""), sep="y", trailing_sep=False)
+    'aybyyc'
+
+    >>> try:
+    ...     join_str(None)
+    ... except TypeError as te:
+    ...     print(te)
+    lines should be an instance of typing.Iterable but is None.
+    >>> try:
+    ...     join_str(1)
+    ... except TypeError as te:
+    ...     print(te)
+    lines should be an instance of typing.Iterable but is int, namely '1'.
+    >>> try:
+    ...     join_str(["x", "y"], sep=None)
+    ... except TypeError as te:
+    ...     print(te)
+    sep should be an instance of str but is None.
+    >>> try:
+    ...     join_str(["x", "y"], sep=1)
+    ... except TypeError as te:
+    ...     print(te)
+    sep should be an instance of str but is int, namely '1'.
+    >>> try:
+    ...     join_str(("", "123", True))
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor 'rstrip' for 'str' objects doesn't apply to a 'bool' object
+    >>> try:
+    ...     join_str(("", "123", "x"), 1)
+    ... except TypeError as te:
+    ...     print(te)
+    trailing_sep should be an instance of bool but is int, namely '1'.
+    """
+    if not isinstance(lines, Iterable):
+        raise type_error(lines, "lines", Iterable)
+    if not isinstance(trailing_sep, bool):
+        raise type_error(trailing_sep, "trailing_sep", bool)
+    if not isinstance(sep, str):
+        raise type_error(sep, "sep", str)
+    use: Final[list[str]] = [str.rstrip(ll) for ll in lines]
+    for i in range(list.__len__(use) - 1, -1, -1):
+        if str.__len__(use[i]) <= 0:
+            del use[i]
+            continue
+        break
+    if trailing_sep:
+        use.append("")
+    return sep.join(use)
