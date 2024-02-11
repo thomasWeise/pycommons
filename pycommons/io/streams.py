@@ -323,6 +323,7 @@ def as_input_stream(stream: TextIOBase | TextIO) -> Iterator[str]:
     ...         print(rl.rstrip())
     123
     456
+
     >>> tstr = open(p, "rt")
     >>> tstr.closed
     False
@@ -332,6 +333,7 @@ def as_input_stream(stream: TextIOBase | TextIO) -> Iterator[str]:
     456
     >>> tstr.closed
     True
+
     >>> stre = open(p, "rt")
     >>> for s in as_input_stream(stre):
     ...     print(s.rstrip())
@@ -346,6 +348,7 @@ def as_input_stream(stream: TextIOBase | TextIO) -> Iterator[str]:
     123
     >>> stre.closed
     True
+
     >>> stre = open(p, "rt")
     >>> print(list(as_input_stream(stre)))
     ['123', '456']
@@ -435,15 +438,18 @@ def __output_stream(write: Callable[[str], Any], close: Callable[[], Any],
     ...     print(s)
     1
     2
+
     >>> wt = open(p, "wt")
     >>> with __output_stream(wt.write, wt.close, None) as cons:
     ...     cons("1")
     ...     cons("2  ")
     >>> wt.closed
     True
+
     >>> for s in as_input_stream(open(p, "rt")):
     ...     print(s)
     12
+
     >>> wt = open(p, "wt")
     >>> try:
     ...     with __output_stream(wt.write, wt.close, None) as cons:
@@ -454,6 +460,7 @@ def __output_stream(write: Callable[[str], Any], close: Callable[[], Any],
     descriptor 'rstrip' for 'str' objects doesn't apply to a 'NoneType' object
     >>> wt.closed
     True
+
     >>> wt = open(p, "wt")
     >>> try:
     ...     with __output_stream(wt.write, wt.close, None) as cons:

@@ -1,5 +1,5 @@
 """Test the simple cache."""
-from pycommons.cache import str_is_new
+from pycommons.ds.cache import str_is_new
 
 
 def test_str_is_new() -> None:

@@ -12,6 +12,11 @@ Some common utility functionality for Python projects.
 
 In this project, we combine several utilities and functions that are used in our other projects.
 
+These functions have in common that they are fail-fast.
+They usually check the types of all of their inputs and raise exceptions immediately if something looks dodgy.
+There is no garbage-in/garbage-out:
+Our functions raise descriptive errors as soon as they detect something strange.
+
 
 ## 2. Installation
 

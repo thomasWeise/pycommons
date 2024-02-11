@@ -113,6 +113,7 @@ def replace_regex(search: str | Pattern,
     >>> from re import compile as cpx
     >>> replace_regex(cpx('[0-9]A'), 'X', '23A7AA')
     '2XXA'
+
     >>> def __repl(a):
     ...     print(repr(a))
     ...     return "y"
@@ -120,6 +121,7 @@ def replace_regex(search: str | Pattern,
     <re.Match object; span=(0, 3), match='alb'>
     <re.Match object; span=(3, 6), match='aab'>
     'yy'
+
     >>> def __repl(a):
     ...     print(repr(a))
     ...     ss = a.group()
@@ -135,6 +137,7 @@ def replace_regex(search: str | Pattern,
     <re.Match object; span=(0, 5), match='aaxbb'>
     aaxbb
     'axb'
+
     >>> replace_regex("aa.bb", "axb", "aaaaaxbbbbb")
     'axb'
     >>> replace_regex("aa.bb", "axb", "".join("a" * 100 + "y" + "b" * 100))
@@ -142,51 +145,61 @@ def replace_regex(search: str | Pattern,
     >>> replace_regex("aa.bb", "axb",
     ...               "".join("a" * 10000 + "y" + "b" * 10000))
     'axb'
+
     >>> try:
     ...    replace_regex(1, "1", "2")
     ... except TypeError as te:
     ...    print(str(te)[0:60])
     search should be an instance of any in {str, typing.Pattern}
+
     >>> try:
     ...    replace_regex(None, "1", "2")
     ... except TypeError as te:
     ...    print(te)
     search should be an instance of any in {str, typing.Pattern} but is None.
+
     >>> try:
     ...    replace_regex("x", 2, "2")
     ... except TypeError as te:
     ...    print(te)
     replace should be an instance of str or a callable but is int, namely '2'.
+
     >>> try:
     ...    replace_regex("x", None, "2")
     ... except TypeError as te:
     ...    print(te)
     replace should be an instance of str or a callable but is None.
+
     >>> try:
     ...    replace_regex(1, 1, "2")
     ... except TypeError as te:
     ...    print(str(te)[0:60])
     search should be an instance of any in {str, typing.Pattern}
+
     >>> try:
     ...    replace_regex("yy", "1", 3)
     ... except TypeError as te:
     ...    print(te)
     inside should be an instance of str but is int, namely '3'.
+
     >>> try:
     ...    replace_regex("adad", "1", None)
     ... except TypeError as te:
     ...    print(te)
     inside should be an instance of str but is None.
+
     >>> try:
     ...    replace_regex(1, "1", 3)
     ... except TypeError as te:
     ...    print(str(te)[0:60])
     search should be an instance of any in {str, typing.Pattern}
+
     >>> try:
     ...    replace_regex(1, 3, 5)
     ... except TypeError as te:
     ...    print(str(te)[0:60])
     search should be an instance of any in {str, typing.Pattern}
+
     >>> try:
     ...     replace_regex("abab|baab|bbab|aaab|aaaa|bbbb", "baba",
     ...                   "ababababab")
@@ -258,11 +271,13 @@ def normalize_trailing_space(text: str) -> str:
     '\n'
     >>> normalize_trailing_space("  a \n\t\n\t \n \t\t\nb  \n\t \n\n")
     '  a\n\n\n\nb\n'
+
     >>> try:
     ...     normalize_trailing_space(None)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'NoneType'
+
     >>> try:
     ...     normalize_trailing_space(1)
     ... except TypeError as te:
@@ -314,21 +329,25 @@ def get_prefix_str(strings: str | Iterable[str]) -> str:
     ... except TypeError as te:
     ...     print(te)
     strings should be an instance of any in {str, typing.Iterable} but is None.
+
     >>> try:
     ...     get_prefix_str(1)
     ... except TypeError as te:
     ...     print(str(te)[:60])
     strings should be an instance of any in {str, typing.Iterabl
+
     >>> try:
     ...     get_prefix_str(["abc", "acd", 2, "x"])
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
+
     >>> try:
     ...     get_prefix_str(["abc", "acd", None, "x"])
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'NoneType'
+
     >>> get_prefix_str(["xyz", "gsdf", 5])
     ''
     """
@@ -397,6 +416,7 @@ def split_str(text: str, sep: str = "\n") -> Iterable[str]:
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
+
     >>> try:
     ...     split_str(None)
     ... except TypeError as te:
@@ -408,11 +428,13 @@ def split_str(text: str, sep: str = "\n") -> Iterable[str]:
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
+
     >>> try:
     ...     split_str("xax", None)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'NoneType'
+
     >>> try:
     ...     split_str("xax", "")
     ... except ValueError as ve:
@@ -481,26 +503,31 @@ def join_str(lines: Iterable[str],
     ... except TypeError as te:
     ...     print(te)
     lines should be an instance of typing.Iterable but is None.
+
     >>> try:
     ...     join_str(1)
     ... except TypeError as te:
     ...     print(te)
     lines should be an instance of typing.Iterable but is int, namely '1'.
+
     >>> try:
     ...     join_str(["x", "y"], sep=None)
     ... except TypeError as te:
     ...     print(te)
     sep should be an instance of str but is None.
+
     >>> try:
     ...     join_str(["x", "y"], sep=1)
     ... except TypeError as te:
     ...     print(te)
     sep should be an instance of str but is int, namely '1'.
+
     >>> try:
     ...     join_str(("", "123", True))
     ... except TypeError as te:
     ...     print(te)
     descriptor 'rstrip' for 'str' objects doesn't apply to a 'bool' object
+
     >>> try:
     ...     join_str(("", "123", "x"), 1)
     ... except TypeError as te:

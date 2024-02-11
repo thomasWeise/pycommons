@@ -117,6 +117,7 @@ def python_command(
     >>> python_command(p, False) == [PYTHON_INTERPRETER, p]
     True
     >>> osremovex(p)
+
     >>> h, p = mkstemp(dir=Path.file(__file__).up(), text=True)
     >>> osclosex(h)
     >>> python_command(p) == [PYTHON_INTERPRETER_SHORT, p]
@@ -124,6 +125,7 @@ def python_command(
     >>> python_command(p, False) == [PYTHON_INTERPRETER, p]
     True
     >>> osremovex(p)
+
     >>> the_pack = Path.file(__file__).up()
     >>> h, p = mkstemp(dir=the_pack,
     ...                suffix=".py", text=True)

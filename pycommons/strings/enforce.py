@@ -21,11 +21,13 @@ def enforce_str(value: Any) -> str:
     '1'
     >>> enforce_str("")
     ''
+
     >>> try:
     ...     enforce_str(1)
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of str but is int, namely '1'.
+
     >>> try:
     ...     enforce_str(None)
     ... except TypeError as te:
@@ -50,16 +52,19 @@ def enforce_non_empty_str(value: Any) -> str:
     '1'
     >>> enforce_non_empty_str(" 1 1 ")
     ' 1 1 '
+
     >>> try:
     ...     enforce_non_empty_str("")
     ... except ValueError as ve:
     ...     print(ve)
     Non-empty str expected, but got ''.
+
     >>> try:
     ...     enforce_non_empty_str(1)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
+
     >>> try:
     ...     enforce_non_empty_str(None)
     ... except TypeError as te:
@@ -83,26 +88,31 @@ def enforce_non_empty_str_without_ws(value: Any) -> str:
 
     >>> enforce_non_empty_str_without_ws("1")
     '1'
+
     >>> try:
     ...     enforce_non_empty_str_without_ws(" 1 1 ")
     ... except ValueError as ve:
     ...     print(ve)
     No white space allowed in string, but got ' 1 1 ' which contains ' '.
+
     >>> try:
     ...     enforce_non_empty_str_without_ws("a\tb")
     ... except ValueError as ve:
     ...     print(ve)
     No white space allowed in string, but got 'a\tb' which contains '\t'.
+
     >>> try:
     ...     enforce_non_empty_str_without_ws("")
     ... except ValueError as ve:
     ...     print(ve)
     Non-empty str expected, but got ''.
+
     >>> try:
     ...     enforce_non_empty_str_without_ws(1)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
+
     >>> try:
     ...     enforce_non_empty_str_without_ws(None)
     ... except TypeError as te:

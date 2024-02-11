@@ -3,9 +3,17 @@ The class `Path` for handling paths to files and directories.
 
 The instances of :class:`Path` identify file system paths.
 They are always fully canonicalized with all relative components resolved.
-They thus allow the clear identification of files and directories.
+They thus allow the clear and unique identification of files and directories.
 They also offer support for opening streams, creating paths to sub-folders,
 and so on.
+
+The first goal is to encapsulate the functionality of the :mod:`os.path`
+module into a single class.
+The second goal is to make sure that we do not run into any dodgy situation
+with paths pointing to security-sensitive locations or something due to
+strange `.` and `..` trickery.
+If you try to resolve a path inside a directory and the resulting canonical
+path is outside that directory, you get an error raised, for example.
 """
 
 import codecs
@@ -148,31 +156,37 @@ def _get_text_encoding(filename: str) -> str:
     3
     >>> _get_text_encoding(tf)
     'utf-8-sig'
+
     >>> with open(tf, "wb") as out:
     ...     out.write(b'\xff\xfe\x00\x00')
     4
     >>> _get_text_encoding(tf)
     'utf-32'
+
     >>> with open(tf, "wb") as out:
     ...     out.write(b'\x00\x00\xfe\xff')
     4
     >>> _get_text_encoding(tf)
     'utf-32'
+
     >>> with open(tf, "wb") as out:
     ...     out.write(b'\xff\xfe')
     2
     >>> _get_text_encoding(tf)
     'utf-16'
+
     >>> with open(tf, "wb") as out:
     ...     out.write(b'\xfe\xff')
     2
     >>> _get_text_encoding(tf)
     'utf-16'
+
     >>> with open(tf, "wb") as out:
     ...     out.write(b'\xaa\xf3')
     2
     >>> _get_text_encoding(tf)
     'utf-8-sig'
+
     >>> osremove(tf)
     """
     with open(filename, "rb") as f:
@@ -290,6 +304,7 @@ class Path(str):
         ... except ValueError as ve:
         ...     print(str(ve)[-30:])
         does not identify a directory.
+
         >>> from os import getcwd
         >>> Path(getcwd()).enforce_dir()   # nothing happens
         """
@@ -320,16 +335,19 @@ class Path(str):
         >>> Path(join(dirname(__file__), "a")).contains(\
 join(dirname(__file__), "b"))
         False
+
         >>> try:
         ...     Path(dirname(__file__)).contains(1)
         ... except TypeError as te:
         ...     print(te)
         descriptor '__len__' requires a 'str' object but received a 'int'
+
         >>> try:
         ...     Path(dirname(__file__)).contains(None)
         ... except TypeError as te:
         ...     print(te)
         descriptor '__len__' requires a 'str' object but received a 'NoneType'
+
         >>> try:
         ...     Path(dirname(__file__)).contains("")
         ... except ValueError as ve:
@@ -355,6 +373,7 @@ join(dirname(__file__), "b"))
         ... except ValueError as ve:
         ...     print(str(ve)[-25:])
         not identify a directory.
+
         >>> from os.path import dirname
         >>> Path(dirname(__file__)).enforce_contains(__file__)  # nothing
         >>> try:
@@ -363,6 +382,7 @@ Path(join(dirname(__file__), "b")))
         ... except ValueError as ve:
         ...     print(str(ve)[-25:])
         not identify a directory.
+
         >>> Path(dirname(__file__)).enforce_contains(Path(join(dirname(\
 __file__), "b")))  # nothing happens
         >>> try:
@@ -397,35 +417,42 @@ dirname(__file__)))
         >>> from os.path import dirname
         >>> Path(dirname(__file__)).resolve_inside("a.txt")[-5:]
         'a.txt'
+
         >>> from os.path import basename
         >>> Path(dirname(__file__)).resolve_inside(basename(__file__)) \
 == Path(__file__)
         True
+
         >>> try:
         ...     Path(dirname(__file__)).resolve_inside("..")
         ... except ValueError as ve:
         ...     print("does not contain" in str(ve))
         True
+
         >>> try:
         ...     Path(__file__).resolve_inside("..")
         ... except ValueError as ve:
         ...     print("does not identify a directory" in str(ve))
         True
+
         >>> try:
         ...     Path(dirname(__file__)).resolve_inside(None)
         ... except TypeError as te:
         ...     print(te)
         descriptor '__len__' requires a 'str' object but received a 'NoneType'
+
         >>> try:
         ...     Path(dirname(__file__)).resolve_inside(2)
         ... except TypeError as te:
         ...     print(te)
         descriptor '__len__' requires a 'str' object but received a 'int'
+
         >>> try:
         ...     Path(__file__).resolve_inside("")
         ... except ValueError as ve:
         ...     print(ve)
         Relative path must not be empty.
+
         >>> try:
         ...     Path(__file__).resolve_inside(" ")
         ... except ValueError as ve:
@@ -456,6 +483,7 @@ dirname(__file__)))
 
         >>> print(Path(__file__).ensure_file_exists())
         True
+
         >>> from os.path import dirname
         >>> try:
         ...     Path.path(dirname(__file__)).ensure_file_exists()
@@ -463,6 +491,7 @@ dirname(__file__)))
         ... except ValueError as ve:
         ...     print("does not identify a file." in str(ve))
         True
+
         >>> try:
         ...     Path.path(join(join(dirname(__file__), "a"), "b"))\
 .ensure_file_exists()
@@ -494,16 +523,19 @@ dirname(__file__)))
 
         >>> from os.path import dirname
         >>> Path(dirname(__file__)).ensure_dir_exists()  # nothing happens
+
         >>> try:
         ...     Path(__file__).ensure_dir_exists()
         ... except ValueError as ve:
         ...     print("does not identify a directory" in str(ve))
         True
+
         >>> try:
         ...     Path(join(__file__, "a")).ensure_dir_exists()
         ... except ValueError as ve:
         ...     print("Error when trying to create directory" in str(ve))
         True
+
         >>> from tempfile import mkdtemp
         >>> from os import rmdir as osrmdirx
         >>> td = mkdtemp()
@@ -547,6 +579,7 @@ dirname(__file__)))
         ...     print(f"{rd.readline()!r}")
         4
         'The class `Path` for handling paths to files and directories.\n'
+
         >>> from os.path import dirname
         >>> try:
         ...     with Path(dirname(__file__))._Path__open_for_read():
@@ -579,6 +612,7 @@ dirname(__file__)))
         >>> next(siter)
         'The class `Path` for handling paths to files and directories.'
         >>> del siter
+
         >>> from os.path import dirname
         >>> try:
         ...     for s in Path(dirname(__file__)).open_for_read():
@@ -603,12 +637,14 @@ dirname(__file__)))
 
         >>> Path(__file__).read_all_str()[4:30]
         'The class `Path` for handl'
+
         >>> from os.path import dirname
         >>> try:
         ...     Path(dirname(__file__)).read_all_str()
         ... except ValueError as ve:
         ...     print(str(ve)[-25:])
         does not identify a file.
+
         >>> from tempfile import mkstemp
         >>> from os import remove as osremovex
         >>> h, p = mkstemp(text=True)
@@ -618,6 +654,7 @@ dirname(__file__)))
         ... except ValueError as ve:
         ...     print(str(ve)[-19:])
         ' contains no text.
+
         >>> with open(p, "wt") as tx:
         ...     tx.write("aa\n")
         ...     tx.write(" bb   ")
@@ -653,6 +690,7 @@ dirname(__file__)))
         >>> Path(p).read_all_str()
         '1234'
         >>> osremovex(p)
+
         >>> from os.path import dirname
         >>> try:
         ...     with Path(dirname(__file__))._Path__open_for_write() as wd:
@@ -686,6 +724,7 @@ dirname(__file__)))
         >>> Path(p).read_all_str()
         '1234\n'
         >>> osremovex(p)
+
         >>> from os.path import dirname
         >>> try:
         ...     with Path(dirname(__file__)).open_for_write() as wd:
@@ -715,27 +754,33 @@ dirname(__file__)))
         >>> from os import remove as osremovex
         >>> h, p = mkstemp(text=True)
         >>> osclose(h)
+
         >>> try:
         ...     Path(p).write_all_str(None)
         ... except TypeError as te:
         ...     print(str(te))
         descriptor '__len__' requires a 'str' object but received a 'NoneType'
+
         >>> try:
         ...     Path(p).write_all_str(["a"])
         ... except TypeError as te:
         ...     print(str(te))
         descriptor '__len__' requires a 'str' object but received a 'list'
+
         >>> Path(p).write_all_str("\na\nb")
         >>> Path(p).read_all_str()
         '\na\nb\n'
+
         >>> Path(p).write_all_str(" \na\n b ")
         >>> Path(p).read_all_str()
         ' \na\n b \n'
+
         >>> try:
         ...     Path(p).write_all_str("")
         ... except ValueError as ve:
         ...     print(str(ve)[:34])
         Cannot write empty content to file
+
         >>> osremovex(p)
         >>> from os.path import dirname
         >>> try:
@@ -775,11 +820,13 @@ dirname(__file__)))
         'pycommons/io'
         >>> d1.relative_to(d1)
         '.'
+
         >>> try:
         ...     d1.relative_to(f)
         ... except ValueError as ve:
         ...     print(str(ve)[-30:])
         does not identify a directory.
+
         >>> try:
         ...     d2.relative_to(d1)
         ... except ValueError as ve:
@@ -814,21 +861,25 @@ dirname(__file__)))
         /pycommons/io
         >>> print(f.up(2)[-10:])
         /pycommons
+
         >>> try:
         ...     f.up(0)
         ... except ValueError as ve:
         ...     print(ve)
         levels=0 is invalid, must be in 1..255.
+
         >>> try:
         ...     f.up(None)
         ... except TypeError as te:
         ...     print(te)
         levels should be an instance of int but is None.
+
         >>> try:
         ...     f.up('x')
         ... except TypeError as te:
         ...     print(te)
         levels should be an instance of int but is str, namely 'x'.
+
         >>> try:
         ...     f.up(255)
         ... except ValueError as ve:
@@ -855,6 +906,7 @@ dirname(__file__)))
         'path.py'
         >>> Path.file(__file__).up(2).basename()
         'pycommons'
+
         >>> try:
         ...     Path("/").basename()
         ... except ValueError as ve:
@@ -880,16 +932,19 @@ dirname(__file__)))
         False
         >>> isinstance(Path.path(__file__), Path)
         True
+
         >>> try:
         ...     Path.path(None)
         ... except TypeError as te:
         ...     print(te)
         descriptor '__len__' requires a 'str' object but received a 'NoneType'
+
         >>> try:
         ...     Path.path(1)
         ... except TypeError as te:
         ...     print(te)
         descriptor '__len__' requires a 'str' object but received a 'int'
+
         >>> try:
         ...     Path.path("")
         ... except ValueError as ve:
@@ -913,6 +968,7 @@ dirname(__file__)))
 
         >>> Path.file(__file__)[-20:]
         'pycommons/io/path.py'
+
         >>> from os.path import dirname
         >>> try:
         ...     Path.file(dirname(__file__))
@@ -938,6 +994,7 @@ dirname(__file__)))
         >>> from os.path import dirname
         >>> Path.directory(dirname(__file__))[-12:]
         'pycommons/io'
+
         >>> try:
         ...     Path.directory(__file__)
         ... except ValueError as ve:

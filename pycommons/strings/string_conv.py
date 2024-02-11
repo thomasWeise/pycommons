@@ -1,4 +1,4 @@
-"""Converting stuff to strings-."""
+"""Converting stuff to and from strings."""
 
 from datetime import datetime
 from math import isnan
@@ -26,22 +26,26 @@ def float_to_str(value: float) -> str:
     '1'
     >>> float_to_str(1e-5)
     '1e-5'
+
     >>> try:
     ...     float_to_str(1)
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of float but is int, namely '1'.
+
     >>> try:
     ...     float_to_str(None)
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of float but is None.
+
     >>> from math import nan
     >>> try:
     ...     float_to_str(nan)
     ... except ValueError as ve:
     ...     print(ve)
     nan => 'nan' is not a permitted float.
+
     >>> from math import inf
     >>> float_to_str(inf)
     'inf'
@@ -98,11 +102,13 @@ def bool_to_str(value: bool) -> str:
     T
     >>> print(bool_to_str(False))
     F
+
     >>> try:
     ...     bool_to_str("t")
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of bool but is str, namely 't'.
+
     >>> try:
     ...     bool_to_str(None)
     ... except TypeError as te:
@@ -130,16 +136,19 @@ def str_to_bool(value: str) -> bool:
     True
     >>> str_to_bool("F")
     False
+
     >>> try:
     ...     str_to_bool("x")
     ... except ValueError as v:
     ...     print(v)
     Expected 'T' or 'F', but got 'x'.
+
     >>> try:
     ...     str_to_bool(1)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
+
     >>> try:
     ...     str_to_bool(None)
     ... except TypeError as te:
@@ -176,34 +185,40 @@ def num_to_str(value: int | float) -> str:
     '1'
     >>> num_to_str(1.5)
     '1.5'
+
     >>> try:
     ...     num_to_str(True)
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of any in {float, int} but is bool, \
 namely 'True'.
+
     >>> try:
     ...     num_to_str(False)
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of any in {float, int} but is bool, \
 namely 'False'.
+
     >>> try:
     ...     num_to_str("x")
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of float but is str, namely 'x'.
+
     >>> try:
     ...     num_to_str(None)
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of float but is None.
+
     >>> from math import inf, nan
     >>> try:
     ...     num_to_str(nan)
     ... except ValueError as ve:
     ...     print(ve)
     nan => 'nan' is not a permitted float.
+
     >>> num_to_str(inf)
     'inf'
     >>> num_to_str(-inf)
@@ -237,18 +252,21 @@ def num_or_none_to_str(value: int | float | None) -> str:
     12
     >>> print(num_or_none_to_str(12.3))
     12.3
+
     >>> try:
     ...     num_or_none_to_str(True)
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of any in {float, int} but is bool, \
 namely 'True'.
+
     >>> try:
     ...     num_or_none_to_str(False)
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of any in {float, int} but is bool, \
 namely 'False'.
+
     >>> from math import nan
     >>> try:
     ...     num_to_str(nan)
@@ -279,18 +297,22 @@ def int_or_none_to_str(value: int | None) -> str:
     ''
     >>> print(int_or_none_to_str(12))
     12
+
     >>> try:
     ...     int_or_none_to_str(True)
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of int but is bool, namely 'True'.
+
     >>> try:
     ...     int_or_none_to_str(False)
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of int but is bool, namely 'False'.
+
     >>> print(int_or_none_to_str(-10))
     -10
+
     >>> try:
     ...     int_or_none_to_str(1.0)
     ... except TypeError as te:
@@ -330,21 +352,25 @@ def __str_to_num_or_none(value: str | None,
     inf
     >>> __str_to_num_or_none("  -inf  ", False)
     -inf
+
     >>> try:
     ...     __str_to_num_or_none(21, False)
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
     >>> try:
     ...     __str_to_num_or_none("nan", False)
     ... except ValueError as ve:
     ...     print(ve)
     NaN is not permitted, but got 'nan'.
+
     >>> try:
     ...     __str_to_num_or_none("12-3", False)
     ... except ValueError as ve:
     ...     print(ve)
     Invalid numerical value '12-3'.
+
     >>> __str_to_num_or_none("1e34423", False)
     inf
     >>> __str_to_num_or_none("-1e34423", False)
@@ -353,36 +379,43 @@ def __str_to_num_or_none(value: str | None,
     0
     >>> __str_to_num_or_none("1e-34423", False)
     0
+
     >>> try:
     ...     __str_to_num_or_none("-1e-34e4423", False)
     ... except ValueError as ve:
     ...     print(ve)
     Invalid numerical value '-1e-34e4423'.
+
     >>> try:
     ...     __str_to_num_or_none("T", False)
     ... except ValueError as ve:
     ...     print(ve)
     Invalid numerical value 'T'.
+
     >>> try:
     ...     __str_to_num_or_none("F", False)
     ... except ValueError as ve:
     ...     print(ve)
     Invalid numerical value 'F'.
+
     >>> try:
     ...     __str_to_num_or_none(None, False)
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object
+
     >>> try:
     ...     __str_to_num_or_none(" ", False)
     ... except ValueError as ve:
     ...     print(ve)
     Value ' ' becomes empty after stripping, cannot be converted to a number.
+
     >>> try:
     ...     __str_to_num_or_none("", False)
     ... except ValueError as ve:
     ...     print(ve)
     Value '' becomes empty after stripping, cannot be converted to a number.
+
     >>> print(__str_to_num_or_none(" ", True))
     None
     >>> print(__str_to_num_or_none("", True))

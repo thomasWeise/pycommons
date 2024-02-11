@@ -28,6 +28,7 @@ def make_argparser(file: str, description: str, epilog: str) -> ArgumentParser:
     ...                     "This is a test.")
     >>> isinstance(ap, ArgumentParser)
     True
+
     >>> from contextlib import redirect_stdout
     >>> from io import StringIO
     >>> s = StringIO()
@@ -36,6 +37,7 @@ def make_argparser(file: str, description: str, epilog: str) -> ArgumentParser:
     >>> print(s.getvalue())
     usage: python3 -m pycommons.io.arguments [-h]
     <BLANKLINE>
+
     >>> s = StringIO()
     >>> with redirect_stdout(s):
     ...     ap.print_help()
@@ -49,6 +51,7 @@ def make_argparser(file: str, description: str, epilog: str) -> ArgumentParser:
     <BLANKLINE>
     This is a test.
     <BLANKLINE>
+
     >>> ap = make_argparser(__file__, "This is a test program.",
     ...     make_epilog("This program computes something",
     ...                 2022, 2023, "Thomas Weise",
@@ -72,41 +75,49 @@ def make_argparser(file: str, description: str, epilog: str) -> ArgumentParser:
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
+
     >>> try:
     ...     make_argparser(None, "", "")
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'NoneType'
+
     >>> try:
     ...     make_argparser("te", "", "")
     ... except ValueError as ve:
     ...     print(ve)
     invalid file='te'.
+
     >>> try:
     ...     make_argparser("test", 1, "")
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
     >>> try:
     ...     make_argparser("Test", None, "")
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object
+
     >>> try:
     ...     make_argparser("Test", "Bla", "")
     ... except ValueError as ve:
     ...     print(ve)
     invalid description='Bla'.
+
     >>> try:
     ...     make_argparser("Test", "This is a long test", 1)
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
     >>> try:
     ...     make_argparser("Test", "This is a long test", None)
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object
+
     >>> try:
     ...     make_argparser("Test", "This is a long test", "epi")
     ... except ValueError as ve:
@@ -131,7 +142,7 @@ def add_version(arguments: ArgumentParser, version: str) -> ArgumentParser:
     """
     Add a version string to the given argument parser.
 
-    :param argparser: the argument parser
+    :param arguments: the argument parser
     :param version: the version string
     :return: the argument parser
 
@@ -146,6 +157,7 @@ def add_version(arguments: ArgumentParser, version: str) -> ArgumentParser:
     >>> print(s.getvalue())
     usage: python3 -m pycommons.io.arguments [-h] [--version]
     <BLANKLINE>
+
     >>> s = StringIO()
     >>> with redirect_stdout(s):
     ...     ap.print_help()
@@ -160,27 +172,32 @@ def add_version(arguments: ArgumentParser, version: str) -> ArgumentParser:
     <BLANKLINE>
     This is a test.
     <BLANKLINE>
+
     >>> try:
     ...     add_version(None, "3.2")
     ... except TypeError as te:
     ...     print(te)
     argparser should be an instance of argparse.ArgumentParser but is None.
+
     >>> try:
     ...     add_version(1, "3.2")
     ... except TypeError as te:
     ...     print(te)
     argparser should be an instance of argparse.ArgumentParser but is \
 int, namely '1'.
+
     >>> try:
     ...     add_version(ap, 1)
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
     >>> try:
     ...     add_version(ap, None)
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object
+
     >>> try:
     ...     add_version(ap, "")
     ... except ValueError as ve:
@@ -224,15 +241,18 @@ def make_epilog(
     ...       "\xa0Version\xa03,\xa029\xa0June\xa02007")
     >>> make_epilog("This is a test.") == ex
     True
+
     >>> make_epilog("This is a test.", 2011, 2030, "Test User",
     ...             "Test License", "http://testurl", "test@test.com")[:50]
     'This is a test.\n\nCopyright\xa0©\xa02011\u20112030,\xa0Test\xa0User,'
+
     >>> ex = (f"This is a test.\n\nCopyright\xa0©\xa02011\u2011{cy},"
     ...        "\xa0Test\xa0User, Test\xa0License, http://testurl, "
     ...        "test@test.com")
     >>> make_epilog("This is a test.", 2011, None, "Test User",
     ...             "Test License", "http://testurl", "test@test.com") == ex
     True
+
     >>> make_epilog("This is a test.", 2011, 2030, "Test User",
     ...             "Test License", "http://testurl", "test@test.com")[50:]
     ' Test\xa0License, http://testurl, test@test.com'
@@ -240,6 +260,7 @@ def make_epilog(
     >>> make_epilog("This is a test.", 2030, 2030, "Test User",
     ...             "Test License", "http://testurl", "test@test.com")[:50]
     'This is a test.\n\nCopyright\xa0©\xa02030,\xa0Test\xa0User, Test'
+
     >>> make_epilog("This is a test.", 2030, 2030, "Test User",
     ...             "Test License", "http://testurl", "test@test.com")[50:]
     '\xa0License, http://testurl, test@test.com'
@@ -247,6 +268,7 @@ def make_epilog(
     >>> make_epilog("This is a test.", None, None, "Test User",
     ...             "Test License", "http://testurl", "test@test.com")[:50]
     'This is a test.\n\nTest\xa0User, Test\xa0License, http://t'
+
     >>> make_epilog("This is a test.", None, None, "Test User",
     ...             "Test License", "http://testurl", "test@test.com")[50:]
     'esturl, test@test.com'
@@ -257,12 +279,14 @@ def make_epilog(
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
     >>> try:
     ...     make_epilog(None, None, None, "Test User",
     ...                 "Test License", "http://testurl", "test@test.com")
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object
+
     >>> try:
     ...     make_epilog("1", None, None, "Test User",
     ...                 "Test License", "http://testurl", "test@test.com")
@@ -276,12 +300,14 @@ def make_epilog(
     ... except TypeError as te:
     ...     print(te)
     copyright_start should be an instance of int but is str, namely 'v'.
+
     >>> try:
     ...     make_epilog("This is a test.", -2, None, "Test User",
     ...                 "Test License", "http://testurl", "test@test.com")
     ... except ValueError as ve:
     ...     print(ve)
     copyright_start=-2 is invalid, must be in 1970..2500.
+
     >>> try:
     ...     make_epilog("This is a test.", 3455334, None, "Test User",
     ...                 "Test License", "http://testurl", "test@test.com")
@@ -295,12 +321,14 @@ def make_epilog(
     ... except TypeError as te:
     ...     print(te)
     copyright_end should be an instance of int but is str, namely 'v'.
+
     >>> try:
     ...     make_epilog("This is a test.", 2002, 12, "Test User",
     ...                 "Test License", "http://testurl", "test@test.com")
     ... except ValueError as ve:
     ...     print(ve)
     copyright_end=12 is invalid, must be in 2002..2500.
+
     >>> try:
     ...     make_epilog("This is a test.", 2023, 3455334, "Test User",
     ...                 "Test License", "http://testurl", "test@test.com")
@@ -314,6 +342,7 @@ def make_epilog(
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
     >>> try:
     ...     make_epilog("This is a test.", None, None, "",
     ...                 "Test License", "http://testurl", "test@test.com")
@@ -327,6 +356,7 @@ def make_epilog(
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
     >>> try:
     ...     make_epilog("This is a test.", None, None, "Tester",
     ...                 "Te", "http://testurl", "test@test.com")
@@ -340,6 +370,7 @@ def make_epilog(
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
     >>> try:
     ...     make_epilog("This is a test.", None, None, "Tester",
     ...                 "GPL", "http", "test@test.com")
@@ -353,6 +384,7 @@ def make_epilog(
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
     >>> try:
     ...     make_epilog("This is a test.", None, None, "Tester",
     ...                 "GPL", "http://www.test.com", "a@b")

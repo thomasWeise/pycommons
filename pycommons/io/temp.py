@@ -155,61 +155,73 @@ class TempFile(Path, AbstractContextManager):
         True
         >>> p.is_file()
         False
+
         >>> try:
         ...     TempFile.create(1)
         ... except TypeError as te:
         ...     print(te)
         descriptor '__len__' requires a 'str' object but received a 'int'
+
         >>> try:
         ...     TempFile.create("")
         ... except ValueError as ve:
         ...     print(ve)
         Path must not be empty.
+
         >>> try:
         ...     TempFile.create(None, 1)
         ... except TypeError as te:
         ...     print(te)
         descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
         >>> try:
         ...     TempFile.create(None, None, 1)
         ... except TypeError as te:
         ...     print(te)
         descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
         >>> try:
         ...     TempFile.create(None, "")
         ... except ValueError as ve:
         ...     print(ve)
         Stripped prefix cannot be empty if specified.
+
         >>> try:
         ...     TempFile.create(None, None, "")
         ... except ValueError as ve:
         ...     print(ve)
         Stripped suffix cannot be empty if specified.
+
         >>> try:
         ...     TempFile.create(None, None, "bla.")
         ... except ValueError as ve:
         ...     print(ve)
         Stripped suffix must not end with '.', but 'bla.' does.
+
         >>> try:
         ...     TempFile.create(None, None, "bl/a")
         ... except ValueError as ve:
         ...     print(ve)
         Suffix must contain neither '/' nor '\', but 'bl/a' does.
+
         >>> try:
         ...     TempFile.create(None, None, "b\\la")
         ... except ValueError as ve:
         ...     print(ve)
         Suffix must contain neither '/' nor '\', but 'b\\la' does.
+
         >>> try:
         ...     TempFile.create(None, "bl/a", None)
         ... except ValueError as ve:
         ...     print(ve)
         Prefix must contain neither '/' nor '\', but 'bl/a' does.
+
         >>> try:
         ...     TempFile.create(None, "b\\la", None)
         ... except ValueError as ve:
         ...     print(ve)
         Prefix must contain neither '/' nor '\', but 'b\\la' does.
+
         >>> from os.path import dirname
         >>> bd = Path.directory(dirname(__file__))
         >>> with TempFile.create(bd) as tf:
@@ -219,6 +231,7 @@ class TempFile(Path, AbstractContextManager):
         True
         >>> p.is_file()
         False
+
         >>> from os.path import basename
         >>> with TempFile.create(None, "pre") as tf:
         ...     "pre" in tf
@@ -230,6 +243,7 @@ class TempFile(Path, AbstractContextManager):
         True
         >>> p.is_file()
         False
+
         >>> with TempFile.create(bd, "pre") as tf:
         ...     "pre" in tf
         ...     bd.contains(tf)
@@ -240,6 +254,7 @@ class TempFile(Path, AbstractContextManager):
         True
         >>> p.is_file()
         False
+
         >>> with TempFile.create(bd, None, "suf") as tf:
         ...     "suf" in tf
         ...     bd.contains(tf)
@@ -250,6 +265,7 @@ class TempFile(Path, AbstractContextManager):
         True
         >>> p.is_file()
         False
+
         >>> with TempFile.create(None, None, "suf") as tf:
         ...     "suf" in tf
         ...     tf.endswith("suf")
@@ -260,6 +276,7 @@ class TempFile(Path, AbstractContextManager):
         False
         >>> p.is_file()
         False
+
         >>> with TempFile.create(None, "pref", "suf") as tf:
         ...     tf.index("pref") < tf.index("suf")
         ...     tf.endswith("suf")
@@ -272,6 +289,7 @@ class TempFile(Path, AbstractContextManager):
         False
         >>> p.is_file()
         False
+
         >>> with TempFile.create(bd, "pref", "suf") as tf:
         ...     tf.index("pref") < tf.index("suf")
         ...     tf.endswith("suf")
