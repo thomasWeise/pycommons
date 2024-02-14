@@ -1,10 +1,13 @@
 """Routines for handling strings."""
 
-from re import MULTILINE, Match, subn
+from re import Match, subn
 from re import compile as _compile
-from typing import Callable, Final, Iterable, Pattern
+from typing import Callable, Final, Iterable, Pattern, cast
 
 from pycommons.types import type_error
+
+#: fast call to :meth:`str.__len__`
+__LEN: Final[Callable[[str], int]] = cast(Callable[[str], int], str.__len__)
 
 
 def replace_str(find: str, replace: str, src: str) -> str:
@@ -76,11 +79,11 @@ def replace_str(find: str, replace: str, src: str) -> str:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
     """
-    new_len: int = str.__len__(src)
+    new_len: int = __LEN(src)
     while True:
         src = src.replace(find, replace)
         old_len: int = new_len
-        new_len = str.__len__(src)
+        new_len = __LEN(src)
         if new_len >= old_len:
             return src
 
@@ -209,7 +212,7 @@ def replace_regex(search: str | Pattern,
     """
     if not isinstance(search, Pattern):
         if isinstance(search, str):
-            search = _compile(search, flags=MULTILINE)
+            search = _compile(search)
         else:
             raise type_error(search, "search", (str, Pattern))
     if not (isinstance(replace, str) or callable(replace)):
@@ -224,71 +227,6 @@ def replace_regex(search: str | Pattern,
     raise ValueError(
         f"Too many replacements, pattern {search!r} probably malformed for "
         f"text {inside!r} and replacement {replace!r}.")
-
-
-#: A regular expression matching all characters that are non-line breaking
-#: white space.
-REGEX_WHITESPACE: Final[Pattern] = _compile(
-    "[\t\u000b\u000c\u0020\u00a0\u1680\u2000\u2001\u2002\u2003\u2004"
-    "\u2005\u2006\u2007\u2008\u2009\u200A\u202f\u205f\u3000]")
-
-#: A regular expression matching all characters that are non-line breaking
-#: white space.
-REGEX_NEWLINE: Final[Pattern] = _compile(
-    "(?:\n\r|\r\n|[\n\r\u0085\u2028\u2029])")
-
-#: A regular expression matching any white space or newline character.
-REGEX_WHITESPACE_OR_NEWLINE: Final[Pattern] = \
-    _compile(f"{REGEX_NEWLINE.pattern[:-2]}{REGEX_WHITESPACE.pattern[1:]})")
-
-
-#: a pattern used to clean up training white space
-__PATTERN_TRAILING_WHITESPACE: Final[Pattern] = \
-    _compile(f"{REGEX_WHITESPACE.pattern}+{REGEX_NEWLINE.pattern}",
-             flags=MULTILINE)
-
-
-def normalize_trailing_space(text: str) -> str:
-    r"""
-    Normalize all trailing white space from in the lines in the given text.
-
-    All white space trailing any line is removed.
-    All white space including newline characters at the end of the text are
-    replaced with a single newline character.
-    If the text is empty, a single newline character is returned.
-
-    :param text: the text
-    :return: the text, minus all white space trailing any *line*
-    :raises TypeError: if `text` is not an instance of `str`
-
-    >>> normalize_trailing_space("a")
-    'a\n'
-    >>> normalize_trailing_space("a ")
-    'a\n'
-    >>> normalize_trailing_space("a \n\n \n ")
-    'a\n'
-    >>> normalize_trailing_space("")
-    '\n'
-    >>> normalize_trailing_space("  a \n\t\n\t \n \t\t\nb  \n\t \n\n")
-    '  a\n\n\n\nb\n'
-
-    >>> try:
-    ...     normalize_trailing_space(None)
-    ... except TypeError as te:
-    ...     print(te)
-    descriptor '__len__' requires a 'str' object but received a 'NoneType'
-
-    >>> try:
-    ...     normalize_trailing_space(1)
-    ... except TypeError as te:
-    ...     print(te)
-    descriptor '__len__' requires a 'str' object but received a 'int'
-    """
-    if str.__len__(text) == 0:
-        return "\n"
-    text = str.rstrip(replace_regex(
-        __PATTERN_TRAILING_WHITESPACE, "\n", text))
-    return text + "\n"
 
 
 def get_prefix_str(strings: str | Iterable[str]) -> str:
@@ -358,7 +296,7 @@ def get_prefix_str(strings: str | Iterable[str]) -> str:
     prefix: str | None = None
     prefix_len: int = -1
     for current in strings:  # iterate over all strings
-        current_len: int = str.__len__(current)
+        current_len: int = __LEN(current)
         if prefix is None:  # no prefix set yet
             prefix = current
             prefix_len = current_len
@@ -370,182 +308,3 @@ def get_prefix_str(strings: str | Iterable[str]) -> str:
         if prefix_len == 0:
             return ""
     return "" if prefix is None else prefix[0:prefix_len]
-
-
-def split_str(text: str, sep: str = "\n") -> Iterable[str]:
-    r"""
-    Convert a string to an iterable of strings by splitting it.
-
-    All the lines in `text` are rstripped, meaning that all trailing white
-    space is removed from them. Leading white space is not removed.
-
-    :param text: the original text string
-    :param sep: the separator, by default the newline character
-    :return: the lines
-    :raises TypeError: if `text` or `sep` are not strings
-    :raises ValueError: if `sep` is the empty string
-
-    >>> list(split_str("x"))
-    ['x']
-    >>> list(split_str("x\ny"))
-    ['x', 'y']
-    >>> list(split_str("x  \ny  "))
-    ['x', 'y']
-    >>> list(split_str(" x  \ny  "))
-    [' x', 'y']
-    >>> list(split_str("\n123\n  456\n789 \n 10\n\n"))
-    ['', '123', '  456', '789', ' 10', '', '']
-    >>> list(split_str(""))
-    ['']
-
-    >>> list(split_str("x", "a"))
-    ['x']
-    >>> list(split_str("xay", "a"))
-    ['x', 'y']
-    >>> list(split_str("x  ay  ", "a"))
-    ['x', 'y']
-    >>> list(split_str(" x  ay  ", "a"))
-    [' x', 'y']
-    >>> list(split_str("a123a  456a789 a 10aa", "a"))
-    ['', '123', '  456', '789', ' 10', '', '']
-    >>> list(split_str(""))
-    ['']
-
-    >>> try:
-    ...     split_str(1)
-    ... except TypeError as te:
-    ...     print(te)
-    descriptor '__len__' requires a 'str' object but received a 'int'
-
-    >>> try:
-    ...     split_str(None)
-    ... except TypeError as te:
-    ...     print(te)
-    descriptor '__len__' requires a 'str' object but received a 'NoneType'
-
-    >>> try:
-    ...     split_str("xax", 1)
-    ... except TypeError as te:
-    ...     print(te)
-    descriptor '__len__' requires a 'str' object but received a 'int'
-
-    >>> try:
-    ...     split_str("xax", None)
-    ... except TypeError as te:
-    ...     print(te)
-    descriptor '__len__' requires a 'str' object but received a 'NoneType'
-
-    >>> try:
-    ...     split_str("xax", "")
-    ... except ValueError as ve:
-    ...     print(ve)
-    Invalid separator string '' for text 'xax'.
-    """
-    if str.__len__(text) <= 0:
-        return ("", )
-    if str.__len__(sep) <= 0:
-        raise ValueError(
-            f"Invalid separator string {sep!r} for text {text!r}.")
-    return map(str.rstrip, text.split(sep))
-
-
-def join_str(lines: Iterable[str],
-             trailing_sep: bool = True,
-             sep: str = "\n") -> str:
-    r"""
-    Convert an iterable of strings to a single string joined by a separator.
-
-    All the strings in `lines` are right-stripped of trailing white space.
-    They are then concatenated with the separator `sep`, which, by default, is
-    the newline character `'\n'`.
-    The result is again right-stripped of trailing white space.
-    If `trailing_sep` is `True`, then, finally `sep` is appended.
-
-    :param lines: the lines
-    :param trailing_sep: should there be a separator appended at the end?
-    :param sep: the separator string to be used, by default the newline
-        character.
-    :return: the single string
-    :raises TypeError: if either `lines`, `sep`, or `trailing_sep` are of the
-        wrong type or if `lines` contains any non-string
-
-    >>> join_str(["a", "b", "", "c", ""])
-    'a\nb\n\nc\n'
-    >>> join_str(["a", "b", "", "c"])
-    'a\nb\n\nc\n'
-    >>> join_str(["a", "b", "", "c"], sep="")
-    'abc'
-
-    >>> join_str(["a", "b", "", "c", ""], trailing_sep=True)
-    'a\nb\n\nc\n'
-    >>> join_str(["a", "b", "", "c"], trailing_sep=True)
-    'a\nb\n\nc\n'
-    >>> join_str(("a", "b", "", "c"), trailing_sep=False)
-    'a\nb\n\nc'
-    >>> join_str(["a", "b", "", "c", ""], trailing_sep=False)
-    'a\nb\n\nc'
-    >>> join_str(("a  ", "b", " ", "c ", ""), trailing_sep=False)
-    'a\nb\n\nc'
-
-    >>> join_str(["a", "b", "", "c", ""], sep="y", trailing_sep=True)
-    'aybyycy'
-    >>> join_str(["a", "b", "", "c"], sep="y", trailing_sep=True)
-    'aybyycy'
-    >>> join_str(("a", "b", "", "c"), sep="y", trailing_sep=False)
-    'aybyyc'
-    >>> join_str(["a", "b", "", "c", ""], sep="y", trailing_sep=False)
-    'aybyyc'
-    >>> join_str(("a  ", "b", " ", "c ", ""), sep="y", trailing_sep=False)
-    'aybyyc'
-
-    >>> try:
-    ...     join_str(None)
-    ... except TypeError as te:
-    ...     print(te)
-    lines should be an instance of typing.Iterable but is None.
-
-    >>> try:
-    ...     join_str(1)
-    ... except TypeError as te:
-    ...     print(te)
-    lines should be an instance of typing.Iterable but is int, namely '1'.
-
-    >>> try:
-    ...     join_str(["x", "y"], sep=None)
-    ... except TypeError as te:
-    ...     print(te)
-    sep should be an instance of str but is None.
-
-    >>> try:
-    ...     join_str(["x", "y"], sep=1)
-    ... except TypeError as te:
-    ...     print(te)
-    sep should be an instance of str but is int, namely '1'.
-
-    >>> try:
-    ...     join_str(("", "123", True))
-    ... except TypeError as te:
-    ...     print(te)
-    descriptor 'rstrip' for 'str' objects doesn't apply to a 'bool' object
-
-    >>> try:
-    ...     join_str(("", "123", "x"), 1)
-    ... except TypeError as te:
-    ...     print(te)
-    trailing_sep should be an instance of bool but is int, namely '1'.
-    """
-    if not isinstance(lines, Iterable):
-        raise type_error(lines, "lines", Iterable)
-    if not isinstance(trailing_sep, bool):
-        raise type_error(trailing_sep, "trailing_sep", bool)
-    if not isinstance(sep, str):
-        raise type_error(sep, "sep", str)
-    use: Final[list[str]] = [str.rstrip(ll) for ll in lines]
-    for i in range(list.__len__(use) - 1, -1, -1):
-        if str.__len__(use[i]) <= 0:
-            del use[i]
-            continue
-        break
-    if trailing_sep:
-        use.append("")
-    return sep.join(use)

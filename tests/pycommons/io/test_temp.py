@@ -2,73 +2,73 @@
 from os.path import basename, dirname, exists, getsize, isdir, isfile, join
 
 from pycommons.io.path import Path
-from pycommons.io.temp import TempDir, TempFile
+from pycommons.io.temp import temp_dir, temp_file
 
 
 def test_temp_file() -> None:
     """Test the creation and deletion of temporary files."""
-    with TempFile.create() as path:
-        assert isinstance(path, str)
-        assert len(path) > 0
-        assert isfile(path)
-        assert exists(path)
-    assert not isfile(path)
-    assert not exists(path)
+    with temp_file() as pathstr:
+        assert isinstance(pathstr, str)
+        assert len(pathstr) > 0
+        assert isfile(pathstr)
+        assert exists(pathstr)
+    assert not isfile(pathstr)
+    assert not exists(pathstr)
 
-    with TempFile.create(prefix="aaaa", suffix=".xxx") as path:
-        assert isinstance(path, str)
-        assert len(path) > 0
-        assert isfile(path)
-        assert exists(path)
-        bn = basename(path)
+    with temp_file(prefix="aaaa", suffix=".xxx") as pathstr:
+        assert isinstance(pathstr, str)
+        assert len(pathstr) > 0
+        assert isfile(pathstr)
+        assert exists(pathstr)
+        bn = basename(pathstr)
         assert bn.startswith("aaaa")
         assert bn.endswith(".xxx")
-    assert not isfile(path)
-    assert not exists(path)
+    assert not isfile(pathstr)
+    assert not exists(pathstr)
 
 
 def test_temp_dir() -> None:
     """Test the creation and deletion of temporary directories."""
-    with TempDir.create() as path:
-        assert isinstance(path, str)
-        assert len(path) > 0
-        assert isdir(path)
-        assert exists(path)
-    assert not isdir(path)
-    assert not exists(path)
+    with temp_dir() as pathstr:
+        assert isinstance(pathstr, str)
+        assert len(pathstr) > 0
+        assert isdir(pathstr)
+        assert exists(pathstr)
+    assert not isdir(pathstr)
+    assert not exists(pathstr)
 
-    with TempDir.create() as path:
-        assert isinstance(path, str)
-        assert len(path) > 0
-        assert isdir(path)
-        assert exists(path)
-        with TempFile.create(path) as path2:
+    with temp_dir() as pathstr:
+        assert isinstance(pathstr, str)
+        assert len(pathstr) > 0
+        assert isdir(pathstr)
+        assert exists(pathstr)
+        with temp_file(pathstr) as path2:
             assert isinstance(path2, str)
-            assert dirname(path2) == path
+            assert dirname(path2) == pathstr
             assert len(path2) > 0
             assert isfile(path2)
             assert exists(path2)
-        with TempFile.create(path) as path2:
+        with temp_file(pathstr) as path2:
             assert isinstance(path2, str)
-            assert dirname(path2) == path
+            assert dirname(path2) == pathstr
             assert len(path2) > 0
             assert isfile(path2)
             assert exists(path2)
-        inner = join(path, "xx.y")
+        inner = join(pathstr, "xx.y")
         with open(inner, "w") as _:
             pass
         assert isfile(inner)
         assert exists(inner)
-    assert not isdir(path)
-    assert not exists(path)
+    assert not isdir(pathstr)
+    assert not exists(pathstr)
     assert not exists(path2)
     assert not exists(inner)
 
 
 def test_file_write() -> None:
     """Test creation the writing into a file."""
-    with TempDir.create() as tds:
-        s = Path.path(join(tds, "a.txt"))
+    with temp_dir() as tds:
+        s = Path(join(tds, "a.txt"))
         assert isinstance(s, str)
         assert len(s) > 0
         assert s.startswith(tds)
@@ -82,8 +82,8 @@ def test_file_write() -> None:
 
 def test_file_ensure_exists() -> None:
     """Test ensuring that a file exists."""
-    with TempDir.create() as tds:
-        s = Path.path(join(tds, "a.txt"))
+    with temp_dir() as tds:
+        s = Path(join(tds, "a.txt"))
         assert isinstance(s, str)
         assert len(s) > 0
         assert s.startswith(tds)

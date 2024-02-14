@@ -1,11 +1,10 @@
 """Some string splitting and processing routines."""
 
-from re import Match, search
 from typing import (
     Any,
 )
 
-from pycommons.strings.tools import REGEX_WHITESPACE_OR_NEWLINE
+from pycommons.strings.chars import WHITESPACE_OR_NEWLINE
 from pycommons.types import type_error
 
 
@@ -93,13 +92,13 @@ def enforce_non_empty_str_without_ws(value: Any) -> str:
     ...     enforce_non_empty_str_without_ws(" 1 1 ")
     ... except ValueError as ve:
     ...     print(ve)
-    No white space allowed in string, but got ' 1 1 ' which contains ' '.
+    No white space allowed in string, but got ' 1 1 '.
 
     >>> try:
     ...     enforce_non_empty_str_without_ws("a\tb")
     ... except ValueError as ve:
     ...     print(ve)
-    No white space allowed in string, but got 'a\tb' which contains '\t'.
+    No white space allowed in string, but got 'a\tb'.
 
     >>> try:
     ...     enforce_non_empty_str_without_ws("")
@@ -121,9 +120,7 @@ def enforce_non_empty_str_without_ws(value: Any) -> str:
     """
     if str.__len__(value) == 0:
         raise ValueError(f"Non-empty str expected, but got {value!r}.")
-    the_match: Match | None = search(REGEX_WHITESPACE_OR_NEWLINE, value)
-    if the_match is not None:
+    if any(map(value.__contains__, WHITESPACE_OR_NEWLINE)):
         raise ValueError(
-            f"No white space allowed in string, but got {value!r} which "
-            f"contains {the_match.group()!r}.")
+            f"No white space allowed in string, but got {value!r}.")
     return value

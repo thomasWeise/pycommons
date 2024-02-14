@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Final
 
 from pycommons.processes.python import python_command
-from pycommons.strings import NBDASH, NBSP
+from pycommons.strings.chars import NBDASH, NBSP
 from pycommons.types import check_int_range, type_error
 
 #: The default argument parser for latexgit executables.

@@ -5,25 +5,25 @@ from typing import cast
 # noinspection PyPackageRequirements
 import pytest
 
-from pycommons.io.path import Path
-from pycommons.io.temp import TempDir, TempFile
+from pycommons.io.path import Path, directory_path, file_path
+from pycommons.io.temp import temp_dir, temp_file
 
 
 def test_path_creation() -> None:
     """Test that path creation fails with wrong time."""
     with pytest.raises(TypeError):
-        Path.path(cast(str, 1))
+        Path(cast(str, 1))
     with pytest.raises(TypeError):
-        Path.directory(cast(str, 1))
+        directory_path(cast(str, 1))
     with pytest.raises(TypeError):
-        Path.file(cast(str, 1))
+        file_path(cast(str, 1))
     with pytest.raises(ValueError):
-        Path.path("")
+        Path("")
 
 
 def test_write_all_read_all_and_enforce_exists() -> None:
     """Test writing and reading text as well as enforcing existence."""
-    with TempFile.create() as tf:
+    with temp_file() as tf:
         with pytest.raises(ValueError):
             tf.write_all_str("")
         tf.write_all_str(" ")
@@ -45,7 +45,7 @@ def test_write_all_read_all_and_enforce_exists() -> None:
 
 def test_enforce_exists() -> None:
     """Test writing and reading text as well as enforcing existence."""
-    with TempFile.create() as tf:
+    with temp_file() as tf:
         tf.enforce_file()
         tf.ensure_file_exists()
 
@@ -55,7 +55,7 @@ def test_enforce_exists() -> None:
             tf.ensure_dir_exists()
     del tf
 
-    with TempDir.create() as td:
+    with temp_dir() as td:
         td.enforce_dir()
         td.ensure_dir_exists()
 
@@ -73,7 +73,7 @@ def test_enforce_exists() -> None:
 
 def test_enforce_contains_and_empty_readall() -> None:
     """Test that enforce_contains works."""
-    with TempDir.create() as td1:
+    with temp_dir() as td1:
 
         assert os.path.exists(td1)
         assert os.path.isdir(td1)
@@ -88,7 +88,7 @@ def test_enforce_contains_and_empty_readall() -> None:
         with pytest.raises(ValueError):
             td1.resolve_inside("")
 
-        with TempFile.create() as tf1:
+        with temp_file() as tf1:
             assert os.path.exists(tf1)
             assert os.path.isfile(tf1)
             tf1.enforce_file()
@@ -101,7 +101,7 @@ def test_enforce_contains_and_empty_readall() -> None:
             with pytest.raises(ValueError):
                 tf1.read_all_str()
 
-        with TempFile.create(directory=td1) as tf2:
+        with temp_file(directory=td1) as tf2:
             assert os.path.exists(tf2)
             assert os.path.isfile(tf2)
             assert td1.contains(tf2)
@@ -110,7 +110,7 @@ def test_enforce_contains_and_empty_readall() -> None:
             with pytest.raises(ValueError):
                 tf2.enforce_contains(td1)
 
-        with TempDir.create(directory=td1) as td2:
+        with temp_dir(directory=td1) as td2:
             assert os.path.exists(td2)
             assert os.path.isdir(td2)
             assert td1.contains(td2)
@@ -118,7 +118,7 @@ def test_enforce_contains_and_empty_readall() -> None:
             assert not td2.contains(td1)
             with pytest.raises(ValueError):
                 td2.enforce_contains(td1)
-            with TempFile.create(directory=td2) as tf3:
+            with temp_file(directory=td2) as tf3:
                 assert os.path.exists(tf3)
                 assert os.path.isfile(tf3)
                 assert td1.contains(tf3)

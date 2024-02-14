@@ -10,16 +10,16 @@ from typing import (
 )
 from urllib.parse import ParseResult, urljoin, urlparse
 
-from pycommons.strings.tools import REGEX_WHITESPACE_OR_NEWLINE
+from pycommons.strings.chars import WHITESPACE_OR_NEWLINE
 from pycommons.types import check_int_range
 
 #: text that is forbidden in a URL
 __URL_FORBIDDEN_1: Final[Pattern] = _compile(
-    REGEX_WHITESPACE_OR_NEWLINE.pattern[:-1]
-    + r"|@.*@|[\\%*?&+\"'=$§!,;|<>[\](){}²³°^]|://.*://)")
+    f"@.*@|[{WHITESPACE_OR_NEWLINE}"
+    r"\\%*?&+\"'=$§!,;|<>\[\](){}²³°^]+|://.*://")
 #: text that is forbidden in a URL
 __URL_FORBIDDEN_2: Final[Pattern] = _compile(
-    __URL_FORBIDDEN_1.pattern[:-1] + r"|\.\.|\/\.+\/|\A\.+\Z)")
+    __URL_FORBIDDEN_1.pattern + r"|\.\.|\/\.+\/|\A\.+\Z")
 
 
 def __check_url_part(part: Any, forbidden: Pattern) -> str:

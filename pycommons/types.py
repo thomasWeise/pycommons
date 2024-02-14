@@ -15,7 +15,7 @@ def type_name(tpe: type | None) -> str:
     'None'
     >>> type_name(int)
     'int'
-    >>> from pycommons.io.path import Path
+    >>> from pycommons.io.path import file_path, Path
     >>> type_name(Path)
     'pycommons.io.path.Path'
     >>> from typing import Callable
@@ -56,10 +56,10 @@ def type_name_of(obj: Any) -> str:
     :param obj: the object
     :returns: the fully-qualified class name of the object
 
-    >>> from pycommons.io.path import Path
+    >>> from pycommons.io.path import Path, file_path
     >>> type_name_of(Path)
     'type'
-    >>> type_name_of(Path.file(__file__))
+    >>> type_name_of(file_path(__file__))
     'pycommons.io.path.Path'
     >>> type_name_of(None)
     'None'

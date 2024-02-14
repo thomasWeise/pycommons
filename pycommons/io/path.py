@@ -17,6 +17,7 @@ path is outside that directory, you get an error raised, for example.
 """
 
 import codecs
+from io import TextIOBase
 from os import O_CREAT, O_EXCL, makedirs
 from os import close as osclose
 from os import open as osopen
@@ -34,24 +35,19 @@ from os.path import (
     relpath,
 )
 from os.path import basename as osbasename
-from typing import Final, Iterator, TextIO, cast
+from typing import Any, Callable, Final, Iterable, TextIO, cast
 
-from pycommons.io.streams import (
-    StrCallCtxMgr,
-    as_input_stream,
-    as_output_stream,
-)
-from pycommons.types import check_int_range
+from pycommons.types import check_int_range, type_error
 
 
-def _canonicalize_path(path: str) -> str:
+def _canonicalize_path(pathstr: str) -> str:
     """
     Check and canonicalize a path.
 
     A canonicalized path does not contain any relative components, is fully
     expanded, and, in case-insensitive file systems, using the normal case.
 
-    :param path: the path
+    :param pathstr: the path
     :return: the canonicalized path
 
     >>> try:
@@ -115,15 +111,15 @@ join(dirname(realpath(getcwd())), "1.txt")
     >>> isabs(_canonicalize_path(".."))
     True
     """
-    if str.__len__(path) <= 0:
+    if str.__len__(pathstr) <= 0:
         raise ValueError("Path must not be empty.")
-    if str.strip(path) != path:
+    if str.strip(pathstr) != pathstr:
         raise ValueError("Path must not start or end with white space, "
-                         f"but {path!r} does.")
-    path = normcase(abspath(realpath(expanduser(expandvars(path)))))
-    if (str.__len__(path) <= 0) or (path in [".", ".."]):
-        raise ValueError(f"Canonicalization cannot yield {path!r}.")
-    return path
+                         f"but {pathstr!r} does.")
+    pathstr = normcase(abspath(realpath(expanduser(expandvars(pathstr)))))
+    if (str.__len__(pathstr) <= 0) or (pathstr in [".", ".."]):
+        raise ValueError(f"Canonicalization cannot yield {pathstr!r}.")
+    return pathstr
 
 
 #: the UTF-8 encoding
@@ -226,7 +222,35 @@ class Path(str):
         True
         >>> isinstance(Path(__file__).strip(), Path)
         False
+
+        >>> isinstance(__file__, Path)
+        False
+        >>> isinstance(Path(__file__), Path)
+        True
+        >>> p = Path(__file__)
+        >>> Path(p) is p
+        True
+
+        >>> try:
+        ...     Path(None)
+        ... except TypeError as te:
+        ...     print(te)
+        descriptor '__len__' requires a 'str' object but received a 'NoneType'
+
+        >>> try:
+        ...     Path(1)
+        ... except TypeError as te:
+        ...     print(te)
+        descriptor '__len__' requires a 'str' object but received a 'int'
+
+        >>> try:
+        ...     Path("")
+        ... except ValueError as ve:
+        ...     print(ve)
+        Path must not be empty.
         """
+        if isinstance(value, Path):
+            return value
         return super().__new__(cls, _canonicalize_path(value))
 
     def is_file(self) -> bool:
@@ -355,7 +379,7 @@ join(dirname(__file__), "b"))
         Path must not be empty.
         """
         return self.is_dir() and (
-            commonpath([self]) == commonpath([self, Path.path(other)]))
+            commonpath([self]) == commonpath([self, Path(other)]))
 
     def enforce_contains(self, other: str) -> None:
         """
@@ -464,7 +488,7 @@ dirname(__file__)))
         if str.strip(relative_path) != relative_path:
             raise ValueError("Relative path must not start or end with white "
                              f"space, but {relative_path!r} does.")
-        opath: Final[Path] = Path.path(join(self, relative_path))
+        opath: Final[Path] = Path(join(self, relative_path))
         self.enforce_contains(opath)
         return opath
 
@@ -486,14 +510,14 @@ dirname(__file__)))
 
         >>> from os.path import dirname
         >>> try:
-        ...     Path.path(dirname(__file__)).ensure_file_exists()
+        ...     Path(dirname(__file__)).ensure_file_exists()
         ...     print("??")
         ... except ValueError as ve:
         ...     print("does not identify a file." in str(ve))
         True
 
         >>> try:
-        ...     Path.path(join(join(dirname(__file__), "a"), "b"))\
+        ...     Path(join(join(dirname(__file__), "a"), "b"))\
 .ensure_file_exists()
         ...     print("??")
         ... except ValueError as ve:
@@ -563,7 +587,7 @@ dirname(__file__)))
                 f"Error when trying to create directory {self!r}.") from err
         self.enforce_dir()
 
-    def __open_for_read(self) -> TextIO:
+    def open_for_read(self) -> TextIO:
         r"""
         Open this file for reading text.
 
@@ -574,7 +598,7 @@ dirname(__file__)))
         :return: the file open for reading
         :raises ValueError: if the path does not identify a file
 
-        >>> with Path(__file__)._Path__open_for_read() as rd:
+        >>> with Path(__file__).open_for_read() as rd:
         ...     print(f"{len(rd.readline())}")
         ...     print(f"{rd.readline()!r}")
         4
@@ -582,7 +606,7 @@ dirname(__file__)))
 
         >>> from os.path import dirname
         >>> try:
-        ...     with Path(dirname(__file__))._Path__open_for_read():
+        ...     with Path(dirname(__file__)).open_for_read():
         ...         pass
         ... except ValueError as ve:
         ...     print(str(ve)[-25:])
@@ -591,37 +615,6 @@ dirname(__file__)))
         self.enforce_file()
         return open(  # noqa: SIM115
             self, encoding=_get_text_encoding(self), errors="strict")
-
-    def open_for_read(self) -> Iterator[str]:
-        r"""
-        Open this file for reading text.
-
-        The resulting text stream will automatically use the right encoding
-        and take any encoding error serious. If the path does not identify an
-        existing file, an exception is thrown. The text stream is returned in
-        form of an `Iterator` of strings. To each line returned by this
-        iterator, :meth:`str.rstrip` is applied. The underlying stream is
-        closed once the iteration is finished or the iterator leaves the scope.
-
-        :return: the file open for reading
-        :raises ValueError: if the path does not identify a file
-
-        >>> siter = Path(__file__).open_for_read()
-        >>> print(f"{len(next(siter))}")
-        3
-        >>> next(siter)
-        'The class `Path` for handling paths to files and directories.'
-        >>> del siter
-
-        >>> from os.path import dirname
-        >>> try:
-        ...     for s in Path(dirname(__file__)).open_for_read():
-        ...         pass
-        ... except ValueError as ve:
-        ...     print(str(ve)[-25:])
-        does not identify a file.
-        """
-        return as_input_stream(self.__open_for_read())
 
     def read_all_str(self) -> str:
         r"""
@@ -664,13 +657,13 @@ dirname(__file__)))
         'aa\n bb   '
         >>> osremovex(p)
         """
-        with self.__open_for_read() as reader:
+        with self.open_for_read() as reader:
             res: Final[str] = reader.read()
         if str.__len__(res) <= 0:
             raise ValueError(f"File {self!r} contains no text.")
         return res
 
-    def __open_for_write(self) -> TextIO:
+    def open_for_write(self) -> TextIO:
         """
         Open the file for writing UTF-8 encoded text.
 
@@ -684,45 +677,11 @@ dirname(__file__)))
         >>> from os import remove as osremovex
         >>> h, p = mkstemp(text=True)
         >>> osclose(h)
-        >>> with Path(p)._Path__open_for_write() as wd:
+        >>> with Path(p).open_for_write() as wd:
         ...     wd.write("1234")
         4
         >>> Path(p).read_all_str()
         '1234'
-        >>> osremovex(p)
-
-        >>> from os.path import dirname
-        >>> try:
-        ...     with Path(dirname(__file__))._Path__open_for_write() as wd:
-        ...         pass
-        ... except ValueError as ve:
-        ...     print("does not identify a file." in str(ve))
-        True
-        """
-        self.ensure_file_exists()
-        return open(  # noqa: SIM115
-            self, mode="w", encoding="utf-8", errors="strict")
-
-    def open_for_write(self) -> StrCallCtxMgr:
-        r"""
-        Open the file for writing UTF-8 encoded text.
-
-        If the path cannot be opened for writing, some error will be raised.
-
-        :return: a function which accepts line strings (no `\n` termination is
-            needed). You can pass the text to this function line-by-line. As
-            soon as it leaves the scope, the text stream will be closed.
-        :raises ValueError: if the path does not identify a file or such a
-            file cannot be created
-
-        >>> from tempfile import mkstemp
-        >>> from os import remove as osremovex
-        >>> h, p = mkstemp(text=True)
-        >>> osclose(h)
-        >>> with Path(p).open_for_write() as wd:
-        ...     wd("1234")
-        >>> Path(p).read_all_str()
-        '1234\n'
         >>> osremovex(p)
 
         >>> from os.path import dirname
@@ -733,7 +692,9 @@ dirname(__file__)))
         ...     print("does not identify a file." in str(ve))
         True
         """
-        return as_output_stream(self.__open_for_write())
+        self.ensure_file_exists()
+        return open(  # noqa: SIM115
+            self, mode="w", encoding="utf-8", errors="strict")
 
     def write_all_str(self, contents: str) -> None:
         r"""
@@ -791,7 +752,7 @@ dirname(__file__)))
         """
         if str.__len__(contents) <= 0:
             raise ValueError(f"Cannot write empty content to file {self!r}.")
-        with self.__open_for_write() as writer:
+        with self.open_for_write() as writer:
             writer.write(contents)
             if contents[-1] != "\n":
                 writer.write("\n")
@@ -806,10 +767,10 @@ dirname(__file__)))
             relativization result is otherwise invalid
 
         >>> from os.path import dirname
-        >>> f = Path.file(__file__)
-        >>> d1 = Path.directory(dirname(f))
-        >>> d2 = Path.directory(dirname(d1))
-        >>> d3 = Path.directory(dirname(d2))
+        >>> f = file_path(__file__)
+        >>> d1 = directory_path(dirname(f))
+        >>> d2 = directory_path(dirname(d1))
+        >>> d3 = directory_path(dirname(d2))
         >>> f.relative_to(d1)
         'path.py'
         >>> f.relative_to(d2)
@@ -833,7 +794,7 @@ dirname(__file__)))
         ...     print(str(ve)[-21:])
         pycommons/pycommons'.
         """
-        opath: Final[Path] = Path.path(base_path)
+        opath: Final[Path] = Path(base_path)
         opath.enforce_contains(self)
         rv: Final[str] = relpath(self, opath)
         if (str.__len__(rv) == 0) or (str.strip(rv) is not rv):
@@ -854,7 +815,7 @@ dirname(__file__)))
             and so on.
         :return: the resulting path
 
-        >>> f = Path.file(__file__)
+        >>> f = file_path(__file__)
         >>> print(f.up()[-13:])
         /pycommons/io
         >>> print(f.up(1)[-13:])
@@ -894,7 +855,7 @@ dirname(__file__)))
                 raise ValueError(
                     f"Cannot go up from directory {old!r} anymore when going "
                     f"up for {levels} levels from {self!r}.")
-        return Path.directory(s)
+        return directory_path(s)
 
     def basename(self) -> str:
         """
@@ -902,9 +863,9 @@ dirname(__file__)))
 
         :return: the name of the file or directory
 
-        >>> Path.file(__file__).basename()
+        >>> file_path(__file__).basename()
         'path.py'
-        >>> Path.file(__file__).up(2).basename()
+        >>> file_path(__file__).up(2).basename()
         'pycommons'
 
         >>> try:
@@ -918,89 +879,374 @@ dirname(__file__)))
             raise ValueError(f"Invalid basename {s!r} of path {self!r}.")
         return s
 
-    @staticmethod
-    def path(path: str) -> "Path":
-        """
-        Get a canonical path from a string.
 
-        :param path: the path to canonicalize
-        :return: the `Path` instance
-        :raises TypeError: if `path` is not a string
-        :raises ValueError: if `path` is an empty string
+def file_path(pathstr: str) -> "Path":
+    """
+    Get a path identifying an existing file.
 
-        >>> isinstance(__file__, Path)
-        False
-        >>> isinstance(Path.path(__file__), Path)
-        True
+    This is a shorthand for creating a :class:`~Path` and then invoking
+    :meth:`~Path.enforce_file`.
 
-        >>> try:
-        ...     Path.path(None)
-        ... except TypeError as te:
-        ...     print(te)
-        descriptor '__len__' requires a 'str' object but received a 'NoneType'
+    :param pathstr: the path
+    :return: the file
 
-        >>> try:
-        ...     Path.path(1)
-        ... except TypeError as te:
-        ...     print(te)
-        descriptor '__len__' requires a 'str' object but received a 'int'
+    >>> file_path(__file__)[-20:]
+    'pycommons/io/path.py'
 
-        >>> try:
-        ...     Path.path("")
-        ... except ValueError as ve:
-        ...     print(ve)
-        Path must not be empty.
-        """
-        if isinstance(path, Path):
-            return cast(Path, path)
-        return Path(path)
+    >>> from os.path import dirname
+    >>> try:
+    ...     file_path(dirname(__file__))
+    ... except ValueError as ve:
+    ...     print("does not identify a file." in str(ve))
+    True
+    """
+    fi: Final[Path] = Path(pathstr)
+    fi.enforce_file()
+    return fi
 
-    @staticmethod
-    def file(path: str) -> "Path":
-        """
-        Get a path identifying an existing file.
 
-        This is a shorthand for creating a :class:`~Path` and then invoking
-        :meth:`~enforce_file`.
+def directory_path(pathstr: str) -> "Path":
+    """
+    Get a path identifying an existing directory.
 
-        :param path: the path
-        :return: the file
+    This is a shorthand for creating a :class:`~Path` and then invoking
+    :meth:`~Path.enforce_dir`.
 
-        >>> Path.file(__file__)[-20:]
-        'pycommons/io/path.py'
+    :param pathstr: the path
+    :return: the file
 
-        >>> from os.path import dirname
-        >>> try:
-        ...     Path.file(dirname(__file__))
-        ... except ValueError as ve:
-        ...     print("does not identify a file." in str(ve))
-        True
-        """
-        fi: Final[Path] = Path.path(path)
-        fi.enforce_file()
-        return fi
+    >>> from os.path import dirname
+    >>> directory_path(dirname(__file__))[-12:]
+    'pycommons/io'
 
-    @staticmethod
-    def directory(path: str) -> "Path":
-        """
-        Get a path identifying an existing directory.
+    >>> try:
+    ...     directory_path(__file__)
+    ... except ValueError as ve:
+    ...     print("does not identify a directory." in str(ve))
+    True
+    """
+    fi: Final[Path] = Path(pathstr)
+    fi.enforce_dir()
+    return fi
 
-        This is a shorthand for creating a :class:`~Path` and then invoking
-        :meth:`~enforce_dir`.
 
-        :param path: the path
-        :return: the file
+#: the ends-with check
+__ENDSWITH: Final[Callable[[str, str], bool]] = cast(
+    Callable[[str, str], bool], str.endswith)
 
-        >>> from os.path import dirname
-        >>> Path.directory(dirname(__file__))[-12:]
-        'pycommons/io'
 
-        >>> try:
-        ...     Path.directory(__file__)
-        ... except ValueError as ve:
-        ...     print("does not identify a directory." in str(ve))
-        True
-        """
-        fi: Final[Path] = Path.path(path)
-        fi.enforce_dir()
-        return fi
+def line_writer(output: TextIO | TextIOBase) -> Callable[[str], None]:
+    r"""
+    Create a line-writing :class:`typing.Callable` from an output stream.
+
+    This function takes any string passed to it and writes it to the
+    :class:`typing.TextIO` instance. If the string does not end in `"\n"`,
+    it then writes `"\n"` as well to terminate the line. If something that
+    is not a :class:`str` is passed in, it will throw a :class:`TypeError`.
+
+    Notice that :meth:`~io.TextIOBase.write` and
+    :meth:`~io.IOBase.writelines` of class :class:`io.TextIOBase` do not
+    terminate lines that are written
+    with a `"\n"`. This means that, unless you manually make sure that all
+    lines are terminated by `"\n"`, they get written as a single line instead
+    of multiple lines. To solve this issue conveniently, we provide the
+    functions :func:`line_writer`, which wraps the
+    :meth:`~io.TextIOBase.write` into another function, which automatically
+    terminates all strings passed to it with `"\n"` unless they already end in
+    `"\n"`, and :func:`write_lines`, which iterates over a sequence of strings
+    and writes each of them to a given :class:`typing.TextIO` and automatically
+    adds the `"\n"` terminator to each of them if necessary.
+
+    :param output: the output stream
+    :return: an instance of :class:`typing.Callable` that will write each
+        string it receives as a properly terminated line to the output
+        stream.
+    :raises TypeError: if `output` is not an instance of
+        :class:`io.TextIOBase`.
+
+    >>> from tempfile import mkstemp
+    >>> from os import close as osclose
+    >>> from os import remove as osremove
+    >>> (h, tf) = mkstemp()
+    >>> osclose(h)
+
+    >>> with open(tf, "wt") as out:
+    ...     w = line_writer(out)
+    ...     w("123")
+    >>> with open(tf, "rt") as inp:
+    ...     print(list(inp))
+    ['123\n']
+
+    >>> with open(tf, "wt") as out:
+    ...     w = line_writer(out)
+    ...     w("")
+    >>> with open(tf, "rt") as inp:
+    ...     print(list(inp))
+    ['\n']
+
+    >>> with open(tf, "wt") as out:
+    ...     w = line_writer(out)
+    ...     w("123\n")
+    >>> with open(tf, "rt") as inp:
+    ...     print(list(inp))
+    ['123\n']
+
+    >>> with open(tf, "wt") as out:
+    ...     w = line_writer(out)
+    ...     w("\n")
+    >>> with open(tf, "rt") as inp:
+    ...     print(list(inp))
+    ['\n']
+
+    >>> with open(tf, "wt") as out:
+    ...     w = line_writer(out)
+    ...     w("123")
+    ...     w("456")
+    >>> with open(tf, "rt") as inp:
+    ...     print(list(inp))
+    ['123\n', '456\n']
+
+    >>> with open(tf, "wt") as out:
+    ...     w = line_writer(out)
+    ...     w("123  ")
+    ...     w("")
+    ...     w("  456")
+    >>> with open(tf, "rt") as inp:
+    ...     print(list(inp))
+    ['123  \n', '\n', '  456\n']
+
+    >>> with open(tf, "wt") as out:
+    ...     w = line_writer(out)
+    ...     w("123  \n")
+    ...     w("\n")
+    ...     w("  456")
+    >>> with open(tf, "rt") as inp:
+    ...     print(list(inp))
+    ['123  \n', '\n', '  456\n']
+
+    >>> try:
+    ...     with open(tf, "wt") as out:
+    ...         w = line_writer(out)
+    ...         w("123  ")
+    ...         w(None)
+    ... except TypeError as te:
+    ...     print(str(te)[:-10])
+    descriptor 'endswith' for 'str' objects doesn't apply to a 'NoneTy
+
+    >>> try:
+    ...     with open(tf, "wt") as out:
+    ...         w = line_writer(out)
+    ...         w("123  ")
+    ...         w(2)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor 'endswith' for 'str' objects doesn't apply to a 'int' object
+
+    >>> osremove(tf)
+
+    >>> try:
+    ...     line_writer(1)
+    ... except TypeError as te:
+    ...     print(te)
+    output should be an instance of io.TextIOBase but is int, namely '1'.
+
+    >>> try:
+    ...     line_writer(None)
+    ... except TypeError as te:
+    ...     print(te)
+    output should be an instance of io.TextIOBase but is None.
+    """
+    if not isinstance(output, TextIOBase):
+        raise type_error(output, "output", TextIOBase)
+
+    def __call(s: str, __w: Callable[[str], Any] = output.write) -> None:
+        b: Final[bool] = __ENDSWITH(s, "\n")
+        __w(s)
+        if not b:
+            __w("\n")
+
+    return cast(Callable[[str], None], __call)
+
+
+def write_lines(lines: Iterable[str], output: TextIO | TextIOBase) -> None:
+    r"""
+    Write all the lines in the given :class:`typing.Iterable` to the output.
+
+    This function takes care of properly terminating lines using `"\n"` when
+    writing them to an output and also performs type-checking.
+
+    Notice that :meth:`~io.TextIOBase.write` and
+    :meth:`~io.IOBase.writelines` of class :class:`io.TextIOBase` do not
+    terminate lines that are written
+    with a `"\n"`. This means that, unless you manually make sure that all
+    lines are terminated by `"\n"`, they get written as a single line instead
+    of multiple lines. To solve this issue conveniently, we provide the
+    functions :func:`line_writer`, which wraps the
+    :meth:`~io.TextIOBase.write` into another function, which automatically
+    terminates all strings passed to it with `"\n"` unless they already end in
+    `"\n"`, and :func:`write_lines`, which iterates over a sequence of strings
+    and writes each of them to a given :class:`typing.TextIO` and automatically
+    adds the `"\n"` terminator to each of them if necessary.
+
+    :param lines: the lines
+    :param output: the output
+    :raises TypeError: If anything is of the wrong type.
+
+    >>> from io import StringIO
+
+    >>> with StringIO() as sio:
+    ...     write_lines(("123", "456"), sio)
+    ...     print(sio.getvalue())
+    123
+    456
+    <BLANKLINE>
+
+    >>> from io import StringIO
+    >>> with StringIO() as sio:
+    ...     write_lines(("123\n", "456"), sio)
+    ...     print(sio.getvalue())
+    123
+    456
+    <BLANKLINE>
+
+    >>> from io import StringIO
+    >>> with StringIO() as sio:
+    ...     write_lines(("123\n", "456\n"), sio)
+    ...     print(sio.getvalue())
+    123
+    456
+    <BLANKLINE>
+
+    >>> with StringIO() as sio:
+    ...     write_lines(["123"], sio)
+    ...     print(sio.getvalue())
+    123
+    <BLANKLINE>
+
+    >>> with StringIO() as sio:
+    ...     write_lines(["123\n"], sio)
+    ...     print(sio.getvalue())
+    123
+    <BLANKLINE>
+
+    >>> with StringIO() as sio:
+    ...     write_lines("123", sio)
+    ...     print(sio.getvalue())
+    1
+    2
+    3
+    <BLANKLINE>
+
+    >>> with StringIO() as sio:
+    ...     write_lines((sss for sss in ["123", "abc"]), sio)
+    ...     print(sio.getvalue())
+    123
+    abc
+    <BLANKLINE>
+
+    >>> with StringIO() as sio:
+    ...     write_lines("", sio)
+    ...     print(sio.getvalue())
+    <BLANKLINE>
+
+    >>> from tempfile import mkstemp
+    >>> from os import close as osclose
+    >>> from os import remove as osremove
+    >>> (h, tf) = mkstemp()
+    >>> osclose(h)
+
+    >>> with open(tf, "wt") as out:
+    ...     write_lines(["123"], out)
+    >>> with open(tf, "rt") as inp:
+    ...     print(list(inp))
+    ['123\n']
+
+    >>> with open(tf, "wt") as out:
+    ...     write_lines([""], out)
+    >>> with open(tf, "rt") as inp:
+    ...     print(repr(inp.read()))
+    '\n'
+
+    >>> with open(tf, "wt") as out:
+    ...     write_lines(["\n"], out)
+    >>> with open(tf, "rt") as inp:
+    ...     print(repr(inp.read()))
+    '\n'
+
+    >>> with open(tf, "wt") as out:
+    ...     write_lines([" \n"], out)
+    >>> with open(tf, "rt") as inp:
+    ...     print(repr(inp.read()))
+    ' \n'
+
+    >>> osremove(tf)
+
+    >>> with StringIO() as sio:
+    ...     write_lines(["\n"], sio)
+    ...     print(repr(sio.getvalue()))
+    '\n'
+
+    >>> with StringIO() as sio:
+    ...     write_lines([""], sio)
+    ...     print(repr(sio.getvalue()))
+    '\n'
+
+    >>> sio = StringIO()
+    >>> try:
+    ...     write_lines(None, sio)
+    ... except TypeError as te:
+    ...     print(te)
+    lines should be an instance of typing.Iterable but is None.
+
+    >>> sio = StringIO()
+    >>> try:
+    ...     write_lines(123, sio)
+    ... except TypeError as te:
+    ...     print(te)
+    lines should be an instance of typing.Iterable but is int, namely '123'.
+
+    >>> sio = StringIO()
+    >>> try:
+    ...     write_lines([1, "sdf"], sio)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor 'endswith' for 'str' objects doesn't apply to a 'int' object
+
+    >>> sio = StringIO()
+    >>> try:
+    ...     write_lines(["sdf", 1], sio)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor 'endswith' for 'str' objects doesn't apply to a 'int' object
+    >>> print(repr(sio.getvalue()))
+    'sdf\n'
+
+    >>> try:
+    ...     write_lines("x", None)
+    ... except TypeError as te:
+    ...     print(te)
+    output should be an instance of io.TextIOBase but is None.
+
+    >>> try:
+    ...     write_lines("x", 1)
+    ... except TypeError as te:
+    ...     print(te)
+    output should be an instance of io.TextIOBase but is int, namely '1'.
+
+    >>> try:
+    ...     write_lines(2, 1)
+    ... except TypeError as te:
+    ...     print(te)
+    lines should be an instance of typing.Iterable but is int, namely '2'.
+    """
+    if not isinstance(lines, Iterable):
+        raise type_error(lines, "lines", Iterable)
+    if not isinstance(output, TextIOBase):
+        raise type_error(output, "output", TextIOBase)
+
+    wd: Final[Callable[[str], Any]] = output.write
+    for line in lines:
+        b: bool = __ENDSWITH(line, "\n")
+        wd(line)
+        if not b:
+            wd("\n")

@@ -21,10 +21,10 @@ import subprocess  # nosec
 import sys
 from typing import Callable, Final, cast
 
-from pycommons.io.path import Path
+from pycommons.io.path import Path, file_path
 
 #: the Python interpreter used to launch this program
-PYTHON_INTERPRETER: Final[Path] = Path.file(sys.executable)
+PYTHON_INTERPRETER: Final[Path] = file_path(sys.executable)
 
 
 def __get_python_interpreter_short() -> str:
@@ -71,7 +71,7 @@ def __get_python_interpreter_short() -> str:
         bn2: Final[str] = bn[:7]
         interp2: Final[str] = os.path.join(inter.up(), bn2)
         if (os.path.exists(interp2) and os.path.isfile(interp2) and (
-                Path.file(interp2) == inter)) or __check_is_python(bn2):
+                file_path(interp2) == inter)) or __check_is_python(bn2):
             return bn2
     return bn
 
@@ -83,7 +83,7 @@ del __get_python_interpreter_short
 
 #: the base paths in which
 __BASE_PATHS: Final[tuple[Path, ...]] = tuple(sorted((p for p in {
-    Path.path(d) for d in sys.path} if p.is_dir()),
+    Path(d) for d in sys.path} if p.is_dir()),
     key=cast(Callable[[Path], int], str.__len__), reverse=True))
 
 
@@ -118,7 +118,7 @@ def python_command(
     True
     >>> osremovex(p)
 
-    >>> h, p = mkstemp(dir=Path.file(__file__).up(), text=True)
+    >>> h, p = mkstemp(dir=file_path(__file__).up(), text=True)
     >>> osclosex(h)
     >>> python_command(p) == [PYTHON_INTERPRETER_SHORT, p]
     True
@@ -126,7 +126,7 @@ def python_command(
     True
     >>> osremovex(p)
 
-    >>> the_pack = Path.file(__file__).up()
+    >>> the_pack = file_path(__file__).up()
     >>> h, p = mkstemp(dir=the_pack,
     ...                suffix=".py", text=True)
     >>> osclosex(h)
@@ -138,7 +138,7 @@ def python_command(
     >>> osremovex(p)
     """
     # first, get the real path to the module
-    module: str = Path.file(file)
+    module: str = file_path(file)
     start: int = 0
     is_module: bool = False  # is this is a module of an installed package?
 

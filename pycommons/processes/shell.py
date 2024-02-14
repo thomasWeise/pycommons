@@ -5,7 +5,7 @@ from os import getcwd
 from typing import Callable, Final, Iterable, Mapping
 
 from pycommons.io.console import logger
-from pycommons.io.path import UTF8, Path
+from pycommons.io.path import UTF8, directory_path
 from pycommons.types import check_int_range, type_error
 
 
@@ -287,7 +287,7 @@ def exec_text_process(
     if (list.__len__(cmd) <= 0) or (str.__len__(execstr) <= 0):
         raise ValueError(f"Invalid command {cmd!r} mapping to {execstr!r}!")
 
-    wd = Path.directory(getcwd() if cwd is None else cwd)
+    wd = directory_path(getcwd() if cwd is None else cwd)
     execstr = f"{execstr} in {wd!r}"
 
     arguments: Final[dict[str, str | list[str] | bool | int]] = {

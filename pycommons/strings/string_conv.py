@@ -2,11 +2,14 @@
 
 from datetime import datetime
 from math import isnan
-from typing import Final
+from typing import Callable, Final, cast
 
 from pycommons.math.int_math import __try_int
-from pycommons.strings import NBDASH, NBSP
+from pycommons.strings.chars import NBDASH, NBSP
 from pycommons.types import type_error
+
+#: fast call to :meth:`str.__len__`
+__LEN: Final[Callable[[str], int]] = cast(Callable[[str], int], str.__len__)
 
 
 def float_to_str(value: float) -> str:
@@ -155,7 +158,7 @@ def str_to_bool(value: str) -> bool:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'NoneType'
     """
-    if str.__len__(value) == 1:
+    if __LEN(value) == 1:
         if value == "T":
             return True
         if value == "F":
@@ -426,7 +429,7 @@ def __str_to_num_or_none(value: str | None,
     if (value is None) and none_is_ok:
         return None
     vv: Final[str] = str.lower(str.strip(value))
-    if str.__len__(vv) <= 0:
+    if __LEN(vv) <= 0:
         if none_is_ok:
             return None
         raise ValueError(f"Value {value!r} becomes empty after stripping, "
