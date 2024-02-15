@@ -49,6 +49,12 @@ def immutable_mapping(a: Mapping[K, V]) -> Mapping[K, V]:
     True
 
     >>> try:
+    ...     y[1] = 2
+    ... except TypeError as te:
+    ...     print(te)
+    'mappingproxy' object does not support item assignment
+
+    >>> try:
     ...     immutable_mapping(5)
     ... except TypeError as e:
     ...     print(e)

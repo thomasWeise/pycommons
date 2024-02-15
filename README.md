@@ -7,6 +7,12 @@
 
 Some common utility functionality for Python projects.
 
+- [Introduction](#1-introduction)
+- [Installation](#2-installation)
+- [Examples](#3-examples)
+- [License](#4-license)
+- [Contact](#5-contact)
+
 
 ## 1. Introduction
 
@@ -51,8 +57,38 @@ If this build completes successful, you can be sure that [`pycommons`](https://t
 All dependencies for using and running `pycommons` are listed at [here](https://thomasweise.github.io/pycommons/requirements.html).
 The additional dependencies for a [full `make` build](https://thomasweise.github.io/pycommons/Makefile.html), including unit tests, static analysis, and the generation of documentation are listed [here](https://thomasweise.github.io/pycommons/requirements-dev.html).
 
+## 3. Examples
 
-## 3. License
+### 3.1. Data Structures
+
+```python
+from pycommons.ds.cache import str_is_new
+
+cache = str_is_new()
+print(cache("1"))
+print(cache("2"))
+print(cache("1"))
+print(cache("3"))
+print(cache("2"))
+```
+
+prints `True`, `True`, `False`, `True`, and `False`.
+
+```python
+from pycommons.ds.immutable_map import immutable_mapping
+
+imap = immutable_mapping({1: 2, 3: 4})
+try:
+    imap[1] = 3
+except TypeError as te:
+    print(te)
+
+print(imap[1])
+```
+
+prints `'mappingproxy' object does not support item assignment` and `2`.
+
+## 4. License
 
 [`pycommons`](https://thomasweise.github.io/pycommons) is a library with utilities for Python projects.
 
@@ -72,7 +108,7 @@ Please visit the [contributions guidelines](https://thomasweise.github.io/pycomm
 If you have any concerns regarding security, please visit our [security policy](https://thomasweise.github.io/pycommons/SECURITY.html).
 
 
-## 4. Contact
+## 5. Contact
 
 If you have any questions or suggestions, please contact
 Prof. Dr. [Thomas Weise](http://iao.hfuu.edu.cn/5) (汤卫思教授) of the 

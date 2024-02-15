@@ -587,7 +587,7 @@ dirname(__file__)))
                 f"Error when trying to create directory {self!r}.") from err
         self.enforce_dir()
 
-    def open_for_read(self) -> TextIO:
+    def open_for_read(self) -> TextIOBase:
         r"""
         Open this file for reading text.
 
@@ -613,8 +613,8 @@ dirname(__file__)))
         does not identify a file.
         """
         self.enforce_file()
-        return open(  # noqa: SIM115
-            self, encoding=_get_text_encoding(self), errors="strict")
+        return cast(TextIOBase, open(  # noqa: SIM115
+            self, encoding=_get_text_encoding(self), errors="strict"))
 
     def read_all_str(self) -> str:
         r"""
@@ -663,7 +663,7 @@ dirname(__file__)))
             raise ValueError(f"File {self!r} contains no text.")
         return res
 
-    def open_for_write(self) -> TextIO:
+    def open_for_write(self) -> TextIOBase:
         """
         Open the file for writing UTF-8 encoded text.
 
@@ -693,8 +693,8 @@ dirname(__file__)))
         True
         """
         self.ensure_file_exists()
-        return open(  # noqa: SIM115
-            self, mode="w", encoding="utf-8", errors="strict")
+        return cast(TextIOBase, open(  # noqa: SIM115
+            self, mode="w", encoding="utf-8", errors="strict"))
 
     def write_all_str(self, contents: str) -> None:
         r"""

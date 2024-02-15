@@ -8,7 +8,7 @@ The *pycommons* Utilities Package.
 .. include:: README.md
    :parser: myst_parser.sphinx_
 
-5. Modules and Code
+6. Modules and Code
 --------------------
 
 .. toctree::
