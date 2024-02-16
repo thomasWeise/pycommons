@@ -62,9 +62,9 @@ test: init
 	export PATH="${PATH}:${PYTHON_PACKAGE_BINARIES}" &&\
 	echo "$(NOW): PATH is now '${PATH}'." &&\
 	echo "$(NOW): Running pytest with doctests." &&\
-	timeout --kill-after=15s 90m coverage run -a --include="pycommons/*" -m pytest --strict-config --doctest-modules --ignore=tests &&\
+	timeout --kill-after=15s 90m coverage run -a --include="pycommons/*" -m pytest --strict-config --doctest-modules --ignore=tests --ignore=examples &&\
 	echo "$(NOW): Running pytest tests." &&\
-	timeout --kill-after=15s 90m coverage run -a --include="pycommons/*" -m pytest --strict-config tests &&\
+	timeout --kill-after=15s 90m coverage run -a --include="pycommons/*" -m pytest --strict-config tests --ignore=examples &&\
 	echo "$(NOW): Finished running pytest tests."
 
 # Perform static code analysis.
@@ -82,6 +82,7 @@ static_analysis: init
 	python3 -m pyflakes . &&\
 	echo "$(NOW): Done with pyflakes, now applying bandit to find security issues." &&\
 	bandit -r pycommons -s B311 &&\
+	bandit -r examples -s B311 &&\
 	bandit -r tests -s B311,B101 &&\
 	echo "$(NOW): Done with bandit, now using pyroma to check setup.py." &&\
 	pyroma . &&\
@@ -91,9 +92,11 @@ static_analysis: init
 	pydocstyle --convention=pep257 &&\
 	echo "$(NOW): Done with pydocstyle, now applying tryceratops." &&\
 	tryceratops -i TRY003 -i TRY101 pycommons &&\
+	tryceratops -i TRY003 -i TRY101 examples &&\
 	tryceratops -i TRY003 -i TRY101 tests &&\
 	echo "$(NOW): Done with tryceratops, now applying unimport." &&\
 	unimport pycommons &&\
+	unimport examples &&\
 	unimport tests &&\
 	echo "$(NOW): Done with unimport, now applying vulture." &&\
 	vulture . --min-confidence 61 &&\
@@ -101,13 +104,16 @@ static_analysis: init
 	dodgy &&\
 	echo "$(NOW): Done with dodgy, now running pycodestyle." &&\
 	pycodestyle pycommons &&\
+	pycodestyle --ignore=E731,W503 examples &&\
 	pycodestyle tests &&\
 	echo "$(NOW): Done with pycodestyle, now running ruff." &&\
 	ruff --target-version py310 --select A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,INP,ISC,N,NPY,PIE,PLC,PLE,PLR,PLW,PT,PYI,Q,RET,RSE,RUF,S,SIM,T,T10,T20,TID,TRY,UP,W,YTT --ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,C901,D203,D208,D212,D401,D407,D413,N801,PLR0911,PLR0912,PLR0913,PLR0915,PLR2004,PYI041,RUF100,TRY003,UP035 --line-length 79 pycommons &&\
+	ruff --target-version py310 --select A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,ISC,N,NPY,PIE,PLC,PLE,PLR,PLW,PT,PYI,Q,RET,RSE,RUF,S,SIM,T10,TID,TRY,UP,W,YTT --ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,C901,D203,D208,D212,D401,D407,D413,N801,PLR0911,PLR0912,PLR0913,PLR0915,PLR2004,PYI041,RUF100,TRY003,UP035 --line-length 79 examples &&\
 	ruff --target-version py310 --select A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,ISC,N,NPY,PIE,PLC,PLE,PLR,PLW,PYI,Q,RET,RSE,RUF,T,SIM,T10,T20,TID,TRY,UP,W,YTT --ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,C901,D203,D208,D212,D401,D407,D413,N801,PLR0911,PLR0912,PLR0913,PLR0915,PLR2004,PYI041,RUF100,TRY003,UP035 --line-length 79 tests &&\
     echo "$(NOW): Done with ruff, now running autoflake." &&\
     autoflake -c -r pycommons &&\
     autoflake -c -r tests &&\
+    autoflake -c -r examples &&\
 	echo "$(NOW): Done: All static checks passed."
 
 # We use sphinx to generate the documentation.
@@ -125,7 +131,17 @@ create_documentation: static_analysis test
 	rm -rf docs/source/*.rst && \
 	rm -rf docs/source/*.md && \
 	mv docs/source/index.tmp docs/source/index.rst && \
-	echo "$(NOW): Now copying LICENSE and other files." &&\
+	echo "$(NOW): Now we pygmentize all the examples in 'examples' to 'build/examples'." &&\
+	mkdir -p docs/build/examples &&\
+	for f in examples/*.py; do \
+		if [ -z "$$f" ]; then \
+			echo "$(NOW): Empty module '$$f'?"; \
+		else \
+			echo "$(NOW): Now pygmentizing example '$$f'." &&\
+			{ pygmentize -f html -l python3 -O full -O style=default -o docs/build/"$${f%.py}.html" "$$f" || exit 1; };\
+		fi \
+	done &&\
+	echo "$(NOW): Finished pygmentizing all examples, now copying LICENSE and other files." &&\
 	pygmentize -f html -l text -O full -O style=default -o docs/build/LICENSE.html LICENSE &&\
 	pygmentize -f html -l text -O full -O style=default -o docs/build/requirements.html requirements.txt &&\
 	pygmentize -f html -l text -O full -O style=default -o docs/build/requirements-dev.html requirements-dev.txt &&\

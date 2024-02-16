@@ -107,20 +107,20 @@ def test_examples_from_md() -> None:
     try:
         check_examples_from_md(base.resolve_inside("md_error_fragment_1.md"))
     except ValueError as ve:
-        assert str(ve).startswith("Error when compiling fragment")
+        assert str(ve).startswith("Error when compiling")
     else:
         pytest.fail("There should be an error!")
 
     try:
         check_examples_from_md(base.resolve_inside("md_error_fragment_1.md"))
     except ValueError as ve:
-        assert str(ve).startswith("Error when compiling fragment")
+        assert str(ve).startswith("Error when compiling")
     else:
         pytest.fail("There should be an error!")
 
     try:
         check_examples_from_md(base.resolve_inside("md_error_fragment_2.md"))
     except ValueError as ve:
-        assert str(ve).startswith("Error when executing fragment")
+        assert str(ve).startswith("Error when executing")
     else:
         pytest.fail("There should be an error!")

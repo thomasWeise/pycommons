@@ -1,4 +1,4 @@
-"""Test the type."""
+"""Test the type utilities."""
 
 from pycommons.io.path import Path
 from pycommons.types import type_name, type_name_of

@@ -18,7 +18,7 @@ path is outside that directory, you get an error raised, for example.
 
 import codecs
 from io import TextIOBase
-from os import O_CREAT, O_EXCL, makedirs
+from os import O_CREAT, O_EXCL, O_TRUNC, makedirs
 from os import close as osclose
 from os import open as osopen
 from os.path import (
@@ -143,10 +143,10 @@ def _get_text_encoding(filename: str) -> str:
     :return: the encoding
 
     >>> from tempfile import mkstemp
-    >>> from os import close as osclose
+    >>> from os import close as osxclose
     >>> from os import remove as osremove
     >>> (h, tf) = mkstemp()
-    >>> osclose(h)
+    >>> osxclose(h)
     >>> with open(tf, "wb") as out:
     ...     out.write(b'\xef\xbb\xbf')
     3
@@ -534,6 +534,63 @@ dirname(__file__)))
                 f"Error when trying to create file {self!r}.") from err
         self.enforce_file()
         return existed
+
+    def create_file_or_truncate(self) -> None:
+        """
+        Create the file identified by this path and truncate it if it exists.
+
+        :raises: ValueError if anything goes wrong during the file creation
+
+        >>> from tempfile import mkstemp
+        >>> from os import close as osxclose
+        >>> from os import remove as osremove
+        >>> (h, tf) = mkstemp()
+        >>> osxclose(h)
+
+        >>> pth = Path(tf)
+        >>> pth.write_all_str("test")
+        >>> print(pth.read_all_str())
+        test
+        <BLANKLINE>
+
+        >>> pth.create_file_or_truncate()
+        >>> pth.is_file()
+        True
+
+        >>> try:
+        ...     pth.read_all_str()
+        ... except ValueError as ve:
+        ...     print(str(ve)[-17:])
+        contains no text.
+
+        >>> osremove(pth)
+        >>> pth.is_file()
+        False
+
+        >>> pth.create_file_or_truncate()
+        >>> pth.is_file()
+        True
+
+        >>> osremove(pth)
+
+        >>> from os import makedirs as osmkdir
+        >>> from os import rmdir as osrmdir
+        >>> osmkdir(pth)
+
+        >>> try:
+        ...     pth.create_file_or_truncate()
+        ... except ValueError as ve:
+        ...     print(str(ve)[:35])
+        Error when truncating/creating file
+
+        >>> osrmdir(pth)
+        """
+        try:
+            osclose(osopen(self, O_CREAT | O_TRUNC))
+        except BaseException as err:
+            raise ValueError(
+                f"Error when truncating/creating file {self!r}.") from err
+        self.enforce_file()
 
     def ensure_dir_exists(self) -> None:
         """
