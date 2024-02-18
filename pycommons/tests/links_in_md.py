@@ -525,11 +525,12 @@ def check_links_in_md(file: str) -> None:
     start = -1
     while True:
         start += 1
-        i = text.find("\n#", start)
+        i = 0 if ((start == 0) and text.startswith("#")) \
+            else text.find("\n#", start)
         if i < start:
             break
         j = text.find(" ", i + 1)
-        if j < i:
+        if (j < i) or (text[j - 1] != "#"):
             raise __ve("Headline without space after # "
                        f"in file {readme!r}", text, i)
         k = text.find("\n", j + 1)
@@ -615,10 +616,11 @@ def check_links_in_md(file: str) -> None:
             continue
         j += 1
         if text[j] != "(":
-            raise __ve(f"Invalid link in file {readme!r}", text, i)
+            raise __ve(f"Invalid [...](...) link in file {readme!r}", text, i)
         k = text.find(")", j + 1)
         if k <= j:
-            raise __ve(f"No closing gap for link in file {readme!r}", text, i)
+            raise __ve("No closing gap for [...](...)"
+                       f" link in file {readme!r}", text, i)
 
         __check_url(text[j + 1:k], valid_urls)
         total_links_checked += 1
