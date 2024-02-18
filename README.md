@@ -1,4 +1,4 @@
-[![make build](https://github.com/thomasWeise/pycommons/actions/workflows/build.yaml/badge.svg)](https://github.com/thomasWeise/pycommons/actions/workflows/build.yaml)
+[![make build](https://github.com/thomasWeise/pycommons/actions/workflows/build.yml/badge.svg)](https://github.com/thomasWeise/pycommons/actions/workflows/build.yml)
 [![pypi version](https://img.shields.io/pypi/v/pycommons)](https://pypi.org/project/pycommons)
 [![pypi downloads](https://img.shields.io/pypi/dw/pycommons.svg)](https://pypistats.org/packages/pycommons)
 [![coverage report](https://thomasweise.github.io/pycommons/tc/badge.svg)](https://thomasweise.github.io/pycommons/tc/index.html)
@@ -51,7 +51,7 @@ This may sometimes work better if you are having trouble reaching GitHub via `ht
 
 You can also clone the repository and then run a [`make` build](https://thomasweise.github.io/pycommons/Makefile.html), which will automatically install all dependencies, run all the tests, and then install the package on your system, too.
 This will work only on Linux, though.
-It also installs the [dependencies for building](https://thomasweise.github.io/pycommons/requirements-dev.html), which include, e.g., those for [unit testing and static analysis](#81-unit-tests-and-static-analysis).
+It also installs the [dependencies for building](https://thomasweise.github.io/pycommons/requirements-dev.html), which include, e.g., those for unit testing and static analysis.
 If this build completes successful, you can be sure that [`pycommons`](https://thomasweise.github.io/pycommons) will work properly on your machine.
 
 All dependencies for using and running `pycommons` are listed at [here](https://thomasweise.github.io/pycommons/requirements.html).
@@ -94,10 +94,10 @@ prints `'mappingproxy' object does not support item assignment` and `2`.
 
 Copyright (C) 2024  [Thomas Weise](http://iao.hfuu.edu.cn/5) (汤卫思教授)
 
-Dr. Thomas Weise (see [Contact](#4-contact)) holds the copyright of this package.
+Dr. Thomas Weise (see [Contact](#5-contact)) holds the copyright of this package.
 
 `pycommons` is provided to the public as open source software under the [GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007](https://thomasweise.github.io/pycommons/LICENSE.html).
-Terms for other licenses, e.g., for specific industrial applications, can be negotiated with Dr. Thomas Weise (who can be reached via the [contact information](#12-contact) below).
+Terms for other licenses, e.g., for specific industrial applications, can be negotiated with Dr. Thomas Weise (who can be reached via the [contact information](#5-contact) below).
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.

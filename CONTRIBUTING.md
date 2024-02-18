@@ -7,13 +7,13 @@ Thank you for supporting the [`pycommons`](https://thomasweise.github.io/pycommo
 ## 1. Contributing
 
 One of the pillars of our project is extensive documentation, the implementation of many style-guides, the use of unit tests, and the use of many static code analysis tools.
-Our [make build](https://thomasweise.github.io/pycommons/Makefile.html) requires the code to pass the checks of more than [20 tools](https://thomasweise.github.io/pycommons/index.html#unit-tests-and-static-analysis).
+Our [make build](https://thomasweise.github.io/pycommons/Makefile.html) requires the code to pass the checks of more than 20 tools.
 This may make it complicated to submit code contributions via git pull requests.
 
 The preferred way to contribute to this project therefore is by opening [issues](https://github.com/thomasWeise/pycommons/issues).
 
 If you nevertheless submit a git pull or otherwise code-based contribution, then it should ideally pass all these checks.
-In other words, the [make build](https://thomasweise.github.io/pycommons/Makefile.html) requires the code to pass the checks of more than [20 tools](https://thomasweise.github.io/pycommons/index.html#unit-tests-and-static-analysis) should succeed on your local system.
+In other words, the [make build](https://thomasweise.github.io/pycommons/Makefile.html) requires the code to pass the checks of more than 20 tools should succeed on your local system.
 
 If that is not possible, you can still submit the pull request or otherwise code-based contribution.
 However, we will then need to invest more work to manually check to see how and whether it can be integrated into our code base.

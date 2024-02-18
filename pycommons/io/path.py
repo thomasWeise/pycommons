@@ -39,89 +39,6 @@ from typing import Any, Callable, Final, Iterable, TextIO, cast
 
 from pycommons.types import check_int_range, type_error
 
-
-def _canonicalize_path(pathstr: str) -> str:
-    """
-    Check and canonicalize a path.
-
-    A canonicalized path does not contain any relative components, is fully
-    expanded, and, in case-insensitive file systems, using the normal case.
-
-    :param pathstr: the path
-    :return: the canonicalized path
-
-    >>> try:
-    ...     _canonicalize_path(1)
-    ... except TypeError as te:
-    ...     print(te)
-    descriptor '__len__' requires a 'str' object but received a 'int'
-
-    >>> try:
-    ...     _canonicalize_path(None)
-    ... except TypeError as te:
-    ...     print(te)
-    descriptor '__len__' requires a 'str' object but received a 'NoneType'
-
-    >>> try:
-    ...     _canonicalize_path("")
-    ... except ValueError as ve:
-    ...     print(ve)
-    Path must not be empty.
-
-    >>> try:
-    ...     _canonicalize_path(" ")
-    ... except ValueError as ve:
-    ...     print(ve)
-    Path must not start or end with white space, but ' ' does.
-
-    >>> from os.path import dirname
-    >>> _canonicalize_path(dirname(realpath(__file__)) + "/..") == \
-dirname(dirname(realpath(__file__)))
-    True
-
-    >>> _canonicalize_path(dirname(realpath(__file__)) + "/.") == \
-dirname(realpath(__file__))
-    True
-
-    >>> _canonicalize_path(__file__) == realpath(__file__)
-    True
-
-    >>> from os import getcwd
-    >>> _canonicalize_path(".") == realpath(getcwd())
-    True
-
-    >>> from os import getcwd
-    >>> _canonicalize_path("..") == dirname(realpath(getcwd()))
-    True
-
-    >>> from os import getcwd
-    >>> _canonicalize_path("../.") == dirname(realpath(getcwd()))
-    True
-
-    >>> from os import getcwd
-    >>> _canonicalize_path("../1.txt") == \
-join(dirname(realpath(getcwd())), "1.txt")
-    True
-
-    >>> from os import getcwd
-    >>> _canonicalize_path("./1.txt") == join(realpath(getcwd()), "1.txt")
-    True
-
-    >>> from os.path import isabs
-    >>> isabs(_canonicalize_path(".."))
-    True
-    """
-    if str.__len__(pathstr) <= 0:
-        raise ValueError("Path must not be empty.")
-    if str.strip(pathstr) != pathstr:
-        raise ValueError("Path must not start or end with white space, "
-                         f"but {pathstr!r} does.")
-    pathstr = normcase(abspath(realpath(expanduser(expandvars(pathstr)))))
-    if (str.__len__(pathstr) <= 0) or (pathstr in [".", ".."]):
-        raise ValueError(f"Canonicalization cannot yield {pathstr!r}.")
-    return pathstr
-
-
 #: the UTF-8 encoding
 UTF8: Final[str] = "utf-8-sig"
 
@@ -204,13 +121,76 @@ class Path(str):
     also an instance of `str`, so it can be used wherever strings are required
     and functions can be designed to accept `str` and receive `Path` instances
     instead.
+
+    >>> try:
+    ...     Path(1)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> try:
+    ...     Path(None)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'NoneType'
+
+    >>> try:
+    ...     Path("")
+    ... except ValueError as ve:
+    ...     print(ve)
+    Path must not be empty.
+
+    >>> try:
+    ...     Path(" ")
+    ... except ValueError as ve:
+    ...     print(ve)
+    Path must not start or end with white space, but ' ' does.
+
+    >>> from os.path import dirname
+    >>> Path(dirname(realpath(__file__)) + '/..') == \
+dirname(dirname(realpath(__file__)))
+    True
+
+    >>> Path(dirname(realpath(__file__)) + "/.") == \
+dirname(realpath(__file__))
+    True
+
+    >>> Path(__file__) == realpath(__file__)
+    True
+
+    >>> from os import getcwd
+    >>> Path(".") == realpath(getcwd())
+    True
+
+    >>> from os import getcwd
+    >>> Path("..") == dirname(realpath(getcwd()))
+    True
+
+    >>> from os import getcwd
+    >>> Path("../.") == dirname(realpath(getcwd()))
+    True
+
+    >>> from os import getcwd
+    >>> Path("../1.txt") == \
+join(dirname(realpath(getcwd())), "1.txt")
+    True
+
+    >>> from os import getcwd
+    >>> Path("./1.txt") == join(realpath(getcwd()), "1.txt")
+    True
+
+    >>> from os.path import isabs
+    >>> isabs(Path(".."))
+    True
     """
 
-    def __new__(cls, value: str):  # noqa
+    def __new__(cls, value: Any):  # noqa
         """
-        Construct the object.
+        Construct the path object by normalizing the path string.
 
         :param value: the string value
+        :raises TypeError: if `value` is not a string
+        :raises ValueError: if `value` is not a proper path
 
         >>> isinstance(Path("."), Path)
         True
@@ -250,8 +230,18 @@ class Path(str):
         Path must not be empty.
         """
         if isinstance(value, Path):
-            return value
-        return super().__new__(cls, _canonicalize_path(value))
+            return cast(Path, value)
+
+        if str.__len__(value) <= 0:
+            raise ValueError("Path must not be empty.")
+        if str.strip(value) != value:
+            raise ValueError("Path must not start or end with white space, "
+                             f"but {value!r} does.")
+        value = normcase(abspath(realpath(expanduser(expandvars(value)))))
+        if (str.__len__(value) <= 0) or (value in [".", ".."]):
+            raise ValueError(f"Canonicalization cannot yield {value!r}.")
+
+        return super().__new__(cls, value)
 
     def is_file(self) -> bool:
         """

@@ -7,7 +7,7 @@ from pycommons.io.path import Path, directory_path, file_path
 from pycommons.tests.compile_and_run import compile_and_run
 
 
-def check_examples_from_md(file: str) -> None:
+def check_examples_in_md(file: str) -> None:
     """
     Test all the example Python codes in a markdown file.
 
@@ -19,7 +19,7 @@ def check_examples_from_md(file: str) -> None:
     >>> from io import StringIO
     >>> with StringIO() as sio:
     ...     with redirect_stdout(sio):
-    ...         check_examples_from_md(file_path(file_path(__file__).up(
+    ...         check_examples_in_md(file_path(file_path(__file__).up(
     ...             3).resolve_inside("README.md")))
     ...     res = sio.getvalue()
     >>> print(res[-12:].strip())
@@ -29,25 +29,25 @@ def check_examples_from_md(file: str) -> None:
     Successfully executed all 2 examples fr
 
     >>> try:
-    ...     check_examples_from_md(1)
+    ...     check_examples_in_md(1)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
 
     >>> try:
-    ...     check_examples_from_md(None)
+    ...     check_examples_in_md(None)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'NoneType'
 
     >>> try:
-    ...     check_examples_from_md("")
+    ...     check_examples_in_md("")
     ... except ValueError as ve:
     ...     print(ve)
     Path must not be empty.
 
     >>> try:
-    ...     check_examples_from_md("/")
+    ...     check_examples_in_md("/")
     ... except ValueError as ve:
     ...     print(ve)
     Path '/' does not identify a file.
