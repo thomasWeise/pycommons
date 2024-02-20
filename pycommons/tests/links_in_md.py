@@ -1,6 +1,6 @@
 """Test all the links in."""
 from os import environ
-from random import choice
+from random import randint
 from time import sleep
 from typing import Final
 
@@ -17,7 +17,7 @@ from pycommons.io.console import logger
 from pycommons.io.path import UTF8, Path, file_path
 from pycommons.net.url import URL
 from pycommons.strings.tools import replace_str
-from pycommons.types import type_error
+from pycommons.types import check_int_range, type_error
 
 #: The hosts that somtimes are unreachable from my local machine.
 #: When the test is executed in a GitHub workflow, all hosts should be
@@ -25,6 +25,13 @@ from pycommons.types import type_error
 __SOMETIMES_UNREACHABLE_HOSTS: Final[set[str]] = \
     set() if "GITHUB_JOB" in environ else \
     {"github.com", "img.shields.io", "pypi.org", "docs.python.org"}
+
+#: URLs that we never need to check because they are OK
+__CORRECT_URLS: Final[set[str]] = {
+    "https://example.com", "http://example.com",
+    "https://github.com", "http://github.com",
+    "https://www.acm.org/publications/policies/artifact-review"
+    "-and-badging-current"}
 
 
 def __ve(msg: str, text: str, idx: int) -> ValueError:
@@ -99,25 +106,47 @@ def __ve(msg: str, text: str, idx: int) -> ValueError:
     return ValueError(f"{msg}: '...{piece}...'")
 
 
+def __make_headers() -> tuple[None | dict[str, str], ...]:
+    """
+    Make the headers.
+
+    :returns: the headers
+    """
+    headers: list[None | dict[str, str]] = [None]
+    headers.extend(
+        {"User-Agent": ua} for ua in (
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:106.0) Gecko/20100101"
+            " Firefox/106.0",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like "
+            "Gecko) Chrome/109.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0."
+            "1518.55",
+            "Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 "
+            "Version/12.16.2",
+            "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) "
+            "like Gecko",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/"
+            "537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A",
+            "Mozilla/5.0 (PLAYSTATION 3; 3.55)",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ("
+            "KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/114.0.1823"
+            ".901",
+            "mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/537.36 ("
+            "khtml, like gecko) chrome/80.0.3987.87 safari/537.36 edg/80.0."
+            "361.502",
+            "Mozilla/5.0 (X11; Linux i686; rv:13.0) Gecko/13.0 Firefox/13.0",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like "
+            "Gecko) Ubuntu Chromium/80.0.3987.149 HeadlessChrome/80.0.3987."
+            "149 Safari/537.36"))
+    return tuple(headers)
+
+
 #: The headers to use for the HTTP requests.
 #: It seems that some websites may throttle requests.
 #: Maybe by using different headers, we can escape this.
-__HEADERS: Final[tuple[dict[str, str], ...]] = tuple(
-    {"User-Agent": ua} for ua in (
-        "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:106.0) Gecko/20100101"
-        " Firefox/106.0",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like "
-        "Gecko) Chrome/109.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, "
-        "like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0.1518.55",
-        "Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 "
-        "Version/12.16.2",
-        "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) "
-        "like Gecko",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14"
-        " (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A",
-        "Mozilla/5.0 (PLAYSTATION 3; 3.55)",
-    ))
+__HEADERS: Final[tuple[None | dict[str, str], ...]] = __make_headers()
+del __make_headers
 
 
 def __needs_body(url: URL) -> bool:
@@ -309,7 +338,7 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     ...     __check_url("http://iao.hfuu.edu.cn", vu)
     ...     __check_url("http://example.com/", vu)
     ...     __check_url("https://thomasweise.github.io/pycommons/pycommons"
-    ...             ".io.html#pycommons.io.path.Path", vu)
+    ...                 ".io.html", vu)
     >>> __check_url("https://thomasweise.github.io/pycommons", vu)
     >>> __check_url(
     ...     "https://thomasweise.github.io/pycommons/pycommons.io.html", vu)
@@ -399,7 +428,7 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     except ValueError as ve:
         raise ValueError(f"Error in url {urlstr!r}: {ve}") from None
 
-    if url in valid_urls:
+    if (url in __CORRECT_URLS) or (url in valid_urls):
         return
     if url.scheme == "mailto":
         return
@@ -421,10 +450,12 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
             return
 
     code: int
-    body: str | None
+    body: str | None = None
     method = "GET" if needs_body else "HEAD"
-    error: BaseException | None
+    error: BaseException | None = None
     response: HTTPResponse | None = None
+    headers: Final[list[dict[str, str] | None]] = list(__HEADERS)
+    header_count: int = 0
 
 # Sometimes, access to the URLs on GitHub fails.
 # I think they probably throttle access from here.
@@ -437,13 +468,26 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
             (0, 0, 5), (2, 3, 8), (5, 3, 30)):
         if sleep_time > 0:
             sleep(sleep_time)
-        header: dict[str, str] = choice(__HEADERS)  # noqa: S311
+
+# We try to get a random header to deal with the problem that some pages
+# will not permit certain user agents. To handle this issue, we try to not
+# use any user agent twice. We randomly pick a user agent and, if it fails,
+# make sure to use all other user agents first before we use that one again.
+        if header_count <= 0:
+            header_count = len(headers)
+        header_idx = randint(0, header_count - 1)  # noqa: S311
+        header: dict[str, str] | None = headers[header_idx]
+        header_count -= 1
+        headers[header_count], headers[header_idx] \
+            = header, headers[header_count]
         try:
             response = http.request(
                 method, base_url, timeout=timeout, redirect=True,
                 retries=retries, headers=header)
-            error = None
-            break
+            if isinstance(response, HTTPResponse) and isinstance(
+                    response.status, int) and (response.status == 200):
+                error = None
+                break
         except BaseException as be:
             logger(f"Attempt sleep={sleep_time}, retries={retries}, "
                    f"timeout={timeout}, error={str(be)!r}, and "
@@ -459,16 +503,22 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     if not isinstance(response, HTTPResponse):  # should be impossible...
         raise ValueError(f"Response {response} from url={url!r}?")  # noqa
 
-    code = response.status
-    body = response.data.decode(UTF8) if needs_body else None
+    code = check_int_range(response.status, "response.status", 0, 10000)
+    if needs_body:
+        try:
+            body = str.strip(response.data.decode(UTF8))
+        except BaseException as be:  # there could be a decoding error
+            raise ValueError(f"Error in body of url {url!r}: {be}") from be
 
+    body_len: Final[int] = 0 if body is None else str.__len__(body)
     logger(f"Checked url {url!r} got code {code} for method {method!r} and "
-           f"{0 if body is None else len(body)} chars.")
+           f"{body_len} chars.")
     if code != 200:
         raise ValueError(f"Url {url!r} returns code {code}.")
 
-    if needs_body and ((body is None) or (str.__len__(body) <= 0)):
-        raise ValueError(f"Body for {url!r} / {base_url!r} is {body!r}?")
+    if needs_body and ((body is None) or (body_len <= 0)):
+        raise ValueError(
+            f"Stripped body for {url!r} / {base_url!r} is {body!r}?")
 
     valid_urls[base_url] = body
     if url is not base_url:
