@@ -18,3 +18,8 @@
 # Here we only list the top-level dependencies that are actually used by
 # `pycommons` directly.
 #
+
+# urllib3 and certifi are used to check the URLs in the [dev] extras variant
+# of our package. They are used to check URL in markdown files.
+urllib3 == 1.26.18
+certifi == 2023.7.22

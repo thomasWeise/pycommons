@@ -3,9 +3,9 @@ from os import listdir
 from random import randint
 from typing import Final
 
+from pycommons.dev.tests.compile_and_run import compile_and_run
 from pycommons.io.console import logger
 from pycommons.io.path import Path, directory_path
-from pycommons.tests.compile_and_run import compile_and_run
 from pycommons.types import type_error
 
 

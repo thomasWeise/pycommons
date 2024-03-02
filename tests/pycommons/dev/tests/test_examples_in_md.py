@@ -5,8 +5,8 @@ from typing import Final
 # noinspection PyPackageRequirements
 import pytest
 
+from pycommons.dev.tests.examples_in_md import check_examples_in_md
 from pycommons.io.path import Path, file_path
-from pycommons.tests.examples_in_md import check_examples_in_md
 
 
 def test_examples_from_md() -> None:

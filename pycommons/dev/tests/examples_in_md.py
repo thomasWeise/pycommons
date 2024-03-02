@@ -2,9 +2,9 @@
 from os import getcwd
 from typing import Final
 
+from pycommons.dev.tests.compile_and_run import compile_and_run
 from pycommons.io.console import logger
 from pycommons.io.path import Path, directory_path, file_path
-from pycommons.tests.compile_and_run import compile_and_run
 
 
 def check_examples_in_md(file: str) -> None:
@@ -20,7 +20,7 @@ def check_examples_in_md(file: str) -> None:
     >>> with StringIO() as sio:
     ...     with redirect_stdout(sio):
     ...         check_examples_in_md(file_path(file_path(__file__).up(
-    ...             3).resolve_inside("README.md")))
+    ...             4).resolve_inside("README.md")))
     ...     res = sio.getvalue()
     >>> print(res[-12:].strip())
     README.md'.

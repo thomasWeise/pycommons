@@ -122,6 +122,8 @@ create_documentation: static_analysis test
 	echo "$(NOW): The original value of PATH is '${PATH}'." &&\
 	export PATH="${PATH}:${PYTHON_PACKAGE_BINARIES}" &&\
 	echo "$(NOW): PATH is now '${PATH}'." &&\
+	export PYTHONPATH="${PYTHONPATH}:${CWD}" &&\
+	echo "$(NOW): PYTHONPATH is now '${PYTHONPATH}'." &&\
 	echo "$(NOW): First creating the .rst files from the source code." && \
 	sphinx-apidoc -M --ext-autodoc -o docs/source ./pycommons && \
 	echo "$(NOW): Now creating the documentation build folder and building the documentation." && \

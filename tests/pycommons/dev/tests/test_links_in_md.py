@@ -5,8 +5,8 @@ from typing import Final
 # noinspection PyPackageRequirements
 import pytest
 
+from pycommons.dev.tests.links_in_md import check_links_in_md
 from pycommons.io.path import Path, file_path
-from pycommons.tests.links_in_md import check_links_in_md
 
 
 def test_links_from_md() -> None:
