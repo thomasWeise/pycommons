@@ -680,6 +680,15 @@ def process_markdown(
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> try:
+    ...     process_markdown([""], print, lambda x: x, "")
+    ... except ValueError as ve:
+    ...     print(ve)
+    discard_until cannot be ''.
+
+    >>> process_markdown([""], print, lambda x: x, None)
+    <BLANKLINE>
     """
     if not isinstance(source, Iterable):
         raise type_error(source, "source", Iterable)
