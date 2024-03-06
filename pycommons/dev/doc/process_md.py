@@ -1,4 +1,12 @@
-"""Process a markdown file in order to make it useful for distribution."""
+"""
+Process a markdown file in order to make it useful for distribution.
+
+In order to let sphinx properly load and insert the `README.md` file into the
+project's documentation, we need to process this file from the GitHub style
+markdown to a variant suitable for the myst parser used in sphinx. While we
+are at it, we can also turn absolute URLs from the GitHub-`README.md` file
+that point to the documentation URL to relative URLs.
+"""
 
 from re import Match, Pattern, escape, sub, subn
 from re import compile as re_compile
@@ -592,6 +600,19 @@ def process_markdown(
         discard_until: str | None = "## 1. Introduction") -> None:
     """
     Process a markdown file in order to make it useful for distribution.
+
+    This process changes the GitHub-style markdown to a format that the myst
+    parser, which is used by sphinx, can render properly. This involves
+    several issues:
+
+    1. We discard the top-level heading.
+    2. We need to move all sub-headings one step up.
+    3. Furthermore, we can turn all absolute URLs pointing to the
+       documentation website to local references starting with `./`.
+    4. The myst parser drops the numerical prefixes of links, i.e., it tags
+       `## 1.2. Hello` with id `hello` instead of `12-hello`. This means that
+       we need to fix all references following the pattern `[xxx](#12-hello)`
+       to `[xxx](#hello)`.
 
     :param source: the source line iterable
     :param dest: the destination callable receiving the output

@@ -3,7 +3,7 @@
 [![pypi downloads](https://img.shields.io/pypi/dw/pycommons.svg)](https://pypistats.org/packages/pycommons)
 [![coverage report](https://thomasweise.github.io/pycommons/tc/badge.svg)](https://thomasweise.github.io/pycommons/tc/index.html)
 
-# pycommons: Common Utility Functions for Python Projects.
+# *pycommons:* Common Utility Functions for Python Projects.
 
 Some common utility functionality for Python projects.
 

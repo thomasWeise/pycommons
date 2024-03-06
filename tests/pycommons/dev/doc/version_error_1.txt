@@ -1,0 +1,2 @@
+#: the version error string
+__version__: Final[str] = "0.8.7s

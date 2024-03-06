@@ -1,0 +1,2 @@
+#: the version error string
+version = "6.7"

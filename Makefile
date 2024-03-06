@@ -37,9 +37,7 @@ clean: status
 	rm -rf build && \
 	rm -rf dist && \
 	rm -rf docs/build && \
-	mv docs/source/index.rst docs/source/index.x && \
 	rm -rf docs/source/*.rst && \
-	mv docs/source/index.x docs/source/index.rst && \
 	rm -rf pycommons.egg-info && \
 	echo "$(NOW): Done cleaning up, pycommons is uninstalled and auto-generated stuff is deleted."
 
@@ -129,10 +127,8 @@ create_documentation: static_analysis test
 	echo "$(NOW): Now creating the documentation build folder and building the documentation." && \
 	sphinx-build -W -a -E -b html docs/source docs/build && \
 	echo "$(NOW): Done creating HTML documentation, cleaning up documentation temp files." && \
-	mv docs/source/index.rst docs/source/index.tmp && \
 	rm -rf docs/source/*.rst && \
 	rm -rf docs/source/*.md && \
-	mv docs/source/index.tmp docs/source/index.rst && \
 	echo "$(NOW): Now we pygmentize all the examples in 'examples' to 'build/examples'." &&\
 	mkdir -p docs/build/examples &&\
 	for f in examples/*.py; do \
