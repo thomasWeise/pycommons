@@ -68,11 +68,39 @@ def setup_doc(doc_dir: str, root_dir: str,
 
     # the global variables
     global_vars: Final[dict[str, Any]] = stack()[1].frame.f_globals
-    if not isinstance(global_vars, dict):
-        raise type_error(global_vars, "stack()[1].frame.f_globals", dict)
 
-    # get the path to the root directory of this project
-    sys.path.insert(0, root_path)
+    # create the copyright information
+    current_year: Final[int] = datetime.now(timezone.utc).year
+    thecopyright: str = str(current_year) \
+        if (copyright_start_year is None) or (check_int_range(
+            copyright_start_year, "copyright_start_year", 1980,
+            current_year) == current_year) \
+        else f"{copyright_start_year}-{current_year}"
+    thecopyright = f"{thecopyright}, {doc_info.author}"
+    logger(f"Printing copyright information {thecopyright!r}.")
+    global_vars["copyright"] = thecopyright
+
+    use_deps: dict[str, tuple[str, None]] = {
+        "python": __DEFAULT_INTERSPHINX["python"]}
+    if dependencies is not None:
+        if not isinstance(dependencies, Iterable):
+            raise type_error(dependencies, "dependencies", Iterable)
+
+        # Location of dependency documentation for cross-referencing.
+        for x in dependencies:
+            if isinstance(x, tuple):
+                use_deps[str.strip(x[0])] = (str.strip(x[1]), None)
+            else:
+                xx = str.strip(x)
+                if xx in __DEFAULT_INTERSPHINX:
+                    use_deps[xx] = __DEFAULT_INTERSPHINX[xx]
+                else:
+                    raise ValueError(
+                        f"{x!r} is not among the known dependencies"
+                        f" {sorted(__DEFAULT_INTERSPHINX.keys())}.")
+
+    global_vars["intersphinx_mapping"] = use_deps
+    logger(f"Setting dependency mappings to {use_deps}.")
 
     # set the base url
     use_url: Final[str] = f"{doc_info.doc_url}"
@@ -106,16 +134,6 @@ def setup_doc(doc_dir: str, root_dir: str,
     global_vars["project"] = doc_info.project
     global_vars["author"] = doc_info.author
 
-    current_year: Final[int] = datetime.now(timezone.utc).year
-    thecopyright: str = str(current_year) \
-        if (copyright_start_year is None) or (check_int_range(
-            copyright_start_year, "check_int_range", 1980,
-            current_year) == current_year) \
-        else f"{copyright_start_year}-{current_year}"
-    thecopyright = f"{thecopyright}, {doc_info.author}"
-    logger(f"Printing copyright information {thecopyright!r}.")
-    global_vars["copyright"] = thecopyright
-
     # tell sphinx to go kaboom on errors
     global_vars["nitpicky"] = True
     global_vars["myst_all_links_external"] = True
@@ -135,30 +153,6 @@ def setup_doc(doc_dir: str, root_dir: str,
     ]
     logger(f"Using extensions {extensions}.")
     global_vars["extensions"] = extensions
-
-    use_deps: dict[str, tuple[str, None]] = {
-        "python": __DEFAULT_INTERSPHINX["python"]}
-    if dependencies is not None:
-        if not isinstance(dependencies, Iterable):
-            raise type_error(dependencies, "dependencies", Iterable)
-
-        # Location of dependency documentation for cross-referencing.
-        for x in dependencies:
-            if isinstance(x, str):
-                xx = str.strip(x)
-                if xx in __DEFAULT_INTERSPHINX:
-                    use_deps[xx] = __DEFAULT_INTERSPHINX[xx]
-                else:
-                    raise ValueError(
-                        f"{x!r} is not among the known dependencies"
-                        f" {__DEFAULT_INTERSPHINX.keys()}.")
-            elif isinstance(x, tuple):
-                use_deps[str.strip(x[0])] = (str.strip(x[1]), None)
-            else:
-                raise type_error(x, "dependency", (str, tuple))
-
-    global_vars["intersphinx_mapping"] = use_deps
-    logger(f"Setting dependency mappings to {use_deps}.")
 
     # inherit docstrings in autodoc
     global_vars["autodoc_inherit_docstrings"] = True
@@ -185,6 +179,10 @@ def setup_doc(doc_dir: str, root_dir: str,
     # Some python options
     global_vars["python_display_short_literal_types"] = True
     global_vars["python_use_unqualified_type_names"] = True
+
+    # get the path to the root directory of this project
+    if (list.__len__(sys.path) <= 0) or (sys.path[0] != root_path):
+        sys.path.insert(0, root_path)
 
     logger(f"Finished setting up sphinx for document folder {doc_path!r} "
            f"and root folder {root_path!r}.")

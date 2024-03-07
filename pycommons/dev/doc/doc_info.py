@@ -133,6 +133,13 @@ class DocInfo:
     Invalid version 'x': Cannot convert version='x' to int, let alon
 
     >>> try:
+    ...     DocInfo(__file__, "a", "b", "c", " ", 12, "https://example.com")
+    ... except ValueError as ve:
+    ...     print(str(ve)[:64])
+    Invalid version ' ': empty or only white space.
+
+
+    >>> try:
     ...     DocInfo(__file__, "a", "b", "c", "1.x", 12, "https://example.com")
     ... except ValueError as ve:
     ...     print(str(ve)[:64])
@@ -314,10 +321,6 @@ def parse_readme_md(readme_md_file: str) -> tuple[str, int | None]:
                                 f"Got {line!r} and finding index "
                                 f"{last_idx} in {readme_md!r} causing "
                                 f"{str(ve).removesuffix('.')}.") from ve
-                    if (index is None) and (last_idx is not None):
-                        raise ValueError(
-                            f"Got line {line!r} after index "
-                            f"{last_idx} in {readme_md!r}.")
                     if index is not None:
                         if (last_idx is not None) and (last_idx >= index):
                             raise ValueError(
@@ -350,7 +353,7 @@ def parse_version_py(version_file: str,
     ...     s = parse_version_py(join(dirname(dirname(dirname(__file__))),
     ...         "version.py"))
     >>> print(s)
-    0.8.7
+    0.8.8
 
     >>> try:
     ...     parse_version_py(None, "v")
@@ -496,7 +499,7 @@ def load_doc_info_from_setup_cfg(setup_cfg_file: str) -> DocInfo:
             "metadata", "project_urls"))):
         splt: list[str] = url.split("=")
         if list.__len__(splt) != 2:
-            continue
+            raise ValueError(f"Strange URL line {url!r}.")
         if str.strip(splt[0]).lower() == "documentation":
             if docu_url is not None:
                 raise ValueError("Two docu URLs found?")

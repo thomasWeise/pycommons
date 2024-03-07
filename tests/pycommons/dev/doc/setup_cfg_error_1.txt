@@ -1,0 +1,56 @@
+[metadata]
+name = pycommons
+version =
+description = A package with utility functionality for Python projects.
+long_description = file: README.md
+long_description_content_type = text/markdown
+keywords =
+    utilities
+license = GPL 3.0
+license_files = file: LICENSE
+classifiers =
+    Development Status :: 4 - Beta
+    Framework :: Matplotlib
+    Intended Audience :: Developers
+    License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+    Natural Language :: English
+    Operating System :: Microsoft :: Windows
+    Operating System :: POSIX :: Linux
+    Programming Language :: Python :: 3 :: Only
+    Programming Language :: Python :: 3.10
+url = https://thomasweise.github.io/pycommons
+author = Thomas Weise
+author_email = tweise@ustc.edu.cn
+maintainer = Thomas Weise
+maintainer_email = tweise@ustc.edu.cn
+project_urls =
+    Documentation = https://thomasweise.github.io/pycommons
+    Source = https://github.com/thomasWeise/pycommons/
+    Tracker = https://github.com/thomasWeise/pycommons/issues
+
+[options]
+include_package_data = True
+packages = find:
+python_requires = >= 3.10
+zip_safe = False
+
+[options.extras_require]
+dev =
+    urllib3 >= 1.26.18
+    certifi >= 2023.7.22
+
+[options.package_data]
+pycommons = py.typed
+
+[options.packages.find]
+exclude =
+    .coverage*
+    .github*
+    .mypy_cache*
+    .pytest_cache*
+    .ruff_cache*
+    dist*
+    docs*
+    examples*
+    pycommons.egg-info*
+    tests*
