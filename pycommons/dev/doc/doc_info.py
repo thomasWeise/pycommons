@@ -296,17 +296,25 @@ def parse_readme_md(readme_md_file: str) -> tuple[str, int | None]:
     # load both the title and the last index
     title: str | None = None
     last_idx: int | None = None
+    in_code: bool = False
     with (readme_md.open_for_read() as rd):
         for orig_line in rd:
-            line: str = str.strip(orig_line)
-            if line.startswith("# "):
-                if title is not None:
+            line: str = str.strip(orig_line)  # force string
+            # skip all code snippets in the file
+            if line.startswith("```"):
+                in_code = not in_code
+                continue
+            if in_code:
+                continue
+            # ok, we are not in code
+            if line.startswith("# "):  # top-level headline
+                if title is not None:  # only 1 top-level headline permitted
                     raise ValueError(
                         f"Already have title {title!r} but now found "
                         f"{line[2:]!r} in {readme_md!r}.")
                 title = str.strip(line[2:])
-            elif line.startswith("## "):
-                doti: int = line.find(".")
+            elif line.startswith("## "):  # second-level headline
+                doti: int = line.find(".")  # gather numeric index, if any
                 if doti <= 3:
                     if last_idx is not None:
                         raise ValueError(f"Got {line!r} after having index.")
