@@ -7,7 +7,9 @@ from typing import Any, Final, Iterable, Mapping
 
 from pycommons.dev.doc.doc_info import DocInfo, load_doc_info_from_setup_cfg
 from pycommons.dev.doc.index_rst import make_index_rst
-from pycommons.dev.doc.process_md import make_url_replacer, process_markdown
+from pycommons.dev.doc.process_md import (
+    process_markdown_for_sphinx,
+)
 from pycommons.io.console import logger
 from pycommons.io.path import Path, directory_path, line_writer
 from pycommons.types import check_int_range, type_error
@@ -119,8 +121,7 @@ def setup_doc(doc_dir: str, root_dir: str,
            f"with replacers {base_urls} and {full_urls}.")
     with (doc_info.readme_md_file.open_for_read() as rd,
           readme_out.open_for_write() as wd):
-        process_markdown(rd, line_writer(wd),
-                         make_url_replacer(base_urls, full_urls))
+        process_markdown_for_sphinx(rd, line_writer(wd), base_urls, full_urls)
 
     index_rst_file: Final[Path] = doc_path.resolve_inside("index.rst")
     logger(f"Now writing index.rst file {index_rst_file!r}.")

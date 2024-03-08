@@ -352,8 +352,8 @@ def parse_version_py(version_file: str,
     >>> with redirect_stdout(StringIO()):
     ...     s = parse_version_py(join(dirname(dirname(dirname(__file__))),
     ...         "version.py"))
-    >>> print(s)
-    0.8.8
+    >>> print(s[:s.rindex(".")])
+    0.8
 
     >>> try:
     ...     parse_version_py(None, "v")

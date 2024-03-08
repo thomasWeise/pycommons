@@ -21,8 +21,6 @@ __MD_URL_SEPARTORS: Final[tuple[tuple[str, str, str, str], ...]] = (
     (r"\s+href\s*=\s*'\s*", r"\s*'", ' href="', '"'),
     (r'\s+src\s*=\s*"\s*', r'\s*"', ' src="', '"'),
     (r"\s+src\s*=\s*'\s*", r"\s*'", ' src="', '"'),
-    (r'\s*=\s*"\s*', r'\s*"', '="', '"'),
-    (r"\s*=\s*'\s*", r"\s*'", '="', '"'),
     (r"\s*\]\s*\(\s*", r"\s*\)", r"](", r")"),
     (r"<\s*", r"\s*>", "<", ">"),
 )
@@ -50,8 +48,6 @@ def __make_base_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com/x\\/?(.*)\\s*\\)'
     '<\\s*https?://example\\.com/x\\/?(.*)\\s*>'
     >>> sub(coll[3][0], coll[3][1], " src= ' https://example.com/x/y '")
@@ -62,11 +58,11 @@ def __make_base_url_replacer(
     ' src="./y"'
     >>> sub(coll[0][0], coll[0][1], '  href ="http://example.com/x/y"')
     ' href="./y"'
-    >>> sub(coll[6][0], coll[6][1], '[l](  https://example.com/x/y)')
+    >>> sub(coll[4][0], coll[4][1], '[l](  https://example.com/x/y)')
     '[l](./y)'
-    >>> sub(coll[6][0], coll[6][1], '![xx ] (http://example.com/x/y/g.jpg)')
+    >>> sub(coll[4][0], coll[4][1], '![xx ] (http://example.com/x/y/g.jpg)')
     '![xx](./y/g.jpg)'
-    >>> sub(coll[7][0], coll[7][1], '<  https://example.com/x/y >')
+    >>> sub(coll[5][0], coll[5][1], '<  https://example.com/x/y >')
     '<./y>'
     >>> sub(coll[3][0], coll[3][1], "src='https://example.com/x/y ")
     "src='https://example.com/x/y "
@@ -80,8 +76,6 @@ def __make_base_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com/x\\/?(.*)\\s*\\)'
     '<\\s*https?://example\\.com/x\\/?(.*)\\s*>'
 
@@ -94,8 +88,6 @@ def __make_base_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com/x\\/?(.*)\\s*\\)'
     '<\\s*https?://example\\.com/x\\/?(.*)\\s*>'
 
@@ -108,8 +100,6 @@ def __make_base_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x(.*)\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com/x(.*)\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com/x(.*)\\s*\\)'
     '<\\s*https?://example\\.com/x(.*)\\s*>'
 
@@ -122,8 +112,6 @@ def __make_base_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com/x\\/?(.*)\\s*\\)'
     '<\\s*https?://example\\.com/x\\/?(.*)\\s*>'
 
@@ -136,8 +124,6 @@ def __make_base_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com/x\\/?(.*)\\s*\\)'
     '<\\s*https?://example\\.com/x\\/?(.*)\\s*>'
 
@@ -150,8 +136,6 @@ def __make_base_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x(.*)\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com/x(.*)\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com/x(.*)\\s*\\)'
     '<\\s*https?://example\\.com/x(.*)\\s*>'
 
@@ -240,8 +224,6 @@ def __make_full_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\.jpg\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\.jpg\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\.jpg\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com/x\\.jpg\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com/x\\.jpg\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com/x\\.jpg\\s*\\)'
     '<\\s*https?://example\\.com/x\\.jpg\\s*>'
     >>> sub(coll[1][0], coll[1][1], " href= ' https://example.com/x.jpg '")
@@ -252,11 +234,11 @@ def __make_full_url_replacer(
     ' src="x.jpg"'
     >>> sub(coll[2][0], coll[2][1], ' src="https://example.com/x.jpg"')
     ' src="x.jpg"'
-    >>> sub(coll[6][0], coll[6][1], '[l](  https://example.com/x.jpg)')
+    >>> sub(coll[4][0], coll[4][1], '[l](  https://example.com/x.jpg)')
     '[l](x.jpg)'
-    >>> sub(coll[6][0], coll[6][1], '![xx ] (https://example.com/x.jpg)')
+    >>> sub(coll[4][0], coll[4][1], '![xx ] (https://example.com/x.jpg)')
     '![xx](x.jpg)'
-    >>> sub(coll[7][0], coll[7][1], '<  https://example.com/x.jpg>')
+    >>> sub(coll[5][0], coll[5][1], '<  https://example.com/x.jpg>')
     '<x.jpg>'
 
     >>> coll = list()
@@ -268,8 +250,6 @@ def __make_full_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com\\/?\\s*\\)'
     '<\\s*https?://example\\.com\\/?\\s*>'
 
@@ -282,8 +262,6 @@ def __make_full_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com\\/?\\s*\\)'
     '<\\s*https?://example\\.com\\/?\\s*>'
 
@@ -296,8 +274,6 @@ def __make_full_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com\\s*\\)'
     '<\\s*https?://example\\.com\\s*>'
 
@@ -310,8 +286,6 @@ def __make_full_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com\\/?\\s*\\)'
     '<\\s*https?://example\\.com\\/?\\s*>'
 
@@ -324,8 +298,6 @@ def __make_full_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com\\/?\\s*\\)'
     '<\\s*https?://example\\.com\\/?\\s*>'
 
@@ -338,8 +310,6 @@ def __make_full_url_replacer(
     "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\s*'"
     '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\s*"'
     "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\s*'"
-    '\\s*=\\s*"\\s*https?://example\\.com\\s*"'
-    "\\s*=\\s*'\\s*https?://example\\.com\\s*'"
     '\\s*\\]\\s*\\(\\s*https?://example\\.com\\s*\\)'
     '<\\s*https?://example\\.com\\s*>'
 
@@ -487,10 +457,10 @@ def __make_replacer(replacers: Iterable[tuple[
     ...                        "https://example.com")
     >>> f = __make_replacer(coll)
     >>> try:
-    ...     f("<a ref='http://example.com' />")
+    ...     f("<a href='http://example.com' />")
     ... except ValueError as ve:
     ...     print(str(ve)[:60])
-    Endless loop: "<a ref='http://example.com' />" -> '<a ref="h
+    Endless loop: "<a href='http://example.com' />" -> '<a href=
     """
     if not isinstance(replacers, Iterable):
         raise type_error(replacers, "replacers", Iterable)
@@ -522,8 +492,8 @@ def __make_replacer(replacers: Iterable[tuple[
     return cast(Callable[[str], str], __func)
 
 
-def make_url_replacer(base_urls: Mapping[str, str] | None = None,
-                      full_urls: Mapping[str, str] | None = None) \
+def __make_url_replacer(base_urls: Mapping[str, str] | None = None,
+                        full_urls: Mapping[str, str] | None = None) \
         -> Callable[[str], str]:
     r"""
     Create the url replacers that fix absolute to relative URLs.
@@ -532,15 +502,17 @@ def make_url_replacer(base_urls: Mapping[str, str] | None = None,
     :param full_urls: a mapping of full urls to abbreviations
     :returns: a single callable that can process strings and fix the URLs
         therein
+    :raises TypeError: if any of the inputs is of the wrong type
+    :raises ValueError: if any of the inputs is incorrect
 
-    >>> f = make_url_replacer(None, None)
+    >>> f = __make_url_replacer(None, None)
     >>> f("1")
     '1'
 
-    >>> f = make_url_replacer({"https://example.com/1": "./a/",
-    ...                        "https://example.com": "./"},
-    ...                       {"https://example.com/1/1.txt": "y.txt",
-    ...                        "https://example.com/x/1.txt": "z.txt"})
+    >>> f = __make_url_replacer({"https://example.com/1": "./a/",
+    ...                          "https://example.com": "./"},
+    ...                         {"https://example.com/1/1.txt": "y.txt",
+    ...                          "https://example.com/x/1.txt": "z.txt"})
     >>> f("<a href='http://example.com/1/2.txt' />")
     '<a href="./a/2.txt" />'
     >>> f("<a href='http://example.com/1' />")
@@ -555,18 +527,19 @@ def make_url_replacer(base_urls: Mapping[str, str] | None = None,
     '<a href="z.txt" />'
 
     >>> try:
-    ...     make_url_replacer(1, None)
+    ...     __make_url_replacer(1, None)
     ... except TypeError as te:
     ...     print(te)
     base_urls should be an instance of typing.Mapping but is int, namely '1'.
 
     >>> try:
-    ...     make_url_replacer(None, 1)
+    ...     __make_url_replacer(None, 1)
     ... except TypeError as te:
     ...     print(te)
     full_urls should be an instance of typing.Mapping but is int, namely '1'.
     """
     keys: list[tuple[str, bool]] = []
+
     if base_urls is not None:
         if not isinstance(base_urls, Mapping):
             raise type_error(base_urls, "base_urls", Mapping)
@@ -594,7 +567,7 @@ def make_url_replacer(base_urls: Mapping[str, str] | None = None,
 __FIX_LINKS: Final[Pattern] = re_compile("(\\[.+?])\\(#\\d+-(.+?)\\)")
 
 
-def process_markdown(
+def __process_markdown(
         source: Iterable[str], dest: Callable[[str], Any],
         line_processor: Callable[[str], str] = lambda s: s,
         discard_until: str | None = "## 1. Introduction") -> None:
@@ -609,21 +582,16 @@ def process_markdown(
     2. We need to move all sub-headings one step up.
     3. Furthermore, we can turn all absolute URLs pointing to the
        documentation website to local references starting with `./`.
-    4. The myst parser drops the numerical prefixes of links, i.e., it tags
-       `## 1.2. Hello` with id `hello` instead of `12-hello`. This means that
-       we need to fix all references following the pattern `[xxx](#12-hello)`
-       to `[xxx](#hello)`.
 
     :param source: the source line iterable
     :param dest: the destination callable receiving the output
     :param line_processor: an optional callable for processing lines
     :param discard_until: discard all strings until reaching this line. If
         this is `None`, all lines will be used. If this is not `None`, then
-        this will be the first line to be forwarded to `dest`
-    :param add_images_anyway: add image lines anyway, even if other stuff
+        this will be the first line to be forwarded to `dest`f
 
     >>> lp = list()
-    >>> lpp = make_url_replacer({"https://example.com/": "./"},
+    >>> lpp = __make_url_replacer({"https://example.com/": "./"},
     ...                         {"https://example.com/A": "xyz"})
     >>> src = ["![image](https://example.com/1.jp)",
     ...        "# This is `pycommons!`",
@@ -637,7 +605,7 @@ def process_markdown(
     ...        "But [not in code](https://example.com/z/hello.txt).",
     ...        "```",
     ...        "See also [here](#24-code-example)."]
-    >>> process_markdown(src, print, lpp)
+    >>> __process_markdown(src, print, lpp)
     # 1. Introduction
     blabla bla <xyz>!
     # 2. Some More Text
@@ -646,69 +614,69 @@ def process_markdown(
     ```
     But [not in code](https://example.com/z/hello.txt).
     ```
-    See also [here](#code-example).
+    See also [here](#24-code-example).
 
     >>> try:
-    ...     process_markdown(None, print, lambda x: x, "bla")
+    ...     __process_markdown(None, print, lambda x: x, "bla")
     ... except TypeError as te:
     ...     print(te)
     source should be an instance of typing.Iterable but is None.
 
     >>> try:
-    ...     process_markdown(1, print, lambda x: x, "bla")
+    ...     __process_markdown(1, print, lambda x: x, "bla")
     ... except TypeError as te:
     ...     print(te)
     source should be an instance of typing.Iterable but is int, namely '1'.
 
     >>> try:
-    ...     process_markdown([None], print, lambda x: x, "bla")
+    ...     __process_markdown([None], print, lambda x: x, "bla")
     ... except TypeError as te:
     ...     print(te)
     descriptor 'rstrip' for 'str' objects doesn't apply to a 'NoneType' object
 
     >>> try:
-    ...     process_markdown([1], print, lambda x: x, "bla")
+    ...     __process_markdown([1], print, lambda x: x, "bla")
     ... except TypeError as te:
     ...     print(te)
     descriptor 'rstrip' for 'str' objects doesn't apply to a 'int' object
 
     >>> try:
-    ...     process_markdown([""], None, lambda x: x, "bla")
+    ...     __process_markdown([""], None, lambda x: x, "bla")
     ... except TypeError as te:
     ...     print(te)
     dest should be a callable but is None.
 
     >>> try:
-    ...     process_markdown([""], 1, lambda x: x, "bla")
+    ...     __process_markdown([""], 1, lambda x: x, "bla")
     ... except TypeError as te:
     ...     print(te)
     dest should be a callable but is int, namely '1'.
 
     >>> try:
-    ...     process_markdown([""], print, None, "bla")
+    ...     __process_markdown([""], print, None, "bla")
     ... except TypeError as te:
     ...     print(te)
     line_processor should be a callable but is None.
 
     >>> try:
-    ...     process_markdown([""], print, 1, "bla")
+    ...     __process_markdown([""], print, 1, "bla")
     ... except TypeError as te:
     ...     print(te)
     line_processor should be a callable but is int, namely '1'.
 
     >>> try:
-    ...     process_markdown([""], print, lambda x: x, 1)
+    ...     __process_markdown([""], print, lambda x: x, 1)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
 
     >>> try:
-    ...     process_markdown([""], print, lambda x: x, "")
+    ...     __process_markdown([""], print, lambda x: x, "")
     ... except ValueError as ve:
     ...     print(ve)
     discard_until cannot be ''.
 
-    >>> process_markdown([""], print, lambda x: x, None)
+    >>> __process_markdown([""], print, lambda x: x, None)
     <BLANKLINE>
     """
     if not isinstance(source, Iterable):
@@ -758,8 +726,131 @@ def process_markdown(
             in_code = True  # toggle to code
         elif line.startswith("#"):
             line = line[1:]  # move all sub-headings one step up
-        else:  # fix all internal urls
-            # replace links of the form "#12-bla" to "#bla"
-            line = line_processor(sub(__FIX_LINKS, "\\1(#\\2)", line))
+        else:  # e.g., fix all urls via the line processor
+            line = str.rstrip(line_processor(line))
 
         dest(line)
+
+
+def process_markdown_for_sphinx(
+        source: Iterable[str], dest: Callable[[str], Any],
+        base_urls: Mapping[str, str] | None = None,
+        full_urls: Mapping[str, str] | None = None,
+        discard_until: str | None = "## 1. Introduction") -> None:
+    """
+    Process a markdown file in order to make it useful for distribution.
+
+    This process changes the GitHub-style markdown to a format that the myst
+    parser, which is used by sphinx, can render properly. This involves
+    several issues:
+
+    1. We discard the top-level heading.
+    2. We need to move all sub-headings one step up.
+    3. Furthermore, we can turn all absolute URLs pointing to the
+       documentation website to local references starting with `./`.
+    4. The myst parser drops the numerical prefixes of links, i.e., it tags
+       `## 1.2. Hello` with id `hello` instead of `12-hello`. This means that
+       we need to fix all references following the pattern `[xxx](#12-hello)`
+       to `[xxx](#hello)`.
+
+    :param source: the source line iterable
+    :param dest: the destination callable receiving the output
+    :param base_urls: a mapping of basic urls to shortcuts
+    :param full_urls: a mapping of full urls to abbreviations
+    :param discard_until: discard all strings until reaching this line. If
+        this is `None`, all lines will be used. If this is not `None`, then
+        this will be the first line to be forwarded to `dest`
+
+    >>> lp = list()
+    >>> src = ["![image](https://example.com/1.jp)",
+    ...        "# This is `pycommons!`",
+    ...        "Table of contents",
+    ...        "## 1. Introduction",
+    ...        "blabla bla <https://example.com/A>!",
+    ...        "## 2. Some More Text",
+    ...        "We [also say](https://example.com/z/hello.txt) stuff.",
+    ...        "### 2.4. Code Example",
+    ...        "```",
+    ...        "But [not in code](https://example.com/z/hello.txt).",
+    ...        "```",
+    ...        "See also [here](#24-code-example)."]
+    >>> process_markdown_for_sphinx(src, print,
+    ...     {"https://example.com/": "./"},
+    ...     {"https://example.com/A": "xyz"})
+    # 1. Introduction
+    blabla bla <xyz>!
+    # 2. Some More Text
+    We [also say](./z/hello.txt) stuff.
+    ## 2.4. Code Example
+    ```
+    But [not in code](https://example.com/z/hello.txt).
+    ```
+    See also [here](#code-example).
+
+    >>> try:
+    ...     process_markdown_for_sphinx(None, print)
+    ... except TypeError as te:
+    ...     print(te)
+    source should be an instance of typing.Iterable but is None.
+
+    >>> try:
+    ...     process_markdown_for_sphinx(1, print)
+    ... except TypeError as te:
+    ...     print(te)
+    source should be an instance of typing.Iterable but is int, namely '1'.
+
+    >>> try:
+    ...     process_markdown_for_sphinx([None], print)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor 'rstrip' for 'str' objects doesn't apply to a 'NoneType' object
+
+    >>> try:
+    ...     process_markdown_for_sphinx([1], print)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor 'rstrip' for 'str' objects doesn't apply to a 'int' object
+
+    >>> try:
+    ...     process_markdown_for_sphinx([""], None)
+    ... except TypeError as te:
+    ...     print(te)
+    dest should be a callable but is None.
+
+    >>> try:
+    ...     process_markdown_for_sphinx([""], 1)
+    ... except TypeError as te:
+    ...     print(te)
+    dest should be a callable but is int, namely '1'.
+
+    >>> try:
+    ...     process_markdown_for_sphinx([""], print, 1, None, "bla")
+    ... except TypeError as te:
+    ...     print(te)
+    base_urls should be an instance of typing.Mapping but is int, namely '1'.
+
+    >>> try:
+    ...     process_markdown_for_sphinx([""], print, None, 1, "bla")
+    ... except TypeError as te:
+    ...     print(te)
+    full_urls should be an instance of typing.Mapping but is int, namely '1'.
+
+    >>> try:
+    ...     process_markdown_for_sphinx([""], print, None, None, 1)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> try:
+    ...     process_markdown_for_sphinx([""], print, None, None, "")
+    ... except ValueError as ve:
+    ...     print(ve)
+    discard_until cannot be ''.
+
+    >>> process_markdown_for_sphinx([""], print, None, None, None)
+    <BLANKLINE>
+    """
+    __process_markdown(source, dest, cast(
+        Callable[[str], str], lambda s, __l=__make_url_replacer(
+            base_urls, full_urls): __l(sub(__FIX_LINKS, "\\1(#\\2)",
+                                           s))), discard_until)
