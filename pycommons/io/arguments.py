@@ -6,7 +6,7 @@ from typing import Final
 
 from pycommons.processes.python import python_command
 from pycommons.strings.chars import NBDASH, NBSP
-from pycommons.types import check_int_range, type_error
+from pycommons.types import check_int_range
 
 #: The default argument parser for latexgit executables.
 __DEFAULT_ARGUMENTS: Final[ArgumentParser] = ArgumentParser(
@@ -15,13 +15,15 @@ __DEFAULT_ARGUMENTS: Final[ArgumentParser] = ArgumentParser(
 )
 
 
-def make_argparser(file: str, description: str, epilog: str) -> ArgumentParser:
+def make_argparser(file: str, description: str, epilog: str,
+                   version: str | None = None) -> ArgumentParser:
     r"""
     Create an argument parser with default settings.
 
     :param file: the `__file__` special variable of the calling script
     :param description: the description string
     :param epilog: the epilogue string
+    :param version: an optional version string
     :returns: the argument parser
 
     >>> ap = make_argparser(__file__, "This is a test program.",
@@ -48,6 +50,35 @@ def make_argparser(file: str, description: str, epilog: str) -> ArgumentParser:
     <BLANKLINE>
     options:
       -h, --help  show this help message and exit
+    <BLANKLINE>
+    This is a test.
+    <BLANKLINE>
+
+    >>> ap = make_argparser(__file__, "This is a test program.",
+    ...                     "This is a test.", "0.2")
+    >>> isinstance(ap, ArgumentParser)
+    True
+
+    >>> from contextlib import redirect_stdout
+    >>> from io import StringIO
+    >>> s = StringIO()
+    >>> with redirect_stdout(s):
+    ...     ap.print_usage()
+    >>> print(s.getvalue())
+    usage: python3 -m pycommons.io.arguments [-h] [--version]
+    <BLANKLINE>
+
+    >>> s = StringIO()
+    >>> with redirect_stdout(s):
+    ...     ap.print_help()
+    >>> print(s.getvalue())
+    usage: python3 -m pycommons.io.arguments [-h] [--version]
+    <BLANKLINE>
+    This is a test program.
+    <BLANKLINE>
+    options:
+      -h, --help  show this help message and exit
+      --version   show program's version number and exit
     <BLANKLINE>
     This is a test.
     <BLANKLINE>
@@ -123,6 +154,20 @@ def make_argparser(file: str, description: str, epilog: str) -> ArgumentParser:
     ... except ValueError as ve:
     ...     print(ve)
     invalid epilog='epi'.
+
+    >>> try:
+    ...     make_argparser(__file__, "This is a long test",
+    ...         "long long long epilog", 1)
+    ... except TypeError as te:
+    ...     print(str(te)[:60])
+    descriptor 'strip' for 'str' objects doesn't apply to a 'int
+
+    >>> try:
+    ...     make_argparser(__file__, "This is a long test",
+    ...         "long long long epilog", " ")
+    ... except ValueError as ve:
+    ...     print(ve)
+    Invalid version string ' '.
     """
     if str.__len__(file) <= 3:
         raise ValueError(f"invalid file={file!r}.")
@@ -132,85 +177,19 @@ def make_argparser(file: str, description: str, epilog: str) -> ArgumentParser:
     epilog = str.strip(epilog)
     if str.__len__(epilog) <= 10:
         raise ValueError(f"invalid epilog={epilog!r}.")
-    return ArgumentParser(
+
+    result: Final[ArgumentParser] = ArgumentParser(
         parents=[__DEFAULT_ARGUMENTS], prog=" ".join(python_command(file)),
         description=description, epilog=epilog,
         formatter_class=__DEFAULT_ARGUMENTS.formatter_class)
 
+    if version is not None:
+        uversion = str.strip(version)
+        if str.__len__(uversion) < 1:
+            raise ValueError(f"Invalid version string {version!r}.")
+        result.add_argument("--version", action="version", version=uversion)
 
-def add_version(arguments: ArgumentParser, version: str) -> ArgumentParser:
-    """
-    Add a version string to the given argument parser.
-
-    :param arguments: the argument parser
-    :param version: the version string
-    :return: the argument parser
-
-    >>> ap = make_argparser(__file__, "This is a test program.",
-    ...                     "This is a test.")
-    >>> x = add_version(ap, "1.0")
-    >>> from contextlib import redirect_stdout
-    >>> from io import StringIO
-    >>> s = StringIO()
-    >>> with redirect_stdout(s):
-    ...     ap.print_usage()
-    >>> print(s.getvalue())
-    usage: python3 -m pycommons.io.arguments [-h] [--version]
-    <BLANKLINE>
-
-    >>> s = StringIO()
-    >>> with redirect_stdout(s):
-    ...     ap.print_help()
-    >>> print(s.getvalue())
-    usage: python3 -m pycommons.io.arguments [-h] [--version]
-    <BLANKLINE>
-    This is a test program.
-    <BLANKLINE>
-    options:
-      -h, --help  show this help message and exit
-      --version   show program's version number and exit
-    <BLANKLINE>
-    This is a test.
-    <BLANKLINE>
-
-    >>> try:
-    ...     add_version(None, "3.2")
-    ... except TypeError as te:
-    ...     print(te)
-    argparser should be an instance of argparse.ArgumentParser but is None.
-
-    >>> try:
-    ...     add_version(1, "3.2")
-    ... except TypeError as te:
-    ...     print(te)
-    argparser should be an instance of argparse.ArgumentParser but is \
-int, namely '1'.
-
-    >>> try:
-    ...     add_version(ap, 1)
-    ... except TypeError as te:
-    ...     print(te)
-    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
-
-    >>> try:
-    ...     add_version(ap, None)
-    ... except TypeError as te:
-    ...     print(te)
-    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object
-
-    >>> try:
-    ...     add_version(ap, "")
-    ... except ValueError as ve:
-    ...     print(ve)
-    Invalid version string ''.
-    """
-    if not isinstance(arguments, ArgumentParser):
-        raise type_error(arguments, "argparser", ArgumentParser)
-    version = str.strip(version)
-    if str.__len__(version) < 1:
-        raise ValueError(f"Invalid version string {version!r}.")
-    arguments.add_argument("--version", action="version", version=version)
-    return arguments
+    return result
 
 
 def make_epilog(
