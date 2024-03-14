@@ -1,368 +1,351 @@
 """The tool for invoking shell commands."""
 
 import subprocess  # nosec
+from dataclasses import dataclass
 from os import getcwd
-from typing import Callable, Final, Iterable, Mapping
+from typing import Callable, Final, Iterable
 
 from pycommons.io.console import logger
-from pycommons.io.path import UTF8, directory_path
+from pycommons.io.path import UTF8, Path, directory_path
 from pycommons.types import check_int_range, type_error
 
+#: ignore the given stream
+STREAM_IGNORE: Final[int] = 0
+#: forward given stream to the same stream of this process
+STREAM_FORWARD: Final[int] = 1
+#: capture the given stream
+STREAM_CAPTURE: Final[int] = 2
 
-def exec_text_process(
-        command: str | Iterable[str],
-        timeout: int = 3600,
-        cwd: str | None = None,
-        wants_stdout: bool = False,
-        stdin: str | None = None,
-        log_call: bool = True,
-        log_stdin: bool = False,
-        log_stdout: bool = True,
-        log_stderr: bool = True,
-        exit_code_to_str: Mapping[int, str] | None = None,
-        check_stderr: Callable[[str], str | None] | None = None) \
-        -> str | None:
-    r"""
-    Execute a text-based command.
 
-    The goal is to provide a relatively safe and tightly specified way to
-    invoke a command-line tool or short sub-process with text-based input and
-    output. There always has to be a timeout value (by default one hour). The
-    text encoding is set to strict UTF-8.
+#: the stream mode to string converter
+_SM: Final[Callable[[int], str]] = {
+    STREAM_IGNORE: " ignored",
+    STREAM_FORWARD: " forwarded",
+    STREAM_CAPTURE: " captured",
+}.get
 
-    The command is executed and its stdout and stderr and return code are
-    captured. If the command had a non-zero exit code, a `ValueError` is
-    thrown.
-    The command itself, as well as the parameters are logged if `log_call` is
-    `True`. If `wants_stdout` is `True`, the command's stdout is returned as
-    string. Otherwise, `None` is returned.
-    All spaces are stripped from all command strings and all command strings
-    that become empty this way are discarded.
 
-    If you want to invoke another Python script by spawning a new interpreter,
-    you can construct the `command` parameter by using
-    :func:`~pycommons.processes.python.python_command`.
+@dataclass(frozen=True, init=False, order=False, eq=False)
+class Command:
+    """
+    A class that represents a command that can be executed.
 
-    :param command: the command to execute, either a single string or a
-        sequence of strings. All white space will be stripped from the strings
-        and all strings that then become empty are dropped.
-    :param timeout: the timeout in seconds, must not be more than 1000 hours
-        and at least 1 second; by default it is one hour
-    :param cwd: the directory to run inside, or `None` if not specified, in
-        which case the program will be executed in the current work directory
-        (see :func:`os.getcwd`)
-    :param wants_stdout: if `True`, the text contents of stdout should be
-        returned; otherwise, i.e., if `False`, `None` is returned
-    :param exit_code_to_str: an optional map converting return codes that are
-        different from `0` to strings
-    :param check_stderr: provide an error message if any error is found in
-        stderr, or `None` or the empty string otherwise. If this function
-        is not `None` and does neither return `None` nor a string only
-        composed of white space (or being empty), then a `ValueError` with
-        the appropriat message is raised, regardless of the return code of the
-        process.
-    :param stdin: optional data to be written to stdin, `None` to write
-        nothing to the program's stdin
-    :param log_call: should any log output be generated? If `True`, then a
-        message is written via :func:`~pycommons.io.console.logger` before and
-        after the process is executed; see `log_stdin`, `log_stdout`, and
-        `log_stderr` for which information should be included in the log
-        message.
-    :param log_stdin: should the data passed to stdin be logged? Only used if
-        `log_call == True`.
-    :param log_stdout: should the data read from stdout be logged? Only used if
-        `log_call == True`.
-    :param log_stderr: should the data read from stderr be logged? Only used if
-        `log_call == True`.
-    :raises TypeError: if any argument has the wrong type
-    :raises ValueError: if invoking the process fails for any other reason
+    >>> c = Command("test")
+    >>> c.command
+    ('test',)
+    >>> c.working_dir.is_dir()
+    True
+    >>> c.timeout
+    3600
 
-    >>> exec_text_process(("echo", "123"), wants_stdout=True, log_call=False)
-    '123\n'
+    >>> d = Command(("test", "b"))
+    >>> d.command
+    ('test', 'b')
+    >>> d.working_dir == c.working_dir
+    True
+    >>> d.timeout == c.timeout
+    True
 
-    >>> exec_text_process(("echo", " ", "123"), wants_stdout=True,
-    ...                   log_call=False)
-    '123\n'
-
-    >>> from contextlib import redirect_stdout
-    >>> from io import StringIO
-    >>> s = StringIO()
-    >>> with redirect_stdout(s):
-    ...     exec_text_process(("echo", "123"), wants_stdout=False)
-    >>> print(s.getvalue().strip().split("\n")[2:])
-    ['Obtained return value 0.', '', 'stdout:', '123']
-
-    >>> s = StringIO()
-    >>> with redirect_stdout(s):
-    ...     exec_text_process("cat", stdin="tester",
-    ...                       wants_stdout=False)
-    >>> print(s.getvalue().strip().split("\n")[2:])
-    ['Obtained return value 0.', '', 'stdout:', 'tester']
-
-    >>> s = StringIO()
-    >>> with redirect_stdout(s):
-    ...     exec_text_process("cat", stdin="tester",
-    ...                       wants_stdout=False, log_stdin=True)
-    >>> print(s.getvalue().strip().split("\n")[2:-3])
-    ['Obtained return value 0.', '', 'stdin:', 'tester']
-
-    >>> s = StringIO()
-    >>> try:
-    ...     with redirect_stdout(s):
-    ...         exec_text_process(("ping", "blabla!"),
-    ...                           wants_stdout=False,
-    ...                           exit_code_to_str={2: "bla!"})
-    ... except ValueError as ve:
-    ...     ss = str(ve)
-    ...     print(ss[:33] + " ... " + ss[-33:])
-    Execution of 'ping' 'blabla!' in  ... return code 2 with meaning 'bla!'
-    >>> print("\n".join(s.getvalue().strip().split("\n")[2:]))
-    Obtained return value 2.
-    Meaning of return value: 'bla!'
-    <BLANKLINE>
-    stderr:
-    ping: blabla!: Name or service not known
-
-    >>> s = StringIO()
-    >>> try:
-    ...     with redirect_stdout(s):
-    ...         exec_text_process(("ping", "blabla!"),
-    ...                           wants_stdout=False,
-    ...                           exit_code_to_str={2: " "})
-    ... except ValueError as ve:
-    ...     ss = str(ve)
-    ...     print(ss[:33] + " ... " + ss[-22:])
-    Execution of 'ping' 'blabla!' in  ... led with return code 2
-    >>> print("\n".join(s.getvalue().strip().split("\n")[2:]))
-    Obtained return value 2.
-    <BLANKLINE>
-    stderr:
-    ping: blabla!: Name or service not known
-
-    >>> s = StringIO()
-    >>> try:
-    ...     with redirect_stdout(s):
-    ...         exec_text_process(
-    ...             ("ping", "blabla!"),
-    ...             wants_stdout=False,
-    ...             exit_code_to_str={2: "bla!"},
-    ...             check_stderr=lambda i: "Oh" if "service" in i else "Ah")
-    ... except ValueError as ve:
-    ...     ss = str(ve)
-    ...     print(ss[:33] + " ... " + ss[-33:])
-    Execution of 'ping' 'blabla!' in  ... ning 'bla!' leading to error 'Oh'
-    >>> print("\n".join(s.getvalue().strip().split("\n")[2:-3]))
-    Obtained return value 2.
-    Meaning of return value: 'bla!'
-    <BLANKLINE>
-    stderr:
-    ping: blabla!: Name or service not known
-
-    >>> s = StringIO()
-    >>> try:
-    ...     with redirect_stdout(s):
-    ...         exec_text_process(
-    ...             ("ping", "blabla!"),
-    ...             wants_stdout=False,
-    ...             exit_code_to_str={2: "bla!"},
-    ...             check_stderr=lambda i: "" if "service" in i else "")
-    ... except ValueError as ve:
-    ...     ss = str(ve)
-    ...     print(ss[:33] + " ... " + ss[-33:])
-    Execution of 'ping' 'blabla!' in  ... return code 2 with meaning 'bla!'
-    >>> print("\n".join(s.getvalue().strip().split("\n")[2:-3]))
-    Obtained return value 2.
-    Meaning of return value: 'bla!'
+    >>> e = Command(("", "test", " b", " "))
+    >>> e.command == d.command
+    True
+    >>> e.working_dir == c.working_dir
+    True
+    >>> e.timeout == c.timeout
+    True
 
     >>> try:
-    ...     exec_text_process(command=1)
+    ...     Command(1)
     ... except TypeError as te:
-    ...     print(te)
-    command should be an instance of typing.Iterable but is int, namely '1'.
+    ...     print(str(te)[:50])
+    command should be an instance of any in {str, typi
 
     >>> try:
-    ...     exec_text_process(command=("echo", 1))
+    ...     Command([1])
     ... except TypeError as te:
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
 
     >>> try:
-    ...     exec_text_process(command="")
+    ...     Command(["x", 1])
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
+    >>> try:
+    ...     Command([])
     ... except ValueError as ve:
     ...     print(ve)
-    Invalid command [] mapping to ''!
+    Invalid command [].
 
     >>> try:
-    ...     exec_text_process(command=" ")
+    ...     Command([""])
     ... except ValueError as ve:
     ...     print(ve)
-    Invalid command [] mapping to ''!
+    Invalid command [''].
 
     >>> try:
-    ...     exec_text_process(command=(" ", "   ", ))
+    ...     Command("")
     ... except ValueError as ve:
     ...     print(ve)
-    Invalid command [] mapping to ''!
+    Invalid command [''].
 
+    >>> Command("x", working_dir=Path(__file__).up(1)).command
+    ('x',)
 
     >>> try:
-    ...     exec_text_process("ls", timeout=1.3)
+    ...     Command("x", working_dir=1)
     ... except TypeError as te:
     ...     print(te)
-    timeout should be an instance of int but is float, namely '1.3'.
+    descriptor '__len__' requires a 'str' object but received a 'int'
 
     >>> try:
-    ...     exec_text_process("ls", stdin=1.3)
+    ...     Command("x", working_dir=Path(__file__))
+    ... except ValueError as ve:
+    ...     print(str(ve)[-30:])
+    does not identify a directory.
+
+    >>> Command("x", timeout=23).timeout
+    23
+
+    >>> try:
+    ...     Command("x", timeout=1.2)
     ... except TypeError as te:
     ...     print(te)
-    stdin should be an instance of str but is float, namely '1.3'.
+    timeout should be an instance of int but is float, namely '1.2'.
 
     >>> try:
-    ...     exec_text_process("ls", log_call=1.3)
+    ...     Command("x", timeout=None)
     ... except TypeError as te:
     ...     print(te)
-    log_call should be an instance of bool but is float, namely '1.3'.
+    timeout should be an instance of int but is None.
 
     >>> try:
-    ...     exec_text_process("ls", log_stdin=1.3)
-    ... except TypeError as te:
-    ...     print(te)
-    log_stdin should be an instance of bool but is float, namely '1.3'.
+    ...     Command("x", timeout=0)
+    ... except ValueError as ve:
+    ...     print(ve)
+    timeout=0 is invalid, must be in 1..1000000.
 
     >>> try:
-    ...     exec_text_process("ls", log_stdout=1.3)
-    ... except TypeError as te:
-    ...     print(te)
-    log_stdout should be an instance of bool but is float, namely '1.3'.
+    ...     Command("x", timeout=1_000_001)
+    ... except ValueError as ve:
+    ...     print(ve)
+    timeout=1000001 is invalid, must be in 1..1000000.
 
     >>> try:
-    ...     exec_text_process("ls", log_stderr=1.3)
+    ...     Command("x", stdin=1_000_001)
     ... except TypeError as te:
-    ...     print(te)
-    log_stderr should be an instance of bool but is float, namely '1.3'.
-
-    >>> try:
-    ...     exec_text_process("ls", wants_stdout=1.3)
-    ... except TypeError as te:
-    ...     print(te)
-    wants_stdout should be an instance of bool but is float, namely '1.3'.
-
-    >>> try:
-    ...     exec_text_process("ls", exit_code_to_str=1.3)
-    ... except TypeError as te:
-    ...     print(str(te)[:-28])
-    exit_code_to_str should be an instance of any in {None, typing.Mapping}
-
-    >>> try:
-    ...     exec_text_process("ls", check_stderr=1.3)
-    ... except TypeError as te:
-    ...     print(str(te)[:-24])
-    check_stderr should be an instance of any in {None} or a callable but
+    ...     print(str(te)[:49])
+    stdin should be an instance of any in {None, str}
     """
-    if isinstance(command, str):
-        command = [command]
-    if not isinstance(command, Iterable):
-        raise type_error(command, "command", Iterable)
-    check_int_range(timeout, "timeout", 1, 3600_000)
-    if not isinstance(log_call, bool):
-        raise type_error(log_call, "log_call", bool)
-    if not isinstance(log_stdin, bool):
-        raise type_error(log_stdin, "log_stdin", bool)
-    if not isinstance(log_stdout, bool):
-        raise type_error(log_stdout, "log_stdout", bool)
-    if not isinstance(log_stderr, bool):
-        raise type_error(log_stderr, "log_stderr", bool)
-    if not isinstance(wants_stdout, bool):
-        raise type_error(wants_stdout, "wants_stdout", bool)
-    if (exit_code_to_str is not None) and (
-            not isinstance(exit_code_to_str, Mapping)):
-        raise type_error(exit_code_to_str, "exit_code_to_str", (
-            Mapping, None))
-    if (check_stderr is not None) and (not callable(check_stderr)):
-        raise type_error(check_stderr, "check_stderr", (
-            type(None), ), call=True)
 
-    cmd = [s for s in map(str.strip, command) if str.__len__(s) > 0]
-    execstr: str = " ".join(map(repr, cmd))
-    if (list.__len__(cmd) <= 0) or (str.__len__(execstr) <= 0):
-        raise ValueError(f"Invalid command {cmd!r} mapping to {execstr!r}!")
+    #: the command line.
+    command: tuple[str, ...]
+    #: the working directory
+    working_dir: Path
+    #: the timeout in seconds, after which the process will be terminated
+    timeout: int
+    #: the data to be written to stdin
+    stdin: str | None
+    #: how to handle the standard output stream
+    stdout: int
+    #: how to handle the standard error stream
+    stderr: int
 
-    wd = directory_path(getcwd() if cwd is None else cwd)
-    execstr = f"{execstr} in {wd!r}"
+    def __init__(self, command: str | Iterable[str],
+                 working_dir: str | None = None,
+                 timeout: int | None = 3600,
+                 stdin: str | None = None,
+                 stdout: int = STREAM_IGNORE,
+                 stderr: int = STREAM_IGNORE) -> None:
+        """
+        Create the command.
 
-    arguments: Final[dict[str, str | list[str] | bool | int]] = {
-        "args": cmd,
-        "check": False,
-        "text": True,
-        "timeout": timeout,
-        "capture_output": True,
-        "cwd": wd,
-        "errors": "strict",
-        "encoding": UTF8,
-    }
+        :param command: the command string or iterable
+        :param working_dir: the working directory
+        :param timeout: the timeout
+        :param stdin: a string to be written to stdin, or `None`
+        :param stdout: how to handle the standard output stream
+        :param stderr: how to handle the standard error stream
+        """
+        if isinstance(command, str):
+            command = [command]
+        elif not isinstance(command, Iterable):
+            raise type_error(command, "command", (str, Iterable))
+        object.__setattr__(self, "command", tuple(
+            s for s in map(str.strip, command) if str.__len__(s) > 0))
+        if tuple.__len__(self.command) <= 0:
+            raise ValueError(f"Invalid command {command!r}.")
 
-    if stdin is not None:
-        if not isinstance(stdin, str):
-            raise type_error(stdin, "stdin", str)
-        arguments["input"] = stdin
+        object.__setattr__(self, "working_dir", directory_path(
+            getcwd() if working_dir is None else working_dir))
 
-    if log_call:
-        logger(f"Now invoking {execstr}.")
-    # noqa # nosemgrep # pylint: disable=W1510 # type: ignore
-    ret: Final[subprocess.CompletedProcess] = \
-        subprocess.run(**arguments)  # type: ignore # nosec # noqa
-    returncode: Final[int] = ret.returncode
+        object.__setattr__(self, "timeout", check_int_range(
+            timeout, "timeout", 1, 1_000_000))
 
-    logging: list[str] | None = [
-        f"Finished executing {execstr}.",
-        f"Obtained return value {returncode}."] if log_call else None
+        if (stdin is not None) and (not isinstance(stdin, str)):
+            raise type_error(stdin, "stdin", (str, None))
+        object.__setattr__(self, "stdin", stdin)
 
-    meaning: str | None = None
-    if (returncode != 0) and exit_code_to_str:
-        meaning = exit_code_to_str.get(returncode, None)
-        if meaning is not None:
-            meaning = str.strip(meaning)
-            if str.__len__(meaning) > 0:
-                if logging is not None:
-                    logging.append(f"Meaning of return value: {meaning!r}")
-            else:
-                meaning = None
+        object.__setattr__(self, "stdout", check_int_range(
+            stdout, "stdout", 0, 2))
+        object.__setattr__(self, "stderr", check_int_range(
+            stderr, "stderr", 0, 2))
 
-    if log_stdin and (stdin is not None) and (logging is not None):
-        logging.append(f"\nstdin:\n{stdin}")
+    def __str__(self) -> str:
+        """
+        Get the string representation of this command.
 
-    stdout = ret.stdout
-    if ((stdout is not None) and (str.__len__(stdout) > 0)
-            and log_stdout and (logging is not None)):
-        logging.append(f"\nstdout:\n{stdout}")
+        :return: A string representing this command
 
-    stderr = ret.stderr
-    del ret
-    error_msg: str | None = None
-    if stderr is not None:
-        if str.__len__(stderr) > 0:
-            if log_stderr and (logging is not None):
-                logging.append(f"\nstderr:\n{stderr}")
-            if callable(check_stderr):
-                error_msg = check_stderr(stderr)
-                if error_msg is not None:
-                    error_msg = str.strip(error_msg)
-                    if str.__len__(error_msg) <= 0:
-                        error_msg = None
-                    elif logging is not None:
-                        logging.append(f"\nerror message: {execstr!r}")
-        del stderr
-    if logging is not None:
-        logger("\n".join(logging))
-        del logging
+        >>> str(Command("a"))[-50:]
+        ' with no stdin, stdout ignored, and stderr ignored'
+        >>> str(Command("x"))[:11]
+        "('x',) in '"
+        >>> "with 3 chars of stdin" in str(Command("x", stdin="123"))
+        True
+        """
+        si: str = "no" if self.stdin is None \
+            else f"{str.__len__(self.stdin)} chars of"
+        return (f"{self.command!r} in {self.working_dir!r} for {self.timeout}"
+                f"s with {si} stdin, stdout{_SM(self.stdout)}, and "
+                f"stderr{_SM(self.stderr)}")
 
-    if (returncode != 0) or (error_msg is not None):
-        execstr = (f"Execution of {execstr} failed with "
-                   f"return code {returncode}")
-        if meaning is not None:
-            execstr = f"{execstr} with meaning {meaning!r}"
-        if error_msg is not None:
-            execstr = f"{execstr} leading to error {error_msg!r}"
-        raise ValueError(execstr)
+    def execute(self, log_call: bool = True) -> tuple[str | None, str | None]:
+        r"""
+        Execute the given process.
 
-    return stdout if wants_stdout else None
+        :param log_call: should the call be logged?
+        :return: a tuple with the standard output and standard error, which
+            are only not `None` if they were supposed to be captured
+        :raises TypeError: if any argument has the wrong type
+        :raises ValueError: if execution of the process failed
+
+        >>> Command(("echo", "123"), stdout=STREAM_CAPTURE).execute(False)
+        ('123\n', None)
+
+        >>> Command(("echo", "", "123"), stdout=STREAM_CAPTURE).execute(False)
+        ('123\n', None)
+
+        >>> from contextlib import redirect_stdout
+        >>> from io import StringIO
+        >>> s = StringIO()
+        >>> with redirect_stdout(s):
+        ...     Command(("echo", "123"), stdout=STREAM_CAPTURE).execute()
+        >>> print(s.getvalue().strip().split("\n")[1][-30:])
+        0, captured 4 chars of stdout.
+
+        >>> Command("cat", stdin="test", stdout=STREAM_CAPTURE).execute(False)
+        ('test', None)
+
+        >>> Command("cat", stdin="test").execute(False)
+        (None, None)
+
+        >>> s = StringIO()
+        >>> try:
+        ...     with redirect_stdout(s):
+        ...         Command(("ping", "blabla!")).execute(True)
+        ... except ValueError as ve:
+        ...     ss = str(ve)
+        ...     print(ss[:20] + " ... " + ss[-22:])
+        ('ping', 'blabla!')  ...  yields return code 2.
+        >>> "Failed" in s.getvalue()
+        True
+
+        >>> s = StringIO()
+        >>> try:
+        ...     with redirect_stdout(s):
+        ...         Command(("ping", "www.example.com", "-i 20"),
+        ...                 timeout=1).execute(True)
+        ... except ValueError as ve:
+        ...     print("timed out after" in str(ve))
+        True
+        >>> "timed out" in s.getvalue()
+        True
+
+        >>> try:
+        ...     Command("x").execute(None)
+        ... except TypeError as te:
+        ...     print(te)
+        log_call should be an instance of bool but is None.
+
+        >>> try:
+        ...     Command("x").execute(1)
+        ... except TypeError as te:
+        ...     print(te)
+        log_call should be an instance of bool but is int, namely '1'.
+
+        >>> s = StringIO()
+        >>> with redirect_stdout(s):
+        ...     r = Command(("echo", "1"), stderr=STREAM_CAPTURE).execute(
+        ...             True)
+        >>> str(s.getvalue())[-43:-1]
+        'return code 0, captured 0 chars of stderr.'
+        >>> r
+        (None, '')
+        """
+        if not isinstance(log_call, bool):
+            raise type_error(log_call, "log_call", bool)
+        message: Final[str] = str(self)
+        if log_call:
+            logger(f"Now invoking {message}.")
+
+        arguments: Final[dict[str, str | Iterable[str] | bool | int]] = {
+            "args": self.command,
+            "check": False,
+            "text": True,
+            "timeout": self.timeout,
+            "cwd": self.working_dir,
+            "errors": "strict",
+            "encoding": UTF8,
+        }
+
+        if self.stdin is not None:
+            arguments["input"] = self.stdin
+
+        arguments["stdout"] = 1 if self.stdout == STREAM_FORWARD else (
+            subprocess.PIPE if self.stdout == STREAM_CAPTURE
+            else subprocess.DEVNULL)
+        arguments["stderr"] = 2 if self.stderr == STREAM_FORWARD else (
+            subprocess.PIPE if self.stderr == STREAM_CAPTURE
+            else subprocess.DEVNULL)
+
+        try:
+            # noqa # nosemgrep # pylint: disable=W1510 # type: ignore
+            ret: Final[subprocess.CompletedProcess] = \
+                subprocess.run(**arguments)  # type: ignore # nosec # noqa
+        except (TimeoutError, subprocess.TimeoutExpired) as toe:
+            if log_call:
+                logger(f"Failed executing {self} with timeout {toe}.")
+            raise ValueError(f"{message} timed out: {toe}.") from toe
+
+        returncode: Final[int] = ret.returncode
+        if returncode != 0:
+            if log_call:
+                logger(f"Failed executing {self}: got return"
+                       f" code {returncode}.")
+            raise ValueError(f"{message} yields return code {returncode}.")
+
+        stdout: str | None = None
+        if self.stdout == STREAM_CAPTURE:
+            stdout = ret.stdout
+            if not isinstance(stdout, str):
+                raise type_error(stdout, f"stdout of {self}", stdout)
+
+        stderr: str | None = None
+        if self.stderr == STREAM_CAPTURE:
+            stderr = ret.stderr
+            if not isinstance(stderr, str):
+                raise type_error(stderr, f"stderr of {self}", stderr)
+
+        if log_call:
+            capture: str = ""
+            if stdout is not None:
+                capture = f", captured {str.__len__(stdout)} chars of stdout"
+            if stderr is not None:
+                capture = f"{capture} and " if str.__len__(capture) > 0 \
+                    else ", captured "
+                capture = f"{capture}{str.__len__(stderr)} chars of stderr"
+            logger(f"Finished executing {self} with return code 0{capture}.")
+
+        return stdout, stderr

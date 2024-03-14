@@ -59,33 +59,6 @@ sphinx-autodoc-typehints == 1.24.0
 # myst-parser is needed for including README.md into the documentation
 myst-parser == 2.0.0
 
-# We use a set of different static code analysis tools. They check the code
-# for errors in typing, for violations of conventions, for potential security
-# issues, for possible bugs, for unnecessary code or imports, and for other
-# things that can be improved. If all checks of all of these tools pass, then
-# we probably have good quality code.
-autoflake == 2.2.1
-bandit == 1.7.5
-coverage == 7.3.2
-coverage-badge == 1.1.0
-dlint == 0.14.1
-dodgy == 0.2.1
-flake8 == 6.1.0
-flake8-bugbear == 23.9.16
-flake8-eradicate == 1.5.0
-flake8-use-fstring == 1.4
-mypy == 1.6.1
-pycodestyle == 2.11.1
-pydocstyle == 6.3.0
-pyflakes == 3.1.0
-pylint == 3.0.2
-pyroma == 4.2
-ruff == 0.1.2
-semgrep == 1.46.0
-tryceratops == 2.3.2
-unimport == 1.0.0
-vulture == 2.10
-
 # yaml is used only in tests and examples.
 pyyaml == 6.0.1
 

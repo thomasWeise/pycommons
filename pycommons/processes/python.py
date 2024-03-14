@@ -101,7 +101,7 @@ def python_command(
     :param use_short_interpreter: use the short interpreter path, for
         reabability and maybe portablity, or the full path?
     :return: a list that can be passed to the shell to run that program, see,
-        e.g., :func:`pycommons.processes.shell.exec_text_process`.
+        e.g., :class:`pycommons.processes.shell.Command`.
 
     >>> python_command(os.__file__)
     ['python3', '-m', 'os']

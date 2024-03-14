@@ -67,51 +67,8 @@ test: init
 
 # Perform static code analysis.
 static_analysis: init
-	echo "$(NOW): The original value of PATH is '${PATH}'." &&\
-	export PATH="${PATH}:${PYTHON_PACKAGE_BINARIES}" &&\
-	echo "$(NOW): PATH is now '${PATH}'." &&\
-	echo "$(NOW): Running static code analysis, starting with flake8." && \
-	flake8 . --ignore=,B008,B009,B010,DUO102,TRY003,TRY101,W503 && \
-	echo "$(NOW): Finished running flake8, now applying pylint to package." &&\
-	pylint pycommons --disable=C0103,C0302,C0325,R0801,R0901,R0902,R0903,R0911,R0912,R0913,R0914,R0915,R1702,R1728,W0212,W0238,W0703 &&\
-	echo "$(NOW): Done with pylint, now trying mypy." &&\
-	mypy pycommons --no-strict-optional --check-untyped-defs &&\
-	echo "$(NOW): Done with mypy, now doing pyflakes." &&\
-	python3 -m pyflakes . &&\
-	echo "$(NOW): Done with pyflakes, now applying bandit to find security issues." &&\
-	bandit -r pycommons -s B311 &&\
-	bandit -r examples -s B311 &&\
-	bandit -r tests -s B311,B101 &&\
-	echo "$(NOW): Done with bandit, now using pyroma to check setup.py." &&\
-	pyroma . &&\
-	echo "$(NOW): Done with pyroma, now applying semgrep." &&\
-	(semgrep --error --strict --use-git-ignore --skip-unknown-extensions --optimizations all --config=auto || semgrep --error --strict --use-git-ignore --skip-unknown-extensions --optimizations all --config=auto --verbose) &&\
-	echo "$(NOW): Done with semgrep, now applying pydocstyle." &&\
-	pydocstyle --convention=pep257 &&\
-	echo "$(NOW): Done with pydocstyle, now applying tryceratops." &&\
-	tryceratops -i TRY003 -i TRY101 pycommons &&\
-	tryceratops -i TRY003 -i TRY101 examples &&\
-	tryceratops -i TRY003 -i TRY101 tests &&\
-	echo "$(NOW): Done with tryceratops, now applying unimport." &&\
-	unimport pycommons &&\
-	unimport examples &&\
-	unimport tests &&\
-	echo "$(NOW): Done with unimport, now applying vulture." &&\
-	vulture . --min-confidence 61 &&\
-	echo "$(NOW): Done with vulture, now applying dodgy." &&\
-	dodgy &&\
-	echo "$(NOW): Done with dodgy, now running pycodestyle." &&\
-	pycodestyle pycommons &&\
-	pycodestyle --ignore=E731,W503 examples &&\
-	pycodestyle tests &&\
-	echo "$(NOW): Done with pycodestyle, now running ruff." &&\
-	ruff --target-version py310 --select A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,INP,ISC,N,NPY,PIE,PLC,PLE,PLR,PLW,PT,PYI,Q,RET,RSE,RUF,S,SIM,T,T10,T20,TID,TRY,UP,W,YTT --ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,C901,D203,D208,D212,D401,D407,D413,N801,PLR0911,PLR0912,PLR0913,PLR0915,PLR2004,PYI041,RUF100,TRY003,UP035 --line-length 79 pycommons &&\
-	ruff --target-version py310 --select A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,ISC,N,NPY,PIE,PLC,PLE,PLR,PLW,PT,PYI,Q,RET,RSE,RUF,S,SIM,T10,TID,TRY,UP,W,YTT --ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,C901,D203,D208,D212,D401,D407,D413,N801,PLR0911,PLR0912,PLR0913,PLR0915,PLR2004,PYI041,RUF100,TRY003,UP035 --line-length 79 examples &&\
-	ruff --target-version py310 --select A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,ISC,N,NPY,PIE,PLC,PLE,PLR,PLW,PYI,Q,RET,RSE,RUF,T,SIM,T10,T20,TID,TRY,UP,W,YTT --ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,C901,D203,D208,D212,D401,D407,D413,N801,PLR0911,PLR0912,PLR0913,PLR0915,PLR2004,PYI041,RUF100,TRY003,UP035 --line-length 79 tests &&\
-    echo "$(NOW): Done with ruff, now running autoflake." &&\
-    autoflake -c -r pycommons &&\
-    autoflake -c -r tests &&\
-    autoflake -c -r examples &&\
+	echo "$(NOW): Done: Now performing static analysis." &&\
+	python3 -m pycommons.dev.building.static_analysis --package pycommons --examples examples --tests tests &&\
 	echo "$(NOW): Done: All static checks passed."
 
 # We use sphinx to generate the documentation.
@@ -124,7 +81,7 @@ create_documentation: static_analysis test
 	echo "$(NOW): PYTHONPATH is now '${PYTHONPATH}'." &&\
 	echo "$(NOW): First creating the .rst files from the source code." && \
 	sphinx-apidoc -M --ext-autodoc -o docs/source ./pycommons && \
-	echo "$(NOW): Now creating the documentation build folder and building the documentation." && \
+	echo "$(NOW): Now creating the documentation build folder and build the documentation." && \
 	sphinx-build -W -a -E -b html docs/source docs/build && \
 	echo "$(NOW): Done creating HTML documentation, cleaning up documentation temp files." && \
 	rm -rf docs/source/*.rst && \

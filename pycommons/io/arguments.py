@@ -7,6 +7,7 @@ from typing import Final
 from pycommons.processes.python import python_command
 from pycommons.strings.chars import NBDASH, NBSP
 from pycommons.types import check_int_range
+from pycommons.version import __version__
 
 #: The default argument parser for latexgit executables.
 __DEFAULT_ARGUMENTS: Final[ArgumentParser] = ArgumentParser(
@@ -415,3 +416,28 @@ def make_epilog(
     the_epilog = (the_epilog.replace(" ", NBSP)
                   .replace("-", NBDASH).replace("\n", " "))
     return f"{text}\n\n{the_epilog}"
+
+
+def pycommons_argparser(
+        file: str, description: str, epilog: str) -> ArgumentParser:
+    """
+    Create an argument parser with default settings for `pycommons`.
+
+    :param file: the `__file__` special variable of the calling script
+    :param description: the description string
+    :param epilog: the epilogue string
+    :returns: the argument parser
+
+    >>> ap = pycommons_argparser(
+    ...     __file__, "This is a test program.", "This is a test.")
+    >>> isinstance(ap, ArgumentParser)
+    True
+    >>> "Copyright" in ap.epilog
+    True
+    """
+    return make_argparser(
+        file, description,
+        make_epilog(epilog, 2023, 2024, "Thomas Weise",
+                    url="https://thomasweise.github.io/pycommons",
+                    email="tweise@hfuu.edu.cn, tweise@ustc.edu.cn"),
+        __version__)

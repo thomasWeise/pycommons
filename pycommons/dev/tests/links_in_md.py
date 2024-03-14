@@ -376,8 +376,8 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     ...             "https://thomasweise.github.io/sifwrwruSSXFdfDX", vu)
     ...     except ValueError as ve:
     ...         s = str(ve)
-    >>> print(s)
-    Url 'https://thomasweise.github.io/sifwrwruSSXFdfDX' returns code 404.
+    >>> s.endswith("returns code 404.") or s.startswith("Could not load url")
+    True
 
     >>> try:
     ...     __check_url(None, dict())

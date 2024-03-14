@@ -23,3 +23,27 @@
 # of our package. They are used to check URL in markdown files.
 urllib3 == 1.26.18
 certifi == 2023.7.22
+
+# these static analysis tools are also needed for the [dev] extras variant
+# only
+autoflake == 2.2.1
+bandit == 1.7.5
+coverage == 7.3.2
+coverage-badge == 1.1.0
+dlint == 0.14.1
+dodgy == 0.2.1
+flake8 == 6.1.0
+flake8-bugbear == 23.9.16
+flake8-eradicate == 1.5.0
+flake8-use-fstring == 1.4
+mypy == 1.6.1
+pycodestyle == 2.11.1
+pydocstyle == 6.3.0
+pyflakes == 3.1.0
+pylint == 3.0.2
+pyroma == 4.2
+ruff == 0.1.2
+semgrep == 1.46.0
+tryceratops == 2.3.2
+unimport == 1.0.0
+vulture == 2.10

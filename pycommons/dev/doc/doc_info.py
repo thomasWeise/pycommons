@@ -206,7 +206,7 @@ class DocInfo:
 
     def __init__(self, readme_md: Path, project: str, author: str,
                  title: str, version: str,
-                 last_major_section_index: int, doc_url: str):
+                 last_major_section_index: int, doc_url: str) -> None:
         """
         Create the documentation information class.
 
