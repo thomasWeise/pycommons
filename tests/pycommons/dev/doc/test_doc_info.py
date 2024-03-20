@@ -8,27 +8,27 @@ import pytest
 
 from pycommons.dev.doc.doc_info import (
     DocInfo,
+    extract_md_infos,
     load_doc_info_from_setup_cfg,
-    parse_readme_md,
     parse_version_py,
 )
 from pycommons.io.path import Path, file_path, write_lines
 from pycommons.io.temp import temp_dir
 
 
-def test_parse_readme_md() -> None:
+def test_extract_md_infos() -> None:
     """Test parsing of readme.md files."""
     base: Final[Path] = file_path(__file__).up()
 
     try:
-        parse_readme_md(base.resolve_inside("md_2_titles.md"))
+        extract_md_infos(base.resolve_inside("md_2_titles.md"))
     except ValueError as ve:
         assert str(ve).startswith("Already have title")
     else:
         pytest.fail("There should be an error!")
 
     try:
-        parse_readme_md(base.resolve_inside(
+        extract_md_infos(base.resolve_inside(
             "md_error_2nd_level_heading_1.md"))
     except ValueError as ve:
         assert str(ve).startswith("Got '## x. blubb' and finding index 1")
@@ -36,7 +36,7 @@ def test_parse_readme_md() -> None:
         pytest.fail("There should be an error!")
 
     try:
-        parse_readme_md(base.resolve_inside(
+        extract_md_infos(base.resolve_inside(
             "md_error_2nd_level_heading_2.md"))
     except ValueError as ve:
         assert str(ve).startswith("Got '## blubb' after having index.")
@@ -44,14 +44,14 @@ def test_parse_readme_md() -> None:
         pytest.fail("There should be an error!")
 
     try:
-        parse_readme_md(base.resolve_inside(
+        extract_md_infos(base.resolve_inside(
             "md_error_2nd_level_heading_3.md"))
     except ValueError as ve:
         assert str(ve).startswith("Found index 1 in line '## 1. blubb'")
     else:
         pytest.fail("There should be an error!")
     try:
-        parse_readme_md(base.resolve_inside(
+        extract_md_infos(base.resolve_inside(
             "md_error_2nd_level_heading_4.md"))
     except ValueError as ve:
         assert str(ve).startswith("Got '## a. blubb' and finding index")
@@ -59,7 +59,7 @@ def test_parse_readme_md() -> None:
         pytest.fail("There should be an error!")
 
     try:
-        parse_readme_md(base.resolve_inside(
+        extract_md_infos(base.resolve_inside(
             "md_error_no_title.md"))
     except ValueError as ve:
         assert str(ve).startswith("No title in '")

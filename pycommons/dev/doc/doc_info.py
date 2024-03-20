@@ -273,7 +273,7 @@ class DocInfo:
                 f"url {self.doc_url}.")
 
 
-def parse_readme_md(readme_md_file: str) -> tuple[str, int | None]:
+def extract_md_infos(readme_md_file: str) -> tuple[str, int | None]:
     """
     Parse a `README.md` file and find the title and last section index.
 
@@ -285,13 +285,13 @@ def parse_readme_md(readme_md_file: str) -> tuple[str, int | None]:
     >>> from contextlib import redirect_stdout
     >>> from io import StringIO
     >>> with redirect_stdout(StringIO()):
-    ...     t = parse_readme_md(join(dirname(dirname(dirname(dirname(
-    ...                         __file__)))), "README.md"))
+    ...     t = extract_md_infos(join(dirname(dirname(dirname(dirname(
+    ...                          __file__)))), "README.md"))
     >>> print(t)
     ('*pycommons:* Common Utility Functions for Python Projects.', 5)
     """
     readme_md: Final[Path] = file_path(readme_md_file)
-    logger(f"Now parsing README.md file {readme_md!r}.")
+    logger(f"Now parsing markdown file {readme_md!r}.")
 
     # load both the title and the last index
     title: str | None = None
@@ -340,7 +340,7 @@ def parse_readme_md(readme_md_file: str) -> tuple[str, int | None]:
     if title is None:
         raise ValueError(f"No title in {readme_md!r}.")
 
-    logger(f"Finished parsing README.md file {readme_md!r}, got "
+    logger(f"Finished parsing markdown file {readme_md!r}, got "
            f"title {title!r} and last section index {last_idx}.")
     return title, last_idx
 
@@ -499,7 +499,7 @@ def load_doc_info_from_setup_cfg(setup_cfg_file: str) -> DocInfo:
                          f"not point to file.")
     readme_md_file: Final[Path] = root_path.resolve_inside(
         str.strip(long_desc_attr[6:]))
-    title, last_sec = parse_readme_md(readme_md_file)
+    title, last_sec = extract_md_infos(readme_md_file)
 
     # get the documentation URL
     docu_url: str | None = None

@@ -9,12 +9,10 @@ of scope.
 from abc import ABC
 from contextlib import AbstractContextManager
 from os import close as osclose
-from os import remove as osremove
-from shutil import rmtree
 from tempfile import mkdtemp, mkstemp
 from typing import Final
 
-from pycommons.io.path import Path, directory_path
+from pycommons.io.path import Path, delete_path, directory_path
 
 
 class ManagedPath(Path, AbstractContextManager, ABC):
@@ -89,7 +87,7 @@ class __TempDir(ManagedPath):
         opn: Final[bool] = self.__is_open
         self.__is_open = False
         if opn:
-            rmtree(self, ignore_errors=True, onerror=None)
+            delete_path(self)
         return exception_type is None
 
 
@@ -173,7 +171,7 @@ class __TempFile(ManagedPath):
         opn: Final[bool] = self.__is_open
         self.__is_open = False
         if opn:
-            osremove(self)
+            delete_path(self)
         return exception_type is None
 
 

@@ -56,9 +56,7 @@ init: clean
 test: init
 	echo "$(NOW): Erasing old coverage data." &&\
 	coverage erase &&\
-	echo "$(NOW): The original value of PATH is '${PATH}'." &&\
-	export PATH="${PATH}:${PYTHON_PACKAGE_BINARIES}" &&\
-	echo "$(NOW): PATH is now '${PATH}'." &&\
+	export PYTHONPATH=".:${PYTHONPATH}" &&\
 	echo "$(NOW): Running pytest with doctests." &&\
 	timeout --kill-after=15s 90m coverage run -a --include="pycommons/*" -m pytest --strict-config --doctest-modules --ignore=tests --ignore=examples &&\
 	echo "$(NOW): Running pytest tests." &&\
@@ -67,74 +65,18 @@ test: init
 
 # Perform static code analysis.
 static_analysis: init
-	echo "$(NOW): Done: Now performing static analysis." &&\
-	python3 -m pycommons.dev.building.static_analysis --package pycommons --examples examples --tests tests &&\
+	echo "$(NOW): Now performing static analysis." &&\
+	export PYTHONPATH=".:${PYTHONPATH}" &&\
+	python3 -m pycommons.dev.building.static_analysis --package pycommons &&\
 	echo "$(NOW): Done: All static checks passed."
 
 # We use sphinx to generate the documentation.
 # This automatically checks the docstrings and such and such.
 create_documentation: static_analysis test
-	echo "$(NOW): The original value of PATH is '${PATH}'." &&\
-	export PATH="${PATH}:${PYTHON_PACKAGE_BINARIES}" &&\
-	echo "$(NOW): PATH is now '${PATH}'." &&\
-	export PYTHONPATH="${PYTHONPATH}:${CWD}" &&\
-	echo "$(NOW): PYTHONPATH is now '${PYTHONPATH}'." &&\
-	echo "$(NOW): First creating the .rst files from the source code." && \
-	sphinx-apidoc -M --ext-autodoc -o docs/source ./pycommons && \
-	echo "$(NOW): Now creating the documentation build folder and build the documentation." && \
-	sphinx-build -W -a -E -b html docs/source docs/build && \
-	echo "$(NOW): Done creating HTML documentation, cleaning up documentation temp files." && \
-	rm -rf docs/source/*.rst && \
-	rm -rf docs/source/*.md && \
-	echo "$(NOW): Now we pygmentize all the examples in 'examples' to 'build/examples'." &&\
-	mkdir -p docs/build/examples &&\
-	for f in examples/*.py; do \
-		if [ -z "$$f" ]; then \
-			echo "$(NOW): Empty module '$$f'?"; \
-		else \
-			echo "$(NOW): Now pygmentizing example '$$f'." &&\
-			{ pygmentize -f html -l python3 -O full -O style=default -o docs/build/"$${f%.py}.html" "$$f" || exit 1; };\
-		fi \
-	done &&\
-	echo "$(NOW): Finished pygmentizing all examples, now copying LICENSE and other files." &&\
-	pygmentize -f html -l text -O full -O style=default -o docs/build/LICENSE.html LICENSE &&\
-	pygmentize -f html -l text -O full -O style=default -o docs/build/requirements.html requirements.txt &&\
-	pygmentize -f html -l text -O full -O style=default -o docs/build/requirements-dev.html requirements-dev.txt &&\
-	pygmentize -f html -l make -O full -O style=default -o docs/build/Makefile.html Makefile &&\
-	echo "$(NOW): Finished copying LICENSE, now creating coverage report." &&\
-	mkdir -p docs/build/tc &&\
-	coverage html -d docs/build/tc --include="pycommons/*" &&\
-	echo "$(NOW): Now creating coverage badge." &&\
-	coverage-badge -o docs/build/tc/badge.svg &&\
-	if [[ -f docs/build/tc/badge.svg ]];then \
-		echo "$(NOW): docs/build/tc/badge.svg exists."; \
-	else \
-		echo "$(NOW): docs/build/tc/badge.svg does not exist!"; exit 1; \
-	fi &&\
-	echo "$(NOW): Deleting .gitignore file." &&\
-	rm -f docs/build/tc/.gitignore &&\
-	echo "$(NOW): Deleting useless _sources." &&\
-	rm -rf docs/build/_sources &&\
-	echo "$(NOW): Now rendering additional files." &&\
-	export PART_A='<!DOCTYPE html><html><title>' &&\
-	export PART_B='</title><link href=_static/bizstyle.css rel=stylesheet><body style="background-image:none"><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><section>' &&\
-	export PART_C='</section></div></div></div></div></body></html>' &&\
-	export BASE_URL='https\:\/\/thomasweise\.github\.io\/pycommons\/' &&\
-	echo "$${PART_A}Contributing to pycommons$${PART_B}$(shell (python3 -m markdown -o html ./CONTRIBUTING.md))$$PART_C" > ./docs/build/CONTRIBUTING.html &&\
-	sed -i "s/\"$$BASE_URL/\".\//g" ./docs/build/CONTRIBUTING.html &&\
-	sed -i "s/=$$BASE_URL/=.\//g" ./docs/build/CONTRIBUTING.html &&\
-	echo "$${PART_A}Security Policy of pycommons$${PART_B}$(shell (python3 -m markdown -o html ./SECURITY.md))$$PART_C" > ./docs/build/SECURITY.html &&\
-	sed -i "s/\"$$BASE_URL/\".\//g" ./docs/build/SECURITY.html &&\
-	sed -i "s/=$$BASE_URL/=.\//g" ./docs/build/SECURITY.html &&\
-	echo "$(NOW): Now minifying all html files." &&\
-	cd "docs/build/" &&\
-	find -type f -name "*.html" -not -path "./tc/*" -exec python3 -c "print('{}');import minify_html;f=open('{}','r');s=f.read();f.close();s=minify_html.minify(s,do_not_minify_doctype=True,ensure_spec_compliant_unquoted_attribute_values=True,keep_html_and_head_opening_tags=False,minify_css=True,minify_js=True,remove_bangs=True,remove_processing_instructions=True);f=open('{}','w');f.write(s);f.close()" \; &&\
-	cd "../../" &&\
-	echo "$(NOW): Done creating coverage data. Now creating .nojekyll files." &&\
-	cd "docs/build/" &&\
-	find -type d -exec touch "{}/.nojekyll" \;
-	cd "../../" &&\
-	echo "$(NOW): Done creating the documentation."
+	echo "$(NOW): Now building documentation." &&\
+	export PYTHONPATH=".:${PYTHONPATH}" &&\
+	python3 -m pycommons.dev.building.make_documentation --root . --package pycommons &&\
+	echo "$(NOW): Done building documentation."
 
 # Create different distribution formats, also to check if there is any error.
 create_distribution: static_analysis test create_documentation

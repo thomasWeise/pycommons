@@ -7,43 +7,31 @@ from typing import Any, Callable, Final, Iterable
 from pycommons.dev.building.build_info import (
     BuildInfo,
     parse_project_arguments,
+    replace_in_cmd,
 )
 from pycommons.io.arguments import pycommons_argparser
 from pycommons.io.console import logger
 from pycommons.io.path import Path, directory_path
 from pycommons.processes.python import PYTHON_INTERPRETER
-from pycommons.processes.shell import STREAM_FORWARD, Command
+from pycommons.processes.shell import Command
 from pycommons.types import type_error
 
 
-def __execute(arguments: Iterable[str], wd: Path, timeout: int,
-              errors: Callable[[str], Any]) -> None:
+def __exec(arguments: Iterable[str],
+           info: BuildInfo,
+           errors: Callable[[str], Any]) -> None:
     """
     Execute a command.
 
     :param arguments: the arguments
-    :param wd: the working directory
-    :param timeout: the timeout
+    :param info: the build info
     :param errors: the error collector
     """
-    cmd: Final[Command] = Command(
-        arguments, working_dir=wd, stdout=STREAM_FORWARD,
-        stderr=STREAM_FORWARD, timeout=timeout)
+    cmd: Final[Command] = info.command(arguments)
     try:
         cmd.execute(True)
     except ValueError as ve:
         errors(f"{cmd} failed with {ve!r}.")
-
-
-def __replace(orig: Iterable[str], replacement: Path) -> Iterable[str]:
-    """
-    Replace the `"."` with the given path.
-
-    :param orig: the original sequence
-    :param replacement: the replacement
-    :return: the replaced sequence
-    """
-    return (replacement if f == "." else f for f in orig)
 
 
 #: a list of analysis to be applied to the base directory
@@ -107,20 +95,23 @@ __EXAMPLES_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
      "79", "."),
 )
 
+#: a list of analysis to be applied to the examples directory
+__DOC_SOURCE: Final[tuple[tuple[str, ...], ...]] = __EXAMPLES_ANALYSES
 
-def static_analysis(info: BuildInfo, timeout: int = 3600) -> None:
+
+def static_analysis(info: BuildInfo) -> None:
     """
     Perform the static code analysis for a Python project.
 
     :param info: the build information
-    :param timeout: the timeout for every single step
 
     >>> from io import StringIO
     >>> from contextlib import redirect_stdout
     >>> s = StringIO()
     >>> with redirect_stdout(s):
     ...     static_analysis(BuildInfo(
-    ...         Path(__file__).up(4), "pycommons", "tests", "examples"))
+    ...         Path(__file__).up(4), "pycommons", "tests",
+    ...             "examples", "docs/source"))
     >>> "Successfully completed" in s.getvalue()
     True
 
@@ -135,36 +126,11 @@ def static_analysis(info: BuildInfo, timeout: int = 3600) -> None:
     ... except TypeError as te:
     ...     print(str(te)[:50])
     info should be an instance of pycommons.dev.buildi
-
-    >>> try:
-    ...     with redirect_stdout(s):
-    ...         static_analysis(BuildInfo(Path(__file__).up(4), "pycommons",
-    ...             "tests", "examples"), None)
-    ... except TypeError as te:
-    ...     print(te)
-    timeout should be an instance of int but is None.
-
-    >>> try:
-    ...     with redirect_stdout(s):
-    ...         static_analysis(BuildInfo(Path(__file__).up(4), "pycommons",
-    ...             "tests", "examples"), 1.2)
-    ... except TypeError as te:
-    ...     print(te)
-    timeout should be an instance of int but is float, namely '1.2'.
-
-    >>> try:
-    ...     with redirect_stdout(s):
-    ...         static_analysis(BuildInfo(Path(__file__).up(4), "pycommons",
-    ...             "tests", "examples"), 0)
-    ... except ValueError as ve:
-    ...      print(ve)
-    timeout=0 is invalid, must be in 1..1000000.
     """
     if not isinstance(info, BuildInfo):
         raise type_error(info, "info", BuildInfo)
 
-    text: str = (f"static analysis for {info} with "
-                 f"per-step timeout of {timeout}s")
+    text: Final[str] = f"static analysis for {info}"
     logger(f"Performing {text}.")
 
     current: Final[Path] = directory_path(getcwd())
@@ -173,12 +139,12 @@ def static_analysis(info: BuildInfo, timeout: int = 3600) -> None:
         for analysis, path in ((__BASE_ANALYSES, info.base_dir),
                                (__PACKAGE_ANALYSES, info.sources_dir),
                                (__TESTS_ANALYSES, info.tests_dir),
-                               (__EXAMPLES_ANALYSES, info.examples_dir)):
+                               (__EXAMPLES_ANALYSES, info.examples_dir),
+                               (__DOC_SOURCE, info.doc_source_dir)):
             if path is None:
                 continue
             for a in analysis:
-                __execute(__replace(a, path), info.base_dir,
-                          timeout, errors.append)
+                __exec(replace_in_cmd(a, path), info, errors.append)
     finally:
         chdir(current)
 
@@ -190,7 +156,7 @@ def static_analysis(info: BuildInfo, timeout: int = 3600) -> None:
     for error in errors:
         logger(error)
 
-    raise ValueError(f"Failed to do {text}.")
+    raise ValueError(f"Failed to do {text}: {'; '.join(errors)}.")
 
 
 # Run conversion if executed as script

@@ -50,15 +50,6 @@ twine == 4.0.2
 virtualenv == 20.24.6
 wheel == 0.41.2
 
-# sphinx is needed for generating the documentation. Together with its
-# modules, it parses the documentation root file as well as the code and
-# generates the html files with the documentation. It therefore uses the
-# docstrings and the type hints.
-sphinx == 7.2.6
-sphinx-autodoc-typehints == 1.24.0
-# myst-parser is needed for including README.md into the documentation
-myst-parser == 2.0.0
-
 # yaml is used only in tests and examples.
 pyyaml == 6.0.1
 

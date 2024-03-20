@@ -18,9 +18,10 @@ path is outside that directory, you get an error raised, for example.
 
 import codecs
 from io import TextIOBase
-from os import O_CREAT, O_EXCL, O_TRUNC, makedirs
+from os import O_CREAT, O_EXCL, O_TRUNC, makedirs, scandir
 from os import close as osclose
 from os import open as osopen
+from os import remove as osremove
 from os.path import (
     abspath,
     commonpath,
@@ -35,7 +36,9 @@ from os.path import (
     relpath,
 )
 from os.path import basename as osbasename
-from typing import Any, Callable, Final, Iterable, TextIO, cast
+from os.path import exists as osexists
+from shutil import rmtree
+from typing import Any, Callable, Final, Iterable, Iterator, TextIO, cast
 
 from pycommons.types import check_int_range, type_error
 
@@ -242,6 +245,34 @@ join(dirname(realpath(getcwd())), "1.txt")
             raise ValueError(f"Canonicalization cannot yield {value!r}.")
 
         return super().__new__(cls, value)
+
+    def exists(self) -> bool:
+        """
+        Check if this path identifies an existing file or directory.
+
+        See also :meth:`~Path.is_file` and :meth:`~Path.is_dir`.
+
+        :returns: `True` if this path identifies an existing file, `False`
+            otherwise.
+
+        >>> Path(__file__).exists()
+        True
+        >>> from os.path import dirname
+        >>> Path(dirname(__file__)).exists()
+        True
+        >>> from tempfile import mkstemp
+        >>> from os import close as osxclose
+        >>> from os import remove as osremove
+        >>> (h, tf) = mkstemp()
+        >>> osxclose(h)
+        >>> p = Path(tf)
+        >>> p.exists()
+        True
+        >>> osremove(p)
+        >>> p.exists()
+        False
+        """
+        return osexists(self)
 
     def is_file(self) -> bool:
         """
@@ -926,6 +957,79 @@ dirname(__file__)))
             raise ValueError(f"Invalid basename {s!r} of path {self!r}.")
         return s
 
+    def list_dir(self, files: bool = True,
+                 directories: bool = True) -> Iterator["Path"]:
+        """
+        List the files and/or sub-directories in this directory.
+
+        :return: an iterable with the fully-qualified paths
+
+        >>> from tempfile import mkstemp, mkdtemp
+        >>> from os import close as osxclose
+
+        >>> dir1 = Path(mkdtemp())
+        >>> dir2 = Path(mkdtemp(dir=dir1))
+        >>> dir3 = Path(mkdtemp(dir=dir1))
+        >>> (h, tf1) = mkstemp(dir=dir1)
+        >>> osclose(h)
+        >>> (h, tf2) = mkstemp(dir=dir1)
+        >>> osclose(h)
+        >>> file1 = Path(tf1)
+        >>> file2 = Path(tf2)
+
+        >>> set(dir1.list_dir()) == {dir2, dir3, file1, file2}
+        True
+
+        >>> set(dir1.list_dir(files=False)) == {dir2, dir3}
+        True
+
+        >>> set(dir1.list_dir(directories=False)) == {file1, file2}
+        True
+
+        >>> try:
+        ...     dir1.list_dir(None)
+        ... except TypeError as te:
+        ...     print(te)
+        files should be an instance of bool but is None.
+
+        >>> try:
+        ...     dir1.list_dir(1)
+        ... except TypeError as te:
+        ...     print(te)
+        files should be an instance of bool but is int, namely '1'.
+
+        >>> try:
+        ...     dir1.list_dir(True, None)
+        ... except TypeError as te:
+        ...     print(te)
+        directories should be an instance of bool but is None.
+
+        >>> try:
+        ...     dir1.list_dir(True, 1)
+        ... except TypeError as te:
+        ...     print(te)
+        directories should be an instance of bool but is int, namely '1'.
+
+        >>> try:
+        ...     dir1.list_dir(False, False)
+        ... except ValueError as ve:
+        ...     print(ve)
+        files and directories cannot both be False.
+
+        >>> delete_path(dir1)
+        """
+        if not isinstance(files, bool):
+            raise type_error(files, "files", bool)
+        if not isinstance(directories, bool):
+            raise type_error(directories, "directories", bool)
+        if not (files or directories):
+            raise ValueError("files and directories cannot both be False.")
+        self.enforce_dir()
+        return map(self.resolve_inside, (
+            f.name for f in scandir(self) if (
+                directories and f.is_dir(follow_symlinks=False)) or (
+                files and f.is_file(follow_symlinks=False))))
+
 
 def file_path(pathstr: str) -> "Path":
     """
@@ -1297,3 +1401,55 @@ def write_lines(lines: Iterable[str], output: TextIO | TextIOBase) -> None:
         wd(line)
         if not b:
             wd("\n")
+
+
+def delete_path(path: str) -> None:
+    """
+    Delete a path, completely, and recursively.
+
+    This is intentionally inserted as an additional function and not a member
+    of the :class:`Path` in order make the deletion more explicit and to avoid
+    any form of accidental deleting. This function will not raise an error if
+    the file deletion fails.
+
+    :param path: The path to be deleted
+    :raises ValueError: if `path` does not refer to an existing file or
+        directory
+    :raises TypeError: if `path` is not a string
+
+    >>> from tempfile import mkstemp, mkdtemp
+    >>> from os import close as osxclose
+
+    >>> (h, tf) = mkstemp()
+    >>> isfile(tf)
+    True
+    >>> delete_path(tf)
+    >>> isfile(tf)
+    False
+
+    >>> try:
+    ...     delete_path(tf)
+    ... except ValueError as ve:
+    ...     print(str(ve).endswith("is neither file nor directory."))
+    True
+
+    >>> td = mkdtemp()
+    >>> isdir(td)
+    True
+    >>> delete_path(td)
+    >>> isdir(td)
+    False
+
+    >>> try:
+    ...     delete_path(tf)
+    ... except ValueError as ve:
+    ...     print(str(ve).endswith("is neither file nor directory."))
+    True
+    """
+    p: Final[Path] = Path(path)
+    if isfile(p):
+        osremove(p)
+    elif isdir(p):
+        rmtree(p, ignore_errors=True, onerror=None)
+    else:
+        raise ValueError(f"{path!r} is neither file nor directory.")
