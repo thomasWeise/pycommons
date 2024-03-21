@@ -217,7 +217,7 @@ def __pygmentize(source: Path, info: BuildInfo,
 
 #: the default files to pygmentize
 __PYGMENTIZE_DEFAULT: Final[tuple[str, ...]] = (
-    "conftest.py", "LICENSE", "LICENSE.md", "Makefile", "pyproject.toml",
+    "conftest.py", "LICENSE", "Makefile", "pyproject.toml",
     "requirements.txt", "requirements-dev.txt", "setup.cfg", "setup.py",
 )
 
@@ -487,11 +487,12 @@ def make_documentation(info: BuildInfo) -> None:
         for f in info.examples_dir.list_dir(directories=False):
             if f.endswith(".py"):
                 __pygmentize(f, info, examples_dest)
-        logger("Now pygmentizing default files.")
-        for fn in __PYGMENTIZE_DEFAULT:
-            f = info.base_dir.resolve_inside(fn)
-            if f.is_file():
-                __pygmentize(f, info)
+
+    logger("Now pygmentizing default files.")
+    for fn in __PYGMENTIZE_DEFAULT:
+        f = info.base_dir.resolve_inside(fn)
+        if f.is_file():
+            __pygmentize(f, info)
 
     # now printing coverage information
     coverage_file: Final[Path] = info.base_dir.resolve_inside(".coverage")
