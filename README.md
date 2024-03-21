@@ -33,7 +33,7 @@ You can install the newest version of this library from [PyPi](https://pypi.org/
 pip install pycommons
 ```
 
-This will install the latest official release of our package as well as [all dependencies](https://thomasweise.github.io/pycommons/requirements.html).
+This will install the latest official release of our package as well as [all dependencies](https://thomasweise.github.io/pycommons/requirements_txt.html).
 If you want to install the latest source code version from GitHub (which may not yet be officially released), you can do
 
 ```shell
@@ -51,11 +51,10 @@ This may sometimes work better if you are having trouble reaching GitHub via `ht
 
 You can also clone the repository and then run a [`make` build](https://thomasweise.github.io/pycommons/Makefile.html), which will automatically install all dependencies, run all the tests, and then install the package on your system, too.
 This will work only on Linux, though.
-It also installs the [dependencies for building](https://thomasweise.github.io/pycommons/requirements-dev.html), which include, e.g., those for unit testing and static analysis.
 If this build completes successful, you can be sure that [`pycommons`](https://thomasweise.github.io/pycommons) will work properly on your machine.
 
-All dependencies for using and running `pycommons` are listed at [here](https://thomasweise.github.io/pycommons/requirements.html).
-The additional dependencies for a [full `make` build](https://thomasweise.github.io/pycommons/Makefile.html), including unit tests, static analysis, and the generation of documentation are listed [here](https://thomasweise.github.io/pycommons/requirements-dev.html).
+All dependencies for using and running `pycommons` are listed at [here](https://thomasweise.github.io/pycommons/requirements_txt.html).
+
 
 ## 3. Examples
 
@@ -104,8 +103,8 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 You should have received a copy of the GNU General Public License along with this program.
 If not, see <https://www.gnu.org/licenses/>.
 
-Please visit the [contributions guidelines](https://thomasweise.github.io/pycommons/CONTRIBUTING.html) for `pycommons` if you would like to contribute to our package.
-If you have any concerns regarding security, please visit our [security policy](https://thomasweise.github.io/pycommons/SECURITY.html).
+Please visit the [contributions guidelines](https://thomasweise.github.io/pycommons/CONTRIBUTING_md.html) for `pycommons` if you would like to contribute to our package.
+If you have any concerns regarding security, please visit our [security policy](https://thomasweise.github.io/pycommons/SECURITY_md.html).
 
 
 ## 5. Contact

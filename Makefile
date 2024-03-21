@@ -50,29 +50,24 @@ init: clean
 	echo "$(NOW): Finished printing all installed packages."
 
 
-# Run the unit tests.
 test: init
 	echo "$(NOW): Now performing unit tests." &&\
 	export PYTHONPATH=".:${PYTHONPATH}" &&\
 	python3 -m pycommons.dev.building.run_tests --package pycommons &&\
 	echo "$(NOW): Finished running unit tests."
 
-# Perform static code analysis.
 static_analysis: init
 	echo "$(NOW): Now performing static analysis." &&\
 	export PYTHONPATH=".:${PYTHONPATH}" &&\
 	python3 -m pycommons.dev.building.static_analysis --package pycommons &&\
 	echo "$(NOW): Done: All static checks passed."
 
-# We use sphinx to generate the documentation.
-# This automatically checks the docstrings and such and such.
 create_documentation: static_analysis test
 	echo "$(NOW): Now building documentation." &&\
 	export PYTHONPATH=".:${PYTHONPATH}" &&\
 	python3 -m pycommons.dev.building.make_documentation --root . --package pycommons &&\
 	echo "$(NOW): Done building documentation."
 
-# Create different distribution formats, also to check if there is any error.
 create_distribution: static_analysis test create_documentation
 	echo "$(NOW): Now building source distribution file." &&\
 	export PYTHONPATH=".:${PYTHONPATH}" &&\
