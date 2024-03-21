@@ -25,7 +25,7 @@ We will, however, definitely try our best.
 We believe that, in the long run, having very clearly documented code that follows best practices and is thoroughly tested wherever possible will benefit the value of our project.
 The downside is that it takes a lot of resources, time, and nit-picking energy.
 
-If your contribution concerns the *security* of `pycommons`, please consider our [security policy](https://thomasweise.github.io/pycommons/SECURITY.html).
+If your contribution concerns the *security* of `pycommons`, please consider our [security policy](https://thomasweise.github.io/pycommons/SECURITY_md.html).
 
 
 ## 2. License

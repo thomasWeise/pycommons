@@ -24,7 +24,7 @@ from pycommons.types import check_int_range, type_error
 #: reachable.
 __SOMETIMES_UNREACHABLE_HOSTS: Final[set[str]] = \
     set() if "GITHUB_JOB" in environ else \
-    {"github.com", "img.shields.io", "pypi.org", "docs.python.org"}
+    {"img.shields.io", "pypi.org", "docs.python.org"}
 
 #: URLs that we never need to check because they are OK
 __CORRECT_URLS: Final[set[str]] = {
