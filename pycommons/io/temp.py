@@ -6,8 +6,6 @@ and :func:`temp_file` for temporary files. Both of them implement the
 :class:`typing.ContextManager` protocol and will be deleted when going out
 of scope.
 """
-from abc import ABC
-from contextlib import AbstractContextManager
 from os import close as osclose
 from tempfile import mkdtemp, mkstemp
 from typing import Final
@@ -15,33 +13,23 @@ from typing import Final
 from pycommons.io.path import Path, delete_path, directory_path
 
 
-class ManagedPath(Path, AbstractContextManager, ABC):
-    """A context-managed path that can be used in a `with` statement."""
+class TempPath(Path):
+    """A path to a temp file or directory for use in a `with` statement."""
 
-
-class __TempDir(ManagedPath):
-    """
-    A scoped temporary directory to be used in a 'with' block.
-
-    The directory and everything in it will be deleted upon exiting the
-    'with' block.
-    """
-
-    #: is the directory open?
+    #: is the directory or file open?
     __is_open: bool
 
     def __new__(cls, value: str):  # noqa
         """
-        Construct the object.
+        Construct the temporary path.
 
-        :param value: the string value
+        :param value: the string value of the path
         """
         ret = super().__new__(cls, value)
-        Path.enforce_dir(ret)
         ret.__is_open = True
         return ret
 
-    def __enter__(self) -> ManagedPath:
+    def __enter__(self) -> "TempPath":
         """
         Nothing, just exists for `with`.
 
@@ -52,11 +40,11 @@ class __TempDir(ManagedPath):
         ...     with te:  # does not work, already closed
         ...         pass
         ... except ValueError as ve:
-        ...     print(str(ve)[:19])
-        Temporary directory
+        ...     print(str(ve)[:14])
+        Temporary path
         """
         if not self.__is_open:
-            raise ValueError(f"Temporary directory {self!r} already closed.")
+            raise ValueError(f"Temporary path {self!r} already closed.")
         return self
 
     def __exit__(self, exception_type, _, __) -> bool:
@@ -91,7 +79,7 @@ class __TempDir(ManagedPath):
         return exception_type is None
 
 
-def temp_dir(directory: str | None = None) -> ManagedPath:
+def temp_dir(directory: str | None = None) -> TempPath:
     """
     Create the temporary directory.
 
@@ -110,74 +98,13 @@ def temp_dir(directory: str | None = None) -> ManagedPath:
     >>> with temp_dir(dirname(__file__)) as td:
     ...     pass
     """
-    return __TempDir(mkdtemp(
+    return TempPath(mkdtemp(
         dir=None if directory is None else directory_path(directory)))
-
-
-class __TempFile(ManagedPath):
-    """
-    A scoped temporary file to be used in a 'with' block.
-
-    This file will be deleted upon exiting the 'with' block.
-    """
-
-    #: is the directory open?
-    __is_open: bool
-
-    def __new__(cls, value: str):  # noqa
-        """
-        Construct the object.
-
-        :param value: the string value
-        """
-        ret = super().__new__(cls, value)
-        Path.enforce_file(ret)
-        ret.__is_open = True
-        return ret
-
-    def __enter__(self) -> ManagedPath:
-        """
-        Nothing, just exists for `with`.
-
-        >>> tf = temp_file()
-        >>> with tf:
-        ...     pass
-        >>> try:
-        ...     with tf:  # fails, because already closed
-        ...         pass
-        ... except ValueError as ve:
-        ...     print(str(ve)[:16])
-        Temporary file '
-        """
-        if not self.__is_open:
-            raise ValueError(f"Temporary file {self!r} already deleted.")
-        return self
-
-    def __exit__(self, exception_type, _, __) -> bool:
-        """
-        Delete the temporary file.
-
-        :param exception_type: ignored
-        :returns: `True` to suppress an exception, `False` to rethrow it
-
-        >>> from pycommons.io.path import file_path
-        >>> with temp_file() as tf:
-        ...     p = file_path(tf)
-        ...     p.is_file()
-        True
-        >>> p.is_file()
-        False
-        """
-        opn: Final[bool] = self.__is_open
-        self.__is_open = False
-        if opn:
-            delete_path(self)
-        return exception_type is None
 
 
 def temp_file(directory: str | None = None,
               prefix: str | None = None,
-              suffix: str | None = None) -> ManagedPath:
+              suffix: str | None = None) -> TempPath:
     r"""
     Create a temporary file that will be deleted when going out of scope.
 
@@ -378,4 +305,4 @@ def temp_file(directory: str | None = None,
         suffix=suffix, prefix=prefix,
         dir=None if base_dir is None else directory_path(base_dir))
     osclose(handle)
-    return __TempFile(path)
+    return TempPath(path)

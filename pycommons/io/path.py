@@ -608,7 +608,7 @@ dirname(__file__)))
         """
         try:
             osclose(osopen(self, O_CREAT | O_TRUNC))
-        except BaseException as err:
+        except BaseException as err:  # noqa: B036
             raise ValueError(
                 f"Error when truncating/creating file {self!r}.") from err
         self.enforce_file()

@@ -56,7 +56,7 @@ __PACKAGE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
     ("pycodestyle", "."),
-    ("ruff", "--target-version", "py310", "--select",
+    ("ruff", "check", "--target-version", "py310", "--select",
      "A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,INP,ISC,N,NPY,PIE,PLC,"
      "PLE,PLR,PLW,PT,PYI,Q,RET,RSE,RUF,S,SIM,T,T10,T20,TID,TRY,UP,W,YTT",
      "--ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,"
@@ -71,7 +71,7 @@ __TESTS_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
     ("pycodestyle", "."),
-    ("ruff", "--target-version", "py310", "--select",
+    ("ruff", "check", "--target-version", "py310", "--select",
      "A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,ISC,N,NPY,PIE,PLC,PLE,"
      "PLR,PLW,PYI,Q,RET,RSE,RUF,T,SIM,T10,T20,TID,TRY,UP,W,YTT",
      "--ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,"
@@ -86,7 +86,7 @@ __EXAMPLES_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
     ("pycodestyle", "--ignore=E731,W503", "."),
-    ("ruff", "--target-version", "py310", "--select",
+    ("ruff", "check", "--target-version", "py310", "--select",
      "A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,ISC,N,NPY,PIE,PLC,"
      "PLE,PLR,PLW,PT,PYI,Q,RET,RSE,RUF,S,SIM,T10,TID,TRY,UP,W,YTT",
      "--ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,"
@@ -159,7 +159,7 @@ def static_analysis(info: BuildInfo) -> None:
     raise ValueError(f"Failed to do {text}: {'; '.join(errors)}.")
 
 
-# Run conversion if executed as script
+# Run static analysis program if executed as script
 if __name__ == "__main__":
     parser: Final[ArgumentParser] = pycommons_argparser(
         __file__,

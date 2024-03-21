@@ -1,5 +1,4 @@
 """Test all the example code in a directory."""
-from os import listdir
 from random import randint
 from typing import Final
 
@@ -91,7 +90,7 @@ def check_examples_in_dir(directory: str, recurse: bool = True) -> int:
     examples_dir: Final[Path] = directory_path(directory)
     logger(f"Executing all examples in directory {examples_dir!r}.")
 
-    files: Final[list[str]] = listdir(examples_dir)
+    files: Final[list[str]] = list(examples_dir.list_dir())
     count: int = list.__len__(files)
     total: int = 0
     logger(f"Got {count} potential files.")
@@ -108,7 +107,8 @@ def check_examples_in_dir(directory: str, recurse: bool = True) -> int:
                 logger(f"Read {str.__len__(chars)} from file {files!r}.")
                 compile_and_run(chars, current)
                 total += 1
-        elif recurse and current.is_dir():
+        elif recurse and current.is_dir() and (
+                "pycache" not in current.lower()):
             total += check_examples_in_dir(current, True)
 
     if total <= 0:

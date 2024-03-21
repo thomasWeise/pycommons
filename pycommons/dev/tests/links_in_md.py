@@ -2,7 +2,7 @@
 from os import environ
 from random import randint
 from time import sleep
-from typing import Final
+from typing import Final, cast
 
 # noinspection PyPackageRequirements
 from certifi import where
@@ -481,14 +481,14 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
         headers[header_count], headers[header_idx] \
             = header, headers[header_count]
         try:
-            response = http.request(
+            response = cast(HTTPResponse, http.request(
                 method, base_url, timeout=timeout, redirect=True,
-                retries=retries, headers=header)
+                retries=retries, headers=header))
             if isinstance(response, HTTPResponse) and isinstance(
                     response.status, int) and (response.status == 200):
                 error = None
                 break
-        except BaseException as be:
+        except BaseException as be:  # noqa: B036
             logger(f"Attempt sleep={sleep_time}, retries={retries}, "
                    f"timeout={timeout}, error={str(be)!r}, and "
                    f"header={header!r} for {base_url!r} gave {be}.")
@@ -507,7 +507,7 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     if needs_body:
         try:
             body = str.strip(response.data.decode(UTF8))
-        except BaseException as be:  # there could be a decoding error
+        except BaseException as be:    # noqa: B036
             raise ValueError(f"Error in body of url {url!r}: {be}") from be
 
     body_len: Final[int] = 0 if body is None else str.__len__(body)

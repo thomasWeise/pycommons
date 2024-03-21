@@ -32,6 +32,36 @@ def __get_source(
     :param source: the directory
     :param __dst: the destination
     :return: the set of files
+
+    >>> from pycommons.io.temp import temp_dir
+    >>> with temp_dir() as td:
+    ...     f1 = td.resolve_inside("a")
+    ...     f1.ensure_file_exists()  # gives False
+    ...     f2 = td.resolve_inside("b")
+    ...     f2.ensure_file_exists()  # gives False
+    ...     d = td.resolve_inside("x")
+    ...     d.ensure_dir_exists()  # gives False
+    ...     f3 = d.resolve_inside("a")
+    ...     f3.ensure_file_exists()
+    ...     g = __get_source(td)
+    ...     g(f1)  # is True
+    ...     g(f2)  # is True
+    ...     g(f3)  # is True
+    ...     g(d)  # is True
+    ...     g("bla")  # is not True
+    ...     f4 = d.resolve_inside("x")
+    ...     f4.ensure_file_exists()  # gives False
+    ...     g(f4)  # is also not True, because generated later
+    False
+    False
+    False
+    True
+    True
+    True
+    True
+    False
+    False
+    False
     """
     if __dst is None:
         __dst = {source}
@@ -51,6 +81,50 @@ def __keep_only_source(
     :param source: the source path
     :param keep: the set of files and directories to keep
     :param __collect: the collector
+
+    >>> from pycommons.io.temp import temp_dir
+    >>> with temp_dir() as td:
+    ...     f1 = td.resolve_inside("a")
+    ...     f1.ensure_file_exists()  # gives False
+    ...     f2 = td.resolve_inside("b")
+    ...     f2.ensure_file_exists()  # gives False
+    ...     d = td.resolve_inside("x")
+    ...     d.ensure_dir_exists()  # gives False
+    ...     f3 = d.resolve_inside("a")
+    ...     f3.ensure_file_exists()
+    ...     g = __get_source(td)
+    ...     f4 = d.resolve_inside("x")
+    ...     f4.ensure_file_exists()  # gives False
+    ...     e = td.resolve_inside("y")
+    ...     e.ensure_dir_exists()  # gives False
+    ...     f5 = e.resolve_inside("a")
+    ...     f5.ensure_file_exists()
+    ...     f3.is_file()  # gives True - should be preserved
+    ...     f4.is_file()  # gives True - will be deleted
+    ...     f5.is_file()  # gives True - will be deleted
+    ...     d.is_dir()  # True - will be preserved
+    ...     e.is_dir()  # True - will be deleted
+    ...     __keep_only_source(td, g)
+    ...     f3.is_file()  # gives True - was preserved
+    ...     f4.is_file()  # gives False
+    ...     f5.is_file()  # gives False
+    ...     d.is_dir()  # True - was preserved
+    ...     e.is_dir()  # False
+    False
+    False
+    False
+    False
+    False
+    True
+    True
+    True
+    True
+    True
+    True
+    False
+    False
+    True
+    False
     """
     lst: list[Path] | None = None
     if __collect is None:
@@ -75,6 +149,50 @@ def __pygmentize(source: Path, info: BuildInfo,
     :param source: the source file
     :param info: the information
     :param dest: the destination folder
+
+    >>> root = Path(__file__).up(4)
+    >>> bf = BuildInfo(root, "pycommons",
+    ...     examples_dir=root.resolve_inside("examples"),
+    ...     tests_dir=root.resolve_inside("tests"),
+    ...     doc_source_dir=root.resolve_inside("docs/source"),
+    ...     doc_dest_dir=root.resolve_inside("docs/build"))
+
+    >>> from io import StringIO
+    >>> from contextlib import redirect_stdout
+    >>> from pycommons.io.temp import temp_dir
+    >>> sio = StringIO()
+    >>> with temp_dir() as td:
+    ...     with redirect_stdout(sio):
+    ...         __pygmentize(root.resolve_inside("README.md"), bf, td)
+    ...         readme = td.resolve_inside("README_md.html").is_file()
+    ...         __pygmentize(root.resolve_inside("setup.py"), bf, td)
+    ...         setuppy = td.resolve_inside("setup_py.html").is_file()
+    ...         __pygmentize(root.resolve_inside("setup.cfg"), bf, td)
+    ...         setup_cfg = td.resolve_inside("setup_cfg.html").is_file()
+    ...         __pygmentize(root.resolve_inside("Makefile"), bf, td)
+    ...         makefile = td.resolve_inside("Makefile.html").is_file()
+    ...         __pygmentize(root.resolve_inside("LICENSE"), bf, td)
+    ...         xlicense = td.resolve_inside("LICENSE.html").is_file()
+    ...         __pygmentize(root.resolve_inside("requirements.txt"), bf, td)
+    ...         req = td.resolve_inside("requirements_txt.html").is_file()
+    ...         try:
+    ...             __pygmentize(root.resolve_inside("LICENSE"), bf, td)
+    ...         except ValueError as ve:
+    ...             ver = str(ve)
+    >>> readme
+    True
+    >>> setuppy
+    True
+    >>> setup_cfg
+    True
+    >>> makefile
+    True
+    >>> xlicense
+    True
+    >>> req
+    True
+    >>> "already exists" in ver
+    True
     """
     logger(f"Trying to pygmentize {source!r} to {dest!r}.")
     name: Final[str] = source.basename()
@@ -134,6 +252,37 @@ def __render_markdown(markdown: Path, info: BuildInfo, dest: Path | None,
     :param info: the build info
     :param css: the relative path to the style sheet
     :param url_fixer: the URL fixer
+
+    >>> root = Path(__file__).up(4)
+    >>> bf = BuildInfo(root, "pycommons",
+    ...     examples_dir=root.resolve_inside("examples"),
+    ...     tests_dir=root.resolve_inside("tests"),
+    ...     doc_source_dir=root.resolve_inside("docs/source"),
+    ...     doc_dest_dir=root.resolve_inside("docs/build"))
+
+    >>> from io import StringIO
+    >>> from contextlib import redirect_stdout
+    >>> from pycommons.io.temp import temp_dir
+    >>> sio = StringIO()
+    >>> with temp_dir() as td:
+    ...     with redirect_stdout(sio):
+    ...         __render_markdown(root.resolve_inside("README.md"), bf,
+    ...             td, None, lambda s: s)
+    ...         readme = td.resolve_inside("README_md.html").is_file()
+    ...         try:
+    ...             __render_markdown(root.resolve_inside("README.md"), bf,
+    ...                 td, None, lambda s: s)
+    ...         except ValueError as ve:
+    ...             vstr = str(ve)
+    ...         __render_markdown(root.resolve_inside("CONTRIBUTING.md"), bf,
+    ...             td, "dummy.css", lambda s: s)
+    ...         cb = td.resolve_inside("CONTRIBUTING_md.html").is_file()
+    >>> readme
+    True
+    >>> vstr.endswith("already exists.")
+    True
+    >>> cb
+    True
     """
     logger(f"Trying to render {markdown!r}.")
 
@@ -170,6 +319,28 @@ def __minify(file: Path) -> None:
     Minify the given HTML file.
 
     :param file: the file
+
+    >>> root = Path(__file__).up(4)
+    >>> bf = BuildInfo(root, "pycommons",
+    ...     examples_dir=root.resolve_inside("examples"),
+    ...     tests_dir=root.resolve_inside("tests"),
+    ...     doc_source_dir=root.resolve_inside("docs/source"),
+    ...     doc_dest_dir=root.resolve_inside("docs/build"))
+
+    >>> from io import StringIO
+    >>> from contextlib import redirect_stdout
+    >>> from pycommons.io.temp import temp_dir
+    >>> sio = StringIO()
+    >>> with temp_dir() as td:
+    ...     with redirect_stdout(sio):
+    ...         __render_markdown(root.resolve_inside("README.md"), bf,
+    ...             td, None, lambda s: s)
+    ...         readme = td.resolve_inside("README_md.html")
+    ...         long = str.__len__(readme.read_all_str())
+    ...         __minify(readme)
+    ...         short = str.__len__(readme.read_all_str())
+    >>> 0 < short < long
+    True
     """
     logger(f"Minifying HTML in {file!r}.")
     text: str = str.strip(file.read_all_str())
@@ -190,6 +361,35 @@ def __minify_all(dest: Path, skip: Callable[[str], bool]) -> None:
 
     :param dest: the destination
     :param skip: the files to skip
+
+    >>> root = Path(__file__).up(4)
+    >>> bf = BuildInfo(root, "pycommons",
+    ...     examples_dir=root.resolve_inside("examples"),
+    ...     tests_dir=root.resolve_inside("tests"),
+    ...     doc_source_dir=root.resolve_inside("docs/source"),
+    ...     doc_dest_dir=root.resolve_inside("docs/build"))
+
+    >>> from io import StringIO
+    >>> from contextlib import redirect_stdout
+    >>> from pycommons.io.temp import temp_dir
+    >>> sio = StringIO()
+    >>> with temp_dir() as td:
+    ...     with redirect_stdout(sio):
+    ...         __render_markdown(root.resolve_inside("README.md"), bf,
+    ...             td, None, lambda s: s)
+    ...         readme = td.resolve_inside("README_md.html")
+    ...         __render_markdown(root.resolve_inside("CONTRIBUTING.md"), bf,
+    ...             td, None, lambda s: s)
+    ...         cb = td.resolve_inside("CONTRIBUTING_md.html")
+    ...         longr = str.__len__(readme.read_all_str())
+    ...         longc = str.__len__(cb.read_all_str())
+    ...         __minify_all(td, lambda x: False)
+    ...         shortr = str.__len__(readme.read_all_str())
+    ...         shortc = str.__len__(cb.read_all_str())
+    >>> 0 < shortr < longr
+    True
+    >>> 0 < shortc < longc
+    True
     """
     if skip(dest):
         return
@@ -199,6 +399,33 @@ def __minify_all(dest: Path, skip: Callable[[str], bool]) -> None:
     elif dest.is_dir():
         for f in dest.list_dir():
             __minify_all(f, skip)
+
+
+def __put_nojekyll(dest: Path) -> None:
+    """
+    Put a `.nojekyll` file into each directory.
+
+    :param dest: the destination path.
+
+    >>> from pycommons.io.temp import temp_dir
+    >>> with temp_dir() as td:
+    ...     x = td.resolve_inside("x")
+    ...     x.ensure_dir_exists()
+    ...     y = x.resolve_inside("y")
+    ...     y.ensure_dir_exists()
+    ...     __put_nojekyll(td)
+    ...     td.resolve_inside(".nojekyll").is_file()
+    ...     x.resolve_inside(".nojekyll").is_file()
+    ...     y.resolve_inside(".nojekyll").is_file()
+    True
+    True
+    True
+    """
+    if not dest.is_dir():
+        return
+    dest.resolve_inside(".nojekyll").ensure_file_exists()
+    for f in dest.list_dir(files=False):
+        __put_nojekyll(f)
 
 
 def make_documentation(info: BuildInfo) -> None:
@@ -247,10 +474,10 @@ def make_documentation(info: BuildInfo) -> None:
         info.command(("sphinx-build", "-W", "-a", "-E", "-b", "html",
                       source, dest)).execute()
         logger("Finished the Sphinx executions.")
-
     finally:
         logger("Clearing all auto-generated files.")
         __keep_only_source(source, retain)
+
     logger("Now building the additional files.")
 
     if info.examples_dir is not None:
@@ -276,7 +503,8 @@ def make_documentation(info: BuildInfo) -> None:
         delete_path(coverage_dest)
         try:
             info.command(("coverage", "html", "-d", coverage_dest,
-                          f'--include="{info.package_name}/*"')).execute()
+                          f"--data-file={coverage_file}",
+                          f"--include={info.package_name}/*")).execute()
         except ValueError as ve:
             if coverage_dest.is_dir():
                 raise
@@ -319,10 +547,13 @@ def make_documentation(info: BuildInfo) -> None:
     logger("Now minifying all generated html files.")
     __minify_all(dest, {coverage_dest}.__contains__)
 
+    logger("Now putting a .nojekyll file into each directory.")
+    __put_nojekyll(dest)
+
     logger(f"Finished building documentation with setup {info}.")
 
 
-# Run conversion if executed as script
+# Run documentation generation process if executed as script
 if __name__ == "__main__":
     parser: Final[ArgumentParser] = pycommons_argparser(
         __file__,

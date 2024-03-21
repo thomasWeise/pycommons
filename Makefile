@@ -45,23 +45,17 @@ clean: status
 init: clean
 	echo "$(NOW): Initialization: first install required packages from requirements.txt." && \
 	pip install --no-input --timeout 360 --retries 100 -r requirements.txt && ## nosem \
-	echo "$(NOW): Finished installing required packages from requirements.txt, now installing packages required for development from requirements-dev.txt." && \
-	pip install --no-input --timeout 360 --retries 100 -r requirements-dev.txt && ## nosem \
-	echo "$(NOW): Finished installing requirements from requirements-dev.txt, now printing all installed packages." &&\
+	echo "$(NOW): Finished installing requirements, now printing all installed packages." &&\
 	pip freeze &&\
 	echo "$(NOW): Finished printing all installed packages."
 
 
 # Run the unit tests.
 test: init
-	echo "$(NOW): Erasing old coverage data." &&\
-	coverage erase &&\
+	echo "$(NOW): Now performing unit tests." &&\
 	export PYTHONPATH=".:${PYTHONPATH}" &&\
-	echo "$(NOW): Running pytest with doctests." &&\
-	timeout --kill-after=15s 90m coverage run -a --include="pycommons/*" -m pytest --strict-config --doctest-modules --ignore=tests --ignore=examples &&\
-	echo "$(NOW): Running pytest tests." &&\
-	timeout --kill-after=15s 90m coverage run -a --include="pycommons/*" -m pytest --strict-config tests --ignore=examples &&\
-	echo "$(NOW): Finished running pytest tests."
+	python3 -m pycommons.dev.building.run_tests --package pycommons &&\
+	echo "$(NOW): Finished running unit tests."
 
 # Perform static code analysis.
 static_analysis: init
@@ -81,41 +75,8 @@ create_documentation: static_analysis test
 # Create different distribution formats, also to check if there is any error.
 create_distribution: static_analysis test create_documentation
 	echo "$(NOW): Now building source distribution file." &&\
-	python3 setup.py check &&\
-	python3 -m build &&\
-	echo "$(NOW): Done with the build process, now checking result." &&\
-	python3 -m twine check dist/* &&\
-	echo "$(NOW): Now testing the tar.gz." &&\
-	export tempDir=`mktemp -d` &&\
-	echo "$(NOW): Created temp directory '$$tempDir'. Creating virtual environment." &&\
-	python3 -m venv "$$tempDir" &&\
-	echo "$(NOW): Created virtual environment, now activating it." &&\
-	source "$$tempDir/bin/activate" &&\
-	echo "$(NOW): Now installing tar.gz." &&\
-	python3 -m pip --no-input --timeout 360 --retries 100 --require-virtualenv install "$(CWD)/dist/pycommons-$(VERSION).tar.gz" && ## nosem \
-	echo "$(NOW): Installing tar.gz has worked. We now create the list of packages in this environment via pip freeze." &&\
-	pip freeze > "$(CWD)/dist/pycommons-$(VERSION)-requirements_frozen.txt" &&\
-	echo "$(NOW): Now fixing pycommons line in requirements file." &&\
-	sed -i "s/^pycommons.*/pycommons==$(VERSION)/" "$(CWD)/dist/pycommons-$(VERSION)-requirements_frozen.txt" &&\
-	echo "$(NOW): Now we deactivate the environment." &&\
-	deactivate &&\
-	rm -rf "$$tempDir" &&\
-	echo "$(NOW): Now testing the wheel." &&\
-	export tempDir=`mktemp -d` &&\
-	echo "$(NOW): Created temp directory '$$tempDir'. Creating virtual environment." &&\
-	python3 -m venv "$$tempDir" &&\
-	echo "$(NOW): Created virtual environment, now activating it." &&\
-	source "$$tempDir/bin/activate" &&\
-	echo "$(NOW): Now installing wheel." &&\
-	python3 -m pip --no-input --timeout 360 --retries 100 --require-virtualenv install "$(CWD)/dist/pycommons-$(VERSION)-py3-none-any.whl" && ## nosem \
-	echo "$(NOW): Now we deactivate the environment." &&\
-	deactivate &&\
-	echo "$(NOW): Finished, cleaning up." &&\
-	rm -rf "$$tempDir" &&\
-	echo "$(NOW): Now also packaging the documentation." &&\
-	cd docs/build &&\
-	tar --dereference --exclude=".nojekyll" -c * | xz -v -9e -c > "$(CWD)/dist/pycommons-$(VERSION)-documentation.tar.xz" &&\
-	cd $(CWD) &&\
+	export PYTHONPATH=".:${PYTHONPATH}" &&\
+	python3 -m pycommons.dev.building.make_dist --root . --package pycommons &&\
 	echo "$(NOW): Successfully finished building source distribution."
 
 # We install the package and see if that works out.
