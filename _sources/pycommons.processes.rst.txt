@@ -1,0 +1,26 @@
+pycommons.processes package
+===========================
+
+.. automodule:: pycommons.processes
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Submodules
+----------
+
+pycommons.processes.python module
+---------------------------------
+
+.. automodule:: pycommons.processes.python
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycommons.processes.shell module
+--------------------------------
+
+.. automodule:: pycommons.processes.shell
+   :members:
+   :undoc-members:
+   :show-inheritance:

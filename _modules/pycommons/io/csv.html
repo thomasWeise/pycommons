@@ -1,0 +1,940 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.io.csv — pycommons 0.8.15 documentation</title><link href="../../../_static/pygments.css?v=80d5e7a1"rel=stylesheet><link href="../../../_static/bizstyle.css?v=532c1bf3"rel=stylesheet><script src="../../../_static/documentation_options.js?v=66049c44"></script><script src="../../../_static/doctools.js?v=888ff710"></script><script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/io/csv.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label="related navigation"class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.15 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.io.csv</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.io.csv</h1><div class=highlight><pre>
+<span></span><span class=sd>"""</span>
+<span class=sd>Tools for CSV output and input.</span>
+
+<span class=sd>Our CSV format tools are intended to read and write structured objects from</span>
+<span class=sd>and to a comma-separated-values format. This format consists of one header,</span>
+<span class=sd>where the column titles are included (separated by a :const:`CSV_SEPARATOR`)</span>
+<span class=sd>and one row per data object, with one value per column.</span>
+
+<span class=sd>Different from other CSV processing tools, we want to</span>
+
+<span class=sd>1. Permit that data is extracted from / parsed in form of hierarchically</span>
+<span class=sd>   structured objects.</span>
+<span class=sd>2. Columns have fixed types based on the object definition.</span>
+<span class=sd>3. The data read and written is strictly validated during the process.</span>
+<span class=sd>4. Data can be processed in form of a stream and is not necessarily all loaded</span>
+<span class=sd>   into memory at once.</span>
+<span class=sd>5. The order of the columns is unimportant.</span>
+<span class=sd>6. Useless white space is automatically stripped and ignored.</span>
+
+<span class=sd>The separator is configurable, but by default set to :const:`CSV_SEPARATOR`.</span>
+<span class=sd>Comments start with a comment start with :const:`COMMENT_START` by default.</span>
+<span class=sd>"""</span>
+
+<span class=kn>from</span> <span class=nn>typing</span> <span class=kn>import</span> <span class=n>Any</span><span class=p>,</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>,</span> <span class=n>TypeVar</span><span class=p>,</span> <span class=n>cast</span>
+
+<span class=kn>from</span> <span class=nn>pycommons.strings.chars</span> <span class=kn>import</span> <span class=n>NEWLINE</span>
+<span class=kn>from</span> <span class=nn>pycommons.types</span> <span class=kn>import</span> <span class=n>type_error</span>
+
+<span class=c1>#: the default CSV separator</span>
+<span class=n>CSV_SEPARATOR</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>";"</span>
+
+<span class=c1>#: everything after this character is considered a comment</span>
+<span class=n>COMMENT_START</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"#"</span>
+
+
+<div class=viewcode-block id=csv_parse>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.csv.csv_parse>[docs]</a>
+<span class=k>def</span> <span class=nf>csv_parse</span><span class=p>(</span><span class=n>rows</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>],</span>
+              <span class=n>create_row_parser</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>int</span><span class=p>]],</span> <span class=n>Callable</span><span class=p>[</span>
+                  <span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]],</span> <span class=n>Any</span><span class=p>]],</span>
+              <span class=n>separator</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>CSV_SEPARATOR</span><span class=p>,</span>
+              <span class=n>comment_start</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>COMMENT_START</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Parse a sequence of strings as CSV data.</span>
+
+<span class=sd>    All lines str :meth:`~str.split` based on the `separator` string and each</span>
+<span class=sd>    of the resulting string is stripped via :meth:`~str.strip`.</span>
+<span class=sd>    The first non-empty line of the data is interpreted as header line.</span>
+
+<span class=sd>    This header is passed to the `create_row_parser` function in form of</span>
+<span class=sd>    a :class:`dict` that maps column titles to column indices. This function</span>
+<span class=sd>    is then supposed to return another function that will then iteratively be</span>
+<span class=sd>    fed the :meth:`~str.split` and :meth:`~str.strip`-ped lines row by row.</span>
+<span class=sd>    It is permitted that a line in the CSV file contains less columns than</span>
+<span class=sd>    declared in the header. In this case, the missing columns are set to empty</span>
+<span class=sd>    strings. Lines that are entirely empty are skipped.</span>
+
+<span class=sd>    If `comment_start` is not none, then all text in a line starting at the</span>
+<span class=sd>    first occurence of `comment_start` is discarted before the line is</span>
+<span class=sd>    processed.</span>
+
+<span class=sd>    :param rows: the rows of text</span>
+<span class=sd>    :param create_row_parser: a function to create the row parser to which</span>
+<span class=sd>        rows of the same length as the header are passed</span>
+<span class=sd>    :param separator: the string used to separate columns</span>
+<span class=sd>    :param comment_start: the string starting comments</span>
+<span class=sd>    :raises TypeError: if any of the parameters has the wrong type</span>
+<span class=sd>    :raises ValueError: if the separator or comment start character are</span>
+<span class=sd>        incompatible or if the data has some internal error</span>
+
+<span class=sd>    >>> def _create(ccc: dict[str, str]) -> Callable[[list[str]], None]:</span>
+<span class=sd>    ...     def __print(line, _hl=ccc):</span>
+<span class=sd>    ...         print({x: line[y] for x, y in _hl.items()})</span>
+<span class=sd>    ...     return __print</span>
+
+<span class=sd>    >>> text = ["a;b;c;d", "# test", " 1; 2;3;4", " 5 ;6 ", ";8;;9",</span>
+<span class=sd>    ...         "", "10", "# 11;12"]</span>
+
+<span class=sd>    >>> csv_parse(text, _create)</span>
+<span class=sd>    {'a': '1', 'b': '2', 'c': '3', 'd': '4'}</span>
+<span class=sd>    {'a': '5', 'b': '6', 'c': '', 'd': ''}</span>
+<span class=sd>    {'a': '', 'b': '8', 'c': '', 'd': '9'}</span>
+<span class=sd>    {'a': '10', 'b': '', 'c': '', 'd': ''}</span>
+
+<span class=sd>    >>> csv_parse((t.replace(";", ",") for t in text), _create, ",")</span>
+<span class=sd>    {'a': '1', 'b': '2', 'c': '3', 'd': '4'}</span>
+<span class=sd>    {'a': '5', 'b': '6', 'c': '', 'd': ''}</span>
+<span class=sd>    {'a': '', 'b': '8', 'c': '', 'd': '9'}</span>
+<span class=sd>    {'a': '10', 'b': '', 'c': '', 'd': ''}</span>
+
+<span class=sd>    >>> csv_parse((t.replace(";", "\t") for t in text), _create, "\t")</span>
+<span class=sd>    {'a': '1', 'b': '2', 'c': '3', 'd': '4'}</span>
+<span class=sd>    {'a': '5', 'b': '6', 'c': '', 'd': ''}</span>
+<span class=sd>    {'a': '', 'b': '8', 'c': '', 'd': '9'}</span>
+<span class=sd>    {'a': '10', 'b': '', 'c': '', 'd': ''}</span>
+
+<span class=sd>    >>> csv_parse(text, _create, comment_start=None)</span>
+<span class=sd>    {'a': '# test', 'b': '', 'c': '', 'd': ''}</span>
+<span class=sd>    {'a': '1', 'b': '2', 'c': '3', 'd': '4'}</span>
+<span class=sd>    {'a': '5', 'b': '6', 'c': '', 'd': ''}</span>
+<span class=sd>    {'a': '', 'b': '8', 'c': '', 'd': '9'}</span>
+<span class=sd>    {'a': '10', 'b': '', 'c': '', 'd': ''}</span>
+<span class=sd>    {'a': '# 11', 'b': '12', 'c': '', 'd': ''}</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(None, _create)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    rows should be an instance of typing.Iterable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(1, _create)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    rows should be an instance of typing.Iterable but is int, namely '1'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text, None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    create_row_parser should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    create_row_parser should be a callable but is int, namely '1'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text, _create, None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text, _create, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text, _create, "")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid separator ''.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text, _create, "-", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text, _create, "-", "")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid comment start: ''.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text, _create, "-", " ")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid comment start: ' '.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text, _create, ";", ";")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid comment start: ';'.</span>
+
+<span class=sd>    >>> text2 = ["a;b;a;d", "# test", " 1; 2;3;4", " 5 ;6 ", ";8;;9"]</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text2, _create)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid column headers: ['a', 'b', 'a', 'd'].</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text, lambda sy: None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    result of create_row_parser should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text, lambda sy: 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    result of create_row_parser should be a callable but is int, namely '1'.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>rows</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>rows</span><span class=p>,</span> <span class=s2>"rows"</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>create_row_parser</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span>
+            <span class=n>create_row_parser</span><span class=p>,</span> <span class=s2>"create_row_parser"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>separator</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid separator </span><span class=si>{</span><span class=n>separator</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=p>(</span><span class=n>comment_start</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span>
+            <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>comment_start</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span>
+            <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>comment_start</span><span class=p>)</span> <span class=o>!=</span> <span class=n>comment_start</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span>
+            <span class=n>comment_start</span> <span class=ow>in</span> <span class=n>separator</span><span class=p>)):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid comment start: </span><span class=si>{</span><span class=n>comment_start</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>col_count</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>
+    <span class=n>handler</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]],</span> <span class=kc>None</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+
+    <span class=c1># cannot strip spaces that are part of the separator</span>
+    <span class=n>stripper</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span> <span class=k>if</span> <span class=p>(</span>
+        <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>separator</span><span class=p>)</span> <span class=o>==</span> <span class=n>separator</span><span class=p>)</span> <span class=k>else</span> <span class=nb>str</span><span class=o>.</span><span class=n>rstrip</span>
+
+    <span class=k>for</span> <span class=n>orig_line</span> <span class=ow>in</span> <span class=n>rows</span><span class=p>:</span>
+        <span class=n>line</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>orig_line</span>
+        <span class=k>if</span> <span class=n>comment_start</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>deli</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=n>line</span><span class=p>,</span> <span class=n>comment_start</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>deli</span> <span class=o>>=</span> <span class=mi>0</span><span class=p>:</span>
+                <span class=n>line</span> <span class=o>=</span> <span class=n>line</span><span class=p>[:</span><span class=n>deli</span><span class=p>]</span>
+        <span class=n>line</span> <span class=o>=</span> <span class=n>stripper</span><span class=p>(</span><span class=n>line</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>line</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>continue</span>
+
+        <span class=n>cols</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=n>line</span><span class=p>,</span> <span class=n>separator</span><span class=p>)</span>
+        <span class=k>for</span> <span class=n>i</span><span class=p>,</span> <span class=n>v</span> <span class=ow>in</span> <span class=nb>enumerate</span><span class=p>(</span><span class=n>cols</span><span class=p>):</span>
+            <span class=n>cols</span><span class=p>[</span><span class=n>i</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>v</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=n>handler</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>col_count</span> <span class=o>=</span> <span class=nb>list</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>cols</span><span class=p>)</span>
+            <span class=n>colmap</span><span class=p>:</span> <span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=p>{</span><span class=n>s</span><span class=p>:</span> <span class=n>i</span> <span class=k>for</span> <span class=n>i</span><span class=p>,</span> <span class=n>s</span> <span class=ow>in</span> <span class=nb>enumerate</span><span class=p>(</span><span class=n>cols</span><span class=p>)}</span>
+            <span class=k>if</span> <span class=nb>any</span><span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>s</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span> <span class=k>for</span> <span class=n>s</span> <span class=ow>in</span> <span class=n>cols</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span>
+                    <span class=nb>dict</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>colmap</span><span class=p>)</span> <span class=o>!=</span> <span class=n>col_count</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>col_count</span> <span class=o><=</span> <span class=mi>0</span><span class=p>):</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid column headers: </span><span class=si>{</span><span class=n>cols</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+            <span class=n>handler</span> <span class=o>=</span> <span class=n>create_row_parser</span><span class=p>(</span><span class=n>colmap</span><span class=p>)</span>
+            <span class=k>del</span> <span class=n>colmap</span>
+            <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>handler</span><span class=p>):</span>
+                <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>handler</span><span class=p>,</span> <span class=s2>"result of create_row_parser"</span><span class=p>,</span>
+                                 <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+            <span class=k>continue</span>
+
+        <span class=n>count</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=nb>list</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>cols</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>count</span> <span class=o>></span> <span class=n>col_count</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"Invalid row </span><span class=si>{</span><span class=n>orig_line</span><span class=si>!r}</span><span class=s2> contains </span><span class=si>{</span><span class=n>count</span><span class=si>}</span><span class=s2> columns, but "</span>
+                <span class=sa>f</span><span class=s2>"says we got </span><span class=si>{</span><span class=n>col_count</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>count</span> <span class=o><</span> <span class=n>col_count</span><span class=p>:</span>
+            <span class=k>for</span> <span class=n>_</span> <span class=ow>in</span> <span class=nb>range</span><span class=p>(</span><span class=n>count</span><span class=p>,</span> <span class=n>col_count</span><span class=p>):</span>
+                <span class=n>cols</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=s2>""</span><span class=p>)</span>
+        <span class=n>handler</span><span class=p>(</span><span class=n>cols</span><span class=p>)</span></div>
+
+
+
+<span class=c1>#: the type variable for data to be written to CSV or to be read from CSV</span>
+<span class=n>T</span> <span class=o>=</span> <span class=n>TypeVar</span><span class=p>(</span><span class=s2>"T"</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=csv_make_consumer>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.csv.csv_make_consumer>[docs]</a>
+<span class=k>def</span> <span class=nf>csv_make_consumer</span><span class=p>(</span>
+        <span class=n>create_row_parser</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>int</span><span class=p>]],</span> <span class=n>Callable</span><span class=p>[</span>
+            <span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]],</span> <span class=n>T</span><span class=p>]],</span> <span class=n>consumer</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>T</span><span class=p>],</span> <span class=n>Any</span><span class=p>])</span> \
+        <span class=o>-></span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>int</span><span class=p>]],</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]],</span> <span class=kc>None</span><span class=p>]]:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Forward the results of a CSV row parser to a consumer function.</span>
+
+<span class=sd>    This function is to be used in conjunction with :func:`csv_parse`. It</span>
+<span class=sd>    allows for a line processor to forward its results to a collector, e.g.,</span>
+<span class=sd>    `list.append`. If you implement a row parser constructor, then this</span>
+<span class=sd>    function wraps this constructor into one which will forward the results</span>
+<span class=sd>    of the row parser generated by the constructor to a consumer function.</span>
+
+<span class=sd>    :param create_row_parser: the row consumer creator</span>
+<span class=sd>    :param consumer: the consumer to which the line parsing result should be</span>
+<span class=sd>        forwarded</span>
+<span class=sd>    :return: the wrapped processor</span>
+<span class=sd>    :raises TypeError: if any of the parameters has the wrong type</span>
+
+<span class=sd>    >>> def _ccreate(ccc: dict[str, str]) -> Callable[[list[str]], None]:</span>
+<span class=sd>    ...     def __create(line, _hl=ccc):</span>
+<span class=sd>    ...         return repr({x: line[y] for x, y in _hl.items()})</span>
+<span class=sd>    ...     return __create</span>
+
+<span class=sd>    >>> text = ["a;b;c;d", "# test", " 1; 2;3;4", " 5 ;6 ", ";8;;9",</span>
+<span class=sd>    ...         "", "10", "# 11;12"]</span>
+
+<span class=sd>    >>> csv_parse(text, csv_make_consumer(_ccreate, print))</span>
+<span class=sd>    {'a': '1', 'b': '2', 'c': '3', 'd': '4'}</span>
+<span class=sd>    {'a': '5', 'b': '6', 'c': '', 'd': ''}</span>
+<span class=sd>    {'a': '', 'b': '8', 'c': '', 'd': '9'}</span>
+<span class=sd>    {'a': '10', 'b': '', 'c': '', 'd': ''}</span>
+
+<span class=sd>    >>> l: list[str] = []</span>
+<span class=sd>    >>> csv_parse(text, csv_make_consumer(_ccreate, l.append))</span>
+<span class=sd>    >>> print("\n".join(l))</span>
+<span class=sd>    {'a': '1', 'b': '2', 'c': '3', 'd': '4'}</span>
+<span class=sd>    {'a': '5', 'b': '6', 'c': '', 'd': ''}</span>
+<span class=sd>    {'a': '', 'b': '8', 'c': '', 'd': '9'}</span>
+<span class=sd>    {'a': '10', 'b': '', 'c': '', 'd': ''}</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_make_consumer(print, None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    consumer should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_make_consumer(print, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    consumer should be a callable but is int, namely '1'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text, csv_make_consumer(lambda k: None, print))</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    result of create_row_parser should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_parse(text, csv_make_consumer(lambda k: 1, print))</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    result of create_row_parser should be a callable but is int, namely '1'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_make_consumer(None, print)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    create_row_parser should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_make_consumer(1, print)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    create_row_parser should be a callable but is int, namely '1'.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>consumer</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>consumer</span><span class=p>,</span> <span class=s2>"consumer"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>create_row_parser</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>create_row_parser</span><span class=p>,</span> <span class=s2>"create_row_parser"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+
+    <span class=k>def</span> <span class=nf>__create_row_parser</span><span class=p>(</span>
+            <span class=n>header</span><span class=p>:</span> <span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>int</span><span class=p>],</span> <span class=n>__consumer</span><span class=o>=</span><span class=n>consumer</span><span class=p>,</span>
+            <span class=n>__create_row_parser</span><span class=o>=</span><span class=n>create_row_parser</span><span class=p>)</span> \
+            <span class=o>-></span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]],</span> <span class=kc>None</span><span class=p>]:</span>
+        <span class=n>proc</span> <span class=o>=</span> <span class=n>__create_row_parser</span><span class=p>(</span><span class=n>header</span><span class=p>)</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>proc</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>proc</span><span class=p>,</span> <span class=s2>"result of create_row_parser"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+
+        <span class=k>def</span> <span class=nf>__row_consumer</span><span class=p>(</span>
+                <span class=n>row</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>],</span> <span class=n>__orig</span><span class=o>=</span><span class=n>proc</span><span class=p>,</span> <span class=n>__dest</span><span class=o>=</span><span class=n>__consumer</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>__dest</span><span class=p>(</span><span class=n>__orig</span><span class=p>(</span><span class=n>row</span><span class=p>))</span>
+
+        <span class=k>return</span> <span class=n>cast</span><span class=p>(</span><span class=n>Callable</span><span class=p>[[</span><span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]],</span> <span class=kc>None</span><span class=p>],</span> <span class=n>__row_consumer</span><span class=p>)</span>
+
+    <span class=k>return</span> <span class=n>cast</span><span class=p>(</span><span class=n>Callable</span><span class=p>[[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>int</span><span class=p>]],</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]],</span> <span class=kc>None</span><span class=p>]],</span>
+                <span class=n>__create_row_parser</span><span class=p>)</span></div>
+
+
+
+<span class=c1># mypy: disable-error-code=valid-type</span>
+<span class=c1>#: the type variable for the CSV output setup</span>
+<span class=n>S</span> <span class=o>=</span> <span class=n>TypeVar</span><span class=p>(</span><span class=s2>"S"</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=csv_write>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.csv.csv_write>[docs]</a>
+<span class=k>def</span> <span class=nf>csv_write</span><span class=p>(</span><span class=n>data</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=n>T</span><span class=p>],</span> <span class=n>consumer</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=n>Any</span><span class=p>],</span>
+              <span class=n>get_column_titles</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>S</span><span class=p>,</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]],</span> <span class=n>Any</span><span class=p>],</span>
+              <span class=n>get_row</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>S</span><span class=p>,</span> <span class=n>T</span><span class=p>,</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]],</span> <span class=n>Any</span><span class=p>],</span>
+              <span class=n>setup</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>Iterable</span><span class=p>[</span><span class=n>T</span><span class=p>]],</span> <span class=n>S</span><span class=p>]</span> <span class=o>=</span> <span class=k>lambda</span> <span class=n>t</span><span class=p>:</span> <span class=n>cast</span><span class=p>(</span><span class=n>S</span><span class=p>,</span> <span class=n>t</span><span class=p>),</span>
+              <span class=n>separator</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>CSV_SEPARATOR</span><span class=p>,</span>
+              <span class=n>comment_start</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>COMMENT_START</span><span class=p>,</span>
+              <span class=n>get_header_comments</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>S</span><span class=p>,</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]],</span> <span class=n>Any</span><span class=p>]</span> <span class=o>=</span>
+              <span class=k>lambda</span> <span class=n>_</span><span class=p>,</span> <span class=n>__</span><span class=p>:</span> <span class=kc>None</span><span class=p>,</span>
+              <span class=n>get_footer_comments</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>S</span><span class=p>,</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]],</span> <span class=n>Any</span><span class=p>]</span> <span class=o>=</span>
+              <span class=k>lambda</span> <span class=n>_</span><span class=p>,</span> <span class=n>__</span><span class=p>:</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Write data in CSV format to a text destination.</span>
+
+<span class=sd>    The data is provided in form of a :class:`Iterable`. In a first step, the</span>
+<span class=sd>    function `setup` is invoked and applied to the `data` :class:`Iterable`.</span>
+<span class=sd>    It can return an object that sort of stores the structure of the data,</span>
+<span class=sd>    e.g., which columns should be generated and how they should be formatted.</span>
+<span class=sd>    This returned object is passed to `get_column_titles`, which should append</span>
+<span class=sd>    the titles of the columns to a :class:`list` of :class:`str`. These titles</span>
+<span class=sd>    are :meth:`~str.strip`-ped concatenated to use the column `separator`</span>
+<span class=sd>    string and the resulting header string is passed to `consumer`. Then, for</span>
+<span class=sd>    each element `e` in the `data` :class:`Iterable`, the function `get_row`</span>
+<span class=sd>    is invoked. This function receives the setup information object</span>
+<span class=sd>    (previously returned by `setup`) and should append one string per column</span>
+<span class=sd>    to the :class:`list` it receives as third parameter. These strings are</span>
+<span class=sd>    then each :meth:`~str.strip`-ped and concatenated using the column</span>
+<span class=sd>    `separator` string. All trailing `separator` are removed, but if all</span>
+<span class=sd>    strings are empty, at least a single `separator` is retained. The</span>
+<span class=sd>    resulting string (per row) is again passed to `consumer`.</span>
+
+<span class=sd>    Additionally, `get_header_comments` and `get_footer_comments` can be</span>
+<span class=sd>    provided to generate instances of :class:`Iterable` of :class:`str` to</span>
+<span class=sd>    prepend or append as comment rows before or after all of the above,</span>
+<span class=sd>    respectively. In that case, `comment_start` is prepended to each line.</span>
+
+<span class=sd>    :param data: the iterable of data to be written</span>
+<span class=sd>    :param consumer: the consumer to which it will be written</span>
+<span class=sd>    :param get_column_titles: get the column titles</span>
+<span class=sd>    :param get_row: transform a row of data into a list of strings</span>
+<span class=sd>    :param setup: the setup function that computes how the data should be</span>
+<span class=sd>        represented</span>
+<span class=sd>    :param separator: the string used to separate columns</span>
+<span class=sd>    :param comment_start: the string starting comments</span>
+<span class=sd>    :param get_header_comments: get the comments to be placed above the CSV</span>
+<span class=sd>        header row</span>
+<span class=sd>    :param get_footer_comments: get the comments to be placed after the last</span>
+<span class=sd>        row</span>
+<span class=sd>    :raises TypeError: if any of the parameters has the wrong type</span>
+<span class=sd>    :raises ValueError: if the separator or comment start character are</span>
+<span class=sd>        incompatible or if the data has some internal error</span>
+
+<span class=sd>    >>> dd = [{"a": 1, "c": 2}, {"b": 6, "c": 8},</span>
+<span class=sd>    ...       {"a": 4, "d": 12, "b": 3}, {}]</span>
+
+<span class=sd>    >>> def __setup(datarows) -> list[str]:</span>
+<span class=sd>    ...     return sorted({dkey for datarow in datarows for dkey in datarow})</span>
+
+<span class=sd>    >>> def __get_column_titles(keyd: list[str], lst: list[str]):</span>
+<span class=sd>    ...     lst.extend(keyd)</span>
+
+<span class=sd>    >>> def __get_row(keyd: list[str], row: dict[str, int], lst: list[str]):</span>
+<span class=sd>    ...     lst.extend(map(str, (row.get(key, "") for key in keyd)))</span>
+
+<span class=sd>    >>> def __get_header_cmt(keyd: list[str], dst: list[str]):</span>
+<span class=sd>    ...     dst.append("This is a header comment.")</span>
+<span class=sd>    ...     dst.append(" We have two of it. ")</span>
+
+<span class=sd>    >>> def __get_footer_cmt(keyd: list[str], dst: list[str]):</span>
+<span class=sd>    ...     dst.append(" This is a footer comment.")</span>
+
+<span class=sd>    >>> csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    # This is a header comment.</span>
+<span class=sd>    # We have two of it.</span>
+<span class=sd>    a;b;c;d</span>
+<span class=sd>    1;;2</span>
+<span class=sd>    ;6;8</span>
+<span class=sd>    4;3;;12</span>
+<span class=sd>    ;</span>
+<span class=sd>    # This is a footer comment.</span>
+
+<span class=sd>    >>> csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ",", "@@", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    @@ This is a header comment.</span>
+<span class=sd>    @@ We have two of it.</span>
+<span class=sd>    a,b,c,d</span>
+<span class=sd>    1,,2</span>
+<span class=sd>    ,6,8</span>
+<span class=sd>    4,3,,12</span>
+<span class=sd>    ,</span>
+<span class=sd>    @@ This is a footer comment.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(None, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    data should be an instance of typing.Iterable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(1, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    data should be an instance of typing.Iterable but is int, namely '1'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, None, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    consumer should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, 1, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    consumer should be a callable but is int, namely '1'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, None, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    get_column_titles should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, 1, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    get_column_titles should be a callable but is int, namely '1'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, None, __setup,</span>
+<span class=sd>    ...           ";", "#", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    get_row should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, 1, __setup,</span>
+<span class=sd>    ...           ";", "#", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    get_row should be a callable but is int, namely '1'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, None,</span>
+<span class=sd>    ...           ";", "#", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    setup should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, 1,</span>
+<span class=sd>    ...           ";", "#", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    setup should be a callable but is int, namely '1'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           None, "#", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           1, "#", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", 1, __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", None, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    get_header_comments should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", 1, __get_footer_cmt)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    get_header_comments should be a callable but is int, namely '1'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid comment start: ''.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", " ", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid comment start: ' '.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "# ", __get_header_cmt, __get_footer_cmt)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid comment start: '# '.</span>
+
+<span class=sd>    >>> csv_write(dd, print, __get_column_titles, __get_row, __setup, ";",</span>
+<span class=sd>    ...             None)</span>
+<span class=sd>    a;b;c;d</span>
+<span class=sd>    1;;2</span>
+<span class=sd>    ;6;8</span>
+<span class=sd>    4;3;;12</span>
+<span class=sd>    ;</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", None, __get_header_cmt)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:60])</span>
+<span class=sd>    Cannot place header comment 'This is a header comment.' if c</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", None, get_footer_comments=__get_footer_cmt)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:59])</span>
+<span class=sd>    a;b;c;d</span>
+<span class=sd>    1;;2</span>
+<span class=sd>    ;6;8</span>
+<span class=sd>    4;3;;12</span>
+<span class=sd>    ;</span>
+<span class=sd>    Cannot place footer comment ' This is a footer comment.' if</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", __get_header_cmt, None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    get_footer_comments should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", __get_header_cmt, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    get_footer_comments should be a callable but is int, namely '1'.</span>
+
+<span class=sd>    >>> def __err_cmt_1(keyd: list[str], dst: list[str]):</span>
+<span class=sd>    ...     dst.append("This is\n a comment with error.")</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", __err_cmt_1)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:59])</span>
+<span class=sd>    Header comment must not contain newline, but 'This is\n a c</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", get_footer_comments=__err_cmt_1)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:59])</span>
+<span class=sd>    a;b;c;d</span>
+<span class=sd>    1;;2</span>
+<span class=sd>    ;6;8</span>
+<span class=sd>    4;3;;12</span>
+<span class=sd>    ;</span>
+<span class=sd>    Footer comment must not contain newline, but 'This is\n a c</span>
+
+<span class=sd>    >>> def __empty_cmt(keyd: list[str], dst: list[str]):</span>
+<span class=sd>    ...     dst.append(" ")</span>
+
+<span class=sd>    >>> csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", __empty_cmt)</span>
+<span class=sd>    #</span>
+<span class=sd>    a;b;c;d</span>
+<span class=sd>    1;;2</span>
+<span class=sd>    ;6;8</span>
+<span class=sd>    4;3;;12</span>
+<span class=sd>    ;</span>
+
+<span class=sd>    >>> csv_write(dd, print, __get_column_titles, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#", get_footer_comments=__empty_cmt)</span>
+<span class=sd>    a;b;c;d</span>
+<span class=sd>    1;;2</span>
+<span class=sd>    ;6;8</span>
+<span class=sd>    4;3;;12</span>
+<span class=sd>    ;</span>
+<span class=sd>    #</span>
+
+<span class=sd>    >>> def __error_column_titles_1(keyd: list[str], lst: list[str]):</span>
+<span class=sd>    ...     pass</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __error_column_titles_1, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Cannot have zero columns.</span>
+
+<span class=sd>    >>> def __error_column_titles_2(keyd: list[str], lst: list[str]):</span>
+<span class=sd>    ...     lst.append(" ")</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __error_column_titles_2, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:50])</span>
+<span class=sd>    Invalid column title ' ', must neither be empty no</span>
+
+<span class=sd>    >>> def __error_column_titles_3(keyd: list[str], lst: list[str]):</span>
+<span class=sd>    ...     lst.append("bla\nblugg")</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __error_column_titles_3, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:50])</span>
+<span class=sd>    Invalid column title 'bla\nblugg', must neither be</span>
+
+<span class=sd>    >>> def __error_column_titles_4(keyd: list[str], lst: list[str]):</span>
+<span class=sd>    ...     lst.append(None)</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __error_column_titles_4, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> def __error_column_titles_5(keyd: list[str], lst: list[str]):</span>
+<span class=sd>    ...     lst.append(1)</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __error_column_titles_5, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> def __error_column_titles_6(keyd: list[str], lst: list[str]):</span>
+<span class=sd>    ...     lst.extend(("a", "b", "c", "a"))</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __error_column_titles_6, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Cannot have duplicated columns: ['a', 'b', 'c', 'a'].</span>
+
+<span class=sd>    >>> def __error_column_titles_7(keyd: list[str], lst: list[str]):</span>
+<span class=sd>    ...     lst.extend(("a", "b", "c;4"))</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __error_column_titles_7, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:49])</span>
+<span class=sd>    Invalid column title 'c;4', must neither be empty</span>
+
+<span class=sd>    >>> def __error_column_titles_8(keyd: list[str], lst: list[str]):</span>
+<span class=sd>    ...     lst.extend(("a", "b#x", "c"))</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __error_column_titles_8, __get_row, __setup,</span>
+<span class=sd>    ...           ";", "#")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:49])</span>
+<span class=sd>    Invalid column title 'b#x', must neither be empty</span>
+
+<span class=sd>    >>> def __error_row_1(keyd: list[str], row: dict[str, int],</span>
+<span class=sd>    ...                   lst: list[str]):</span>
+<span class=sd>    ...     lst.extend(("bla", None, "blubb"))</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __error_row_1,</span>
+<span class=sd>    ...               __setup, ";", "#")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    a;b;c;d</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> def __error_row_2(keyd: list[str], row: dict[str, int],</span>
+<span class=sd>    ...                   lst: list[str]):</span>
+<span class=sd>    ...     lst.extend(("bla", 2.3, "blubb"))</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __error_row_2,</span>
+<span class=sd>    ...               __setup, ";", "#")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    a;b;c;d</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'float' object</span>
+
+<span class=sd>    >>> def __error_row_3(keyd: list[str], row: dict[str, int],</span>
+<span class=sd>    ...                   lst: list[str]):</span>
+<span class=sd>    ...     lst.extend(("bla", "x\ny", "blubb"))</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __error_row_3,</span>
+<span class=sd>    ...               __setup, ";", "#")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:50])</span>
+<span class=sd>    a;b;c;d</span>
+<span class=sd>    Invalid column value 'x\ny', cannot contain any of</span>
+
+<span class=sd>    >>> def __error_row_4(keyd: list[str], row: dict[str, int],</span>
+<span class=sd>    ...                   lst: list[str]):</span>
+<span class=sd>    ...     lst.extend(("bla", "x#", "blubb"))</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __error_row_4,</span>
+<span class=sd>    ...               __setup, ";", "#")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:50])</span>
+<span class=sd>    a;b;c;d</span>
+<span class=sd>    Invalid column value 'x#', cannot contain any of [</span>
+
+<span class=sd>    >>> def __error_row_5(keyd: list[str], row: dict[str, int],</span>
+<span class=sd>    ...                   lst: list[str]):</span>
+<span class=sd>    ...     lst.extend(("bla", "x;#", "blubb"))</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __get_column_titles, __error_row_5,</span>
+<span class=sd>    ...               __setup, ";", "#")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:49])</span>
+<span class=sd>    a;b;c;d</span>
+<span class=sd>    Invalid column value 'x;#', cannot contain any of</span>
+
+<span class=sd>    >>> def __error_column_titles_9(keyd: list[str], lst: list[str]):</span>
+<span class=sd>    ...     lst.extend(("a"))</span>
+
+<span class=sd>    >>> def __error_row_6(keyd: list[str], row: dict[str, int],</span>
+<span class=sd>    ...                   lst: list[str]):</span>
+<span class=sd>    ...     lst.extend(("", ))</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __error_column_titles_9, __error_row_6,</span>
+<span class=sd>    ...               __setup, ";", "#")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    a</span>
+<span class=sd>    Cannot have empty row in a single-column format, but got [''].</span>
+
+<span class=sd>    >>> def __error_row_7(keyd: list[str], row: dict[str, int],</span>
+<span class=sd>    ...                   lst: list[str]):</span>
+<span class=sd>    ...     lst.extend(("x", "y"))</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     csv_write(dd, print, __error_column_titles_9, __error_row_7,</span>
+<span class=sd>    ...               __setup, ";", "#")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    a</span>
+<span class=sd>    Too many columns in ['x', 'y'], should be 1.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>data</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>data</span><span class=p>,</span> <span class=s2>"data"</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>consumer</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>consumer</span><span class=p>,</span> <span class=s2>"consumer"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>get_column_titles</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>get_column_titles</span><span class=p>,</span> <span class=s2>"get_column_titles"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>get_row</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>get_row</span><span class=p>,</span> <span class=s2>"get_row"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>setup</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>setup</span><span class=p>,</span> <span class=s2>"setup"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>separator</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid separator </span><span class=si>{</span><span class=n>separator</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>forbidden_maker</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>set</span><span class=p>[</span><span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=nb>set</span><span class=p>(</span><span class=n>NEWLINE</span><span class=p>)</span>
+    <span class=n>forbidden_maker</span><span class=o>.</span><span class=n>add</span><span class=p>(</span><span class=n>separator</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>comment_start</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>if</span> <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>comment_start</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span>
+                <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>comment_start</span><span class=p>)</span> <span class=o>!=</span> <span class=n>comment_start</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span>
+                <span class=n>comment_start</span> <span class=ow>in</span> <span class=n>separator</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid comment start: </span><span class=si>{</span><span class=n>comment_start</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=n>forbidden_maker</span><span class=o>.</span><span class=n>add</span><span class=p>(</span><span class=n>comment_start</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>get_header_comments</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>get_header_comments</span><span class=p>,</span> <span class=s2>"get_header_comments"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>get_footer_comments</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>get_footer_comments</span><span class=p>,</span> <span class=s2>"get_footer_comments"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+
+    <span class=c1># get the setup data</span>
+    <span class=n>setting</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>S</span><span class=p>]</span> <span class=o>=</span> <span class=n>setup</span><span class=p>(</span><span class=n>data</span><span class=p>)</span>
+    <span class=n>collected</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=p>[]</span>
+    <span class=n>forbidden</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=nb>sorted</span><span class=p>(</span><span class=n>forbidden_maker</span><span class=p>)</span>
+
+    <span class=c1># first put header comments</span>
+    <span class=n>get_header_comments</span><span class=p>(</span><span class=n>setting</span><span class=p>,</span> <span class=n>collected</span><span class=p>)</span>
+    <span class=k>for</span> <span class=n>cmt</span> <span class=ow>in</span> <span class=n>collected</span><span class=p>:</span>
+        <span class=n>xcmt</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>cmt</span><span class=p>)</span>  <span class=c1># strip and typecheck</span>
+        <span class=k>if</span> <span class=n>comment_start</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Cannot place header comment </span><span class=si>{</span><span class=n>cmt</span><span class=si>!r}</span><span class=s2> "</span>
+                             <span class=sa>f</span><span class=s2>"if comment_start=</span><span class=si>{</span><span class=n>comment_start</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>xcmt</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=n>consumer</span><span class=p>(</span><span class=n>comment_start</span><span class=p>)</span>
+            <span class=k>continue</span>
+        <span class=k>if</span> <span class=nb>any</span><span class=p>(</span><span class=nb>map</span><span class=p>(</span><span class=n>xcmt</span><span class=o>.</span><span class=fm>__contains__</span><span class=p>,</span> <span class=n>NEWLINE</span><span class=p>)):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"Header comment must not contain newline, but </span><span class=si>{</span><span class=n>cmt</span><span class=si>!r}</span><span class=s2> does."</span><span class=p>)</span>
+        <span class=n>consumer</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>comment_start</span><span class=si>}</span><span class=s2> </span><span class=si>{</span><span class=n>xcmt</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span>
+
+    <span class=c1># now process the column titles</span>
+    <span class=n>collected</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+    <span class=n>get_column_titles</span><span class=p>(</span><span class=n>setting</span><span class=p>,</span> <span class=n>collected</span><span class=p>)</span>
+    <span class=n>col_count</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=nb>list</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>collected</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>col_count</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Cannot have zero columns."</span><span class=p>)</span>
+    <span class=k>for</span> <span class=n>i</span><span class=p>,</span> <span class=n>col</span> <span class=ow>in</span> <span class=nb>enumerate</span><span class=p>(</span><span class=n>collected</span><span class=p>):</span>
+        <span class=n>collected</span><span class=p>[</span><span class=n>i</span><span class=p>]</span> <span class=o>=</span> <span class=n>xcol</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>col</span><span class=p>)</span>
+        <span class=k>if</span> <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>xcol</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>or</span> <span class=nb>any</span><span class=p>(</span><span class=nb>map</span><span class=p>(</span><span class=n>xcol</span><span class=o>.</span><span class=fm>__contains__</span><span class=p>,</span> <span class=n>forbidden</span><span class=p>)):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid column title </span><span class=si>{</span><span class=n>col</span><span class=si>!r}</span><span class=s2>, must neither be"</span>
+                             <span class=sa>f</span><span class=s2>" empty nor contain any of </span><span class=si>{</span><span class=n>forbidden</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=nb>set</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=nb>set</span><span class=p>(</span><span class=n>collected</span><span class=p>))</span> <span class=o>!=</span> <span class=n>col_count</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Cannot have duplicated columns: </span><span class=si>{</span><span class=n>collected</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>consumer</span><span class=p>(</span><span class=n>separator</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>collected</span><span class=p>))</span>
+
+    <span class=c1># now do the single rows</span>
+    <span class=k>for</span> <span class=n>element</span> <span class=ow>in</span> <span class=n>data</span><span class=p>:</span>
+        <span class=k>if</span> <span class=n>element</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>element</span><span class=p>,</span> <span class=s2>"data element"</span><span class=p>,</span> <span class=nb>object</span><span class=p>)</span>
+        <span class=n>collected</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+        <span class=n>get_row</span><span class=p>(</span><span class=n>setting</span><span class=p>,</span> <span class=n>element</span><span class=p>,</span> <span class=n>collected</span><span class=p>)</span>
+        <span class=n>list_len</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=nb>list</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>collected</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>list_len</span> <span class=o>></span> <span class=n>col_count</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"Too many columns in </span><span class=si>{</span><span class=n>collected</span><span class=si>!r}</span><span class=s2>, should be </span><span class=si>{</span><span class=n>col_count</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=n>last_non_empty</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>
+        <span class=k>for</span> <span class=n>i</span><span class=p>,</span> <span class=n>col</span> <span class=ow>in</span> <span class=nb>enumerate</span><span class=p>(</span><span class=n>collected</span><span class=p>):</span>
+            <span class=n>collected</span><span class=p>[</span><span class=n>i</span><span class=p>]</span> <span class=o>=</span> <span class=n>xcol</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>col</span><span class=p>)</span>
+            <span class=k>if</span> <span class=nb>any</span><span class=p>(</span><span class=nb>map</span><span class=p>(</span><span class=n>xcol</span><span class=o>.</span><span class=fm>__contains__</span><span class=p>,</span> <span class=n>forbidden</span><span class=p>)):</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid column value </span><span class=si>{</span><span class=n>col</span><span class=si>!r}</span><span class=s2>, cannot "</span>
+                                 <span class=sa>f</span><span class=s2>"contain any of </span><span class=si>{</span><span class=n>forbidden</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+            <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>xcol</span><span class=p>)</span> <span class=o>></span> <span class=mi>0</span><span class=p>:</span>
+                <span class=n>last_non_empty</span> <span class=o>=</span> <span class=n>i</span> <span class=o>+</span> <span class=mi>1</span>
+        <span class=k>if</span> <span class=n>last_non_empty</span> <span class=o><</span> <span class=n>list_len</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>last_non_empty</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+                <span class=k>if</span> <span class=n>col_count</span> <span class=o><=</span> <span class=mi>1</span><span class=p>:</span>
+                    <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                        <span class=sa>f</span><span class=s2>"Cannot have empty row in a single-column format, "</span>
+                        <span class=sa>f</span><span class=s2>"but got </span><span class=si>{</span><span class=n>collected</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+                <span class=n>consumer</span><span class=p>(</span><span class=n>separator</span><span class=p>)</span>
+                <span class=k>continue</span>
+            <span class=k>del</span> <span class=n>collected</span><span class=p>[</span><span class=n>last_non_empty</span><span class=p>:]</span>
+        <span class=n>consumer</span><span class=p>(</span><span class=n>separator</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>collected</span><span class=p>))</span>
+
+    <span class=c1># finally put footer comments</span>
+    <span class=n>collected</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+    <span class=n>get_footer_comments</span><span class=p>(</span><span class=n>setting</span><span class=p>,</span> <span class=n>collected</span><span class=p>)</span>
+    <span class=k>for</span> <span class=n>cmt</span> <span class=ow>in</span> <span class=n>collected</span><span class=p>:</span>
+        <span class=n>xcmt</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>cmt</span><span class=p>)</span>  <span class=c1># strip and typecheck</span>
+        <span class=k>if</span> <span class=n>comment_start</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Cannot place footer comment </span><span class=si>{</span><span class=n>cmt</span><span class=si>!r}</span><span class=s2> "</span>
+                             <span class=sa>f</span><span class=s2>"if comment_start=</span><span class=si>{</span><span class=n>comment_start</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>xcmt</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=n>consumer</span><span class=p>(</span><span class=n>comment_start</span><span class=p>)</span>
+            <span class=k>continue</span>
+        <span class=k>if</span> <span class=nb>any</span><span class=p>(</span><span class=nb>map</span><span class=p>(</span><span class=n>xcmt</span><span class=o>.</span><span class=fm>__contains__</span><span class=p>,</span> <span class=n>NEWLINE</span><span class=p>)):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"Footer comment must not contain newline, but </span><span class=si>{</span><span class=n>cmt</span><span class=si>!r}</span><span class=s2> does."</span><span class=p>)</span>
+        <span class=n>consumer</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>comment_start</span><span class=si>}</span><span class=s2> </span><span class=si>{</span><span class=n>xcmt</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label="main navigation"class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><div id=searchbox role=search style=display:none><h3 id=searchlabel>Quick search</h3><div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div></div><script>document.getElementById(`searchbox`).style.display=`block`</script></div></div><div class=clearer></div></div><div aria-label="related navigation"class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.15 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.io.csv</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2024, Thomas Weise.</div>

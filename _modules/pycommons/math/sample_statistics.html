@@ -1,0 +1,849 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.math.sample_statistics — pycommons 0.8.15 documentation</title><link href="../../../_static/pygments.css?v=80d5e7a1"rel=stylesheet><link href="../../../_static/bizstyle.css?v=532c1bf3"rel=stylesheet><script src="../../../_static/documentation_options.js?v=66049c44"></script><script src="../../../_static/doctools.js?v=888ff710"></script><script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/math/sample_statistics.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label="related navigation"class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.15 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.math.sample_statistics</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.math.sample_statistics</h1><div class=highlight><pre>
+<span></span><span class=sd>"""A simple and immutable basic statistics record."""</span>
+
+<span class=kn>from</span> <span class=nn>contextlib</span> <span class=kn>import</span> <span class=n>suppress</span>
+<span class=kn>from</span> <span class=nn>dataclasses</span> <span class=kn>import</span> <span class=n>dataclass</span>
+<span class=kn>from</span> <span class=nn>math</span> <span class=kn>import</span> <span class=n>gcd</span><span class=p>,</span> <span class=n>inf</span><span class=p>,</span> <span class=n>isfinite</span><span class=p>,</span> <span class=n>log2</span><span class=p>,</span> <span class=n>nextafter</span><span class=p>,</span> <span class=n>sqrt</span>
+<span class=kn>from</span> <span class=nn>statistics</span> <span class=kn>import</span> <span class=n>geometric_mean</span> <span class=k>as</span> <span class=n>stat_geomean</span>
+<span class=kn>from</span> <span class=nn>statistics</span> <span class=kn>import</span> <span class=n>mean</span> <span class=k>as</span> <span class=n>stat_mean</span>
+<span class=kn>from</span> <span class=nn>statistics</span> <span class=kn>import</span> <span class=n>stdev</span> <span class=k>as</span> <span class=n>stat_stddev</span>
+<span class=kn>from</span> <span class=nn>typing</span> <span class=kn>import</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Iterable</span>
+
+<span class=kn>from</span> <span class=nn>pycommons.math.int_math</span> <span class=kn>import</span> <span class=n>try_int</span><span class=p>,</span> <span class=n>try_int_div</span>
+<span class=kn>from</span> <span class=nn>pycommons.types</span> <span class=kn>import</span> <span class=n>check_int_range</span><span class=p>,</span> <span class=n>type_error</span>
+
+
+<div class=viewcode-block id=SampleStatistics>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.sample_statistics.SampleStatistics>[docs]</a>
+<span class=nd>@dataclass</span><span class=p>(</span><span class=n>frozen</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span> <span class=n>init</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span> <span class=n>order</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span> <span class=n>eq</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span> <span class=n>unsafe_hash</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+<span class=k>class</span> <span class=nc>SampleStatistics</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""An immutable record with sample statistics of one quantity."""</span>
+
+    <span class=c1>#: The sample size</span>
+    <span class=n>n</span><span class=p>:</span> <span class=nb>int</span>
+    <span class=c1>#: The minimum.</span>
+    <span class=n>minimum</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span>
+    <span class=c1>#: The median.</span>
+    <span class=n>median</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span>
+    <span class=c1>#: The arithmetic mean value.</span>
+    <span class=n>mean_arith</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span>
+    <span class=c1>#: The geometric mean value, if defined.</span>
+    <span class=n>mean_geom</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span>
+    <span class=c1>#: The maximum.</span>
+    <span class=n>maximum</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span>
+    <span class=c1>#: The standard deviation.</span>
+    <span class=n>stddev</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span>
+
+    <span class=k>def</span> <span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>n</span><span class=p>:</span> <span class=nb>int</span><span class=p>,</span> <span class=n>minimum</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span> <span class=n>median</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span>
+                 <span class=n>mean_arith</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span> <span class=n>mean_geom</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>,</span>
+                 <span class=n>maximum</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span> <span class=n>stddev</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>):</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Create a sample statistics record.</span>
+
+<span class=sd>        :param n: the sample size, must be `n >= 1`</span>
+<span class=sd>        :param minimum: the minimum</span>
+<span class=sd>        :param median: the median</span>
+<span class=sd>        :param mean_arith: the arithmetic mean</span>
+<span class=sd>        :param mean_geom: the geometric mean, or `None` if it is undefined</span>
+<span class=sd>        :param maximum: the maximum</span>
+<span class=sd>        :param stddev: the standard deviation, must be `None` if `n == 0`</span>
+
+<span class=sd>        >>> s1 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)</span>
+<span class=sd>        >>> s1.n</span>
+<span class=sd>        2</span>
+<span class=sd>        >>> s1.minimum</span>
+<span class=sd>        1</span>
+<span class=sd>        >>> s1.median</span>
+<span class=sd>        2</span>
+<span class=sd>        >>> s1.mean_arith</span>
+<span class=sd>        4</span>
+<span class=sd>        >>> s1.mean_geom</span>
+<span class=sd>        3</span>
+<span class=sd>        >>> s1.maximum</span>
+<span class=sd>        6</span>
+<span class=sd>        >>> s1.stddev</span>
+<span class=sd>        0.2</span>
+<span class=sd>        >>> hash(s1)</span>
+<span class=sd>        1256902036954760112</span>
+
+<span class=sd>        >>> s2 = SampleStatistics(1, 0, 0.0, 0, None, 0.0, None)</span>
+<span class=sd>        >>> s2.n</span>
+<span class=sd>        1</span>
+<span class=sd>        >>> s2.minimum</span>
+<span class=sd>        0</span>
+<span class=sd>        >>> s2.median</span>
+<span class=sd>        0</span>
+<span class=sd>        >>> s2.mean_arith</span>
+<span class=sd>        0</span>
+<span class=sd>        >>> print(s2.mean_geom)</span>
+<span class=sd>        None</span>
+<span class=sd>        >>> s2.maximum</span>
+<span class=sd>        0</span>
+<span class=sd>        >>> print(s2.stddev)</span>
+<span class=sd>        None</span>
+<span class=sd>        >>> hash(s2) == hash((1, 0, 0, 0, None, 0, None))</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s3 = SampleStatistics(n=3, minimum=5, median=5, maximum=5,</span>
+<span class=sd>        ...                       mean_arith=5, mean_geom=5, stddev=0.0)</span>
+<span class=sd>        >>> s3.stddev</span>
+<span class=sd>        0</span>
+<span class=sd>        >>> hash(s3)</span>
+<span class=sd>        1693271975867638638</span>
+
+<span class=sd>        >>> sset = {s1, s1, s2, s1, s3, s3, s2, s1}</span>
+<span class=sd>        >>> len(sset)</span>
+<span class=sd>        3</span>
+<span class=sd>        >>> print(list(sss.n for sss in sorted(sset)))</span>
+<span class=sd>        [1, 2, 3]</span>
+<span class=sd>        >>> print(list(sss.minimum for sss in sorted(sset)))</span>
+<span class=sd>        [0, 1, 5]</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=1, minimum=5, median=6, maximum=5,</span>
+<span class=sd>        ...                      mean_arith=5, mean_geom=5, stddev=None)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        median (6) must equal minimum (5) if n=1.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=2, minimum=5, median=4, maximum=5,</span>
+<span class=sd>        ...                      mean_arith=5, mean_geom=5, stddev=None)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        median (4) must be >= minimum (5) if n>1.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=1, minimum=5, median=5, maximum=6,</span>
+<span class=sd>        ...                      mean_arith=5, mean_geom=5, stddev=None)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        maximum (6) must equal minimum (5) if n=1.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=2, minimum=5, median=6, maximum=5,</span>
+<span class=sd>        ...                      mean_arith=5, mean_geom=5, stddev=None)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        maximum (5) must be >= med (6) if n>1.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=1, minimum=5, median=5, maximum=5,</span>
+<span class=sd>        ...                      mean_arith=4, mean_geom=5, stddev=None)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        mean_arith (4) must equal minimum (5) if n=1.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=2, minimum=5, median=6, maximum=6,</span>
+<span class=sd>        ...                      mean_arith=4, mean_geom=5, stddev=None)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        minimum<=mean_arith<=maximum must hold, but got 5, 4, and 6.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=1, minimum=5, median=5, maximum=5,</span>
+<span class=sd>        ...                      mean_arith=5, mean_geom=None, stddev=None)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        If minimum (5) > 0, then mean_geom must be defined, but it is None.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=1, minimum=0, median=0, maximum=0,</span>
+<span class=sd>        ...                      mean_arith=0, mean_geom=0, stddev=None)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        If minimum (0) <= 0, then mean_geom is undefined, but it is 0.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=1, minimum=5, median=5, maximum=5,</span>
+<span class=sd>        ...                      mean_arith=5, mean_geom=6, stddev=None)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        mean_geom (6) must equal minimum (5) if n=1.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=3, minimum=5, median=6, maximum=7,</span>
+<span class=sd>        ...                      mean_arith=6, mean_geom=6.1, stddev=None)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        mean_geom (6.1) must be <= mean_arith (6).</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=3, minimum=5, median=6, maximum=7,</span>
+<span class=sd>        ...                      mean_arith=6, mean_geom=6, stddev=-1)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        stddev must be >= 0, but is -1.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=3, minimum=5, median=6, maximum=7,</span>
+<span class=sd>        ...                      mean_arith=6, mean_geom=6, stddev=0)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[:59])</span>
+<span class=sd>        If stddev (0) is 0, then minimum (5) must equal maximum (7)</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=3, minimum=5, median=5, maximum=5,</span>
+<span class=sd>        ...                      mean_arith=5, mean_geom=5, stddev=1)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[:59])</span>
+<span class=sd>        If stddev (1) is 0, then minimum (5) must equal maximum (5)</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=3, minimum=5, median=5, maximum=5,</span>
+<span class=sd>        ...                      mean_arith=5, mean_geom=5, stddev=None)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        If n=1, stddev=None and vice versa, but got n=3 and stddev=None.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=1, minimum=5, median=5, maximum=5,</span>
+<span class=sd>        ...                      mean_arith=5, mean_geom=5, stddev=1)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        If n=1, stddev=None and vice versa, but got n=1 and stddev=1.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     SampleStatistics(n=2, minimum=5, median=5, maximum=6,</span>
+<span class=sd>        ...                      mean_arith=6, mean_geom=7, stddev=1)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        minimum<=mean_geom<=maximum must hold, but got 5, 7, and 6.</span>
+<span class=sd>        """</span>
+        <span class=n>n</span> <span class=o>=</span> <span class=n>check_int_range</span><span class=p>(</span><span class=n>n</span><span class=p>,</span> <span class=s2>"n"</span><span class=p>,</span> <span class=mi>1</span><span class=p>)</span>
+
+        <span class=c1># check minimum</span>
+        <span class=n>minimum</span> <span class=o>=</span> <span class=n>try_int</span><span class=p>(</span><span class=n>minimum</span><span class=p>)</span>
+        <span class=n>median</span> <span class=o>=</span> <span class=n>try_int</span><span class=p>(</span><span class=n>median</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>n</span> <span class=o>==</span> <span class=mi>1</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>median</span> <span class=o>!=</span> <span class=n>minimum</span><span class=p>:</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"median (</span><span class=si>{</span><span class=n>median</span><span class=si>}</span><span class=s2>) must equal "</span>
+                                 <span class=sa>f</span><span class=s2>"minimum (</span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>) if n=1."</span><span class=p>)</span>
+        <span class=k>elif</span> <span class=n>median</span> <span class=o><</span> <span class=n>minimum</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"median (</span><span class=si>{</span><span class=n>median</span><span class=si>}</span><span class=s2>) must be >= minimum (</span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>) if n>1."</span><span class=p>)</span>
+
+        <span class=c1># check maximum</span>
+        <span class=n>maximum</span> <span class=o>=</span> <span class=n>try_int</span><span class=p>(</span><span class=n>maximum</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>n</span> <span class=o>==</span> <span class=mi>1</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>maximum</span> <span class=o>!=</span> <span class=n>minimum</span><span class=p>:</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"maximum (</span><span class=si>{</span><span class=n>maximum</span><span class=si>}</span><span class=s2>) must equal "</span>
+                                 <span class=sa>f</span><span class=s2>"minimum (</span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>) if n=1."</span><span class=p>)</span>
+        <span class=k>elif</span> <span class=n>maximum</span> <span class=o><</span> <span class=n>median</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"maximum (</span><span class=si>{</span><span class=n>maximum</span><span class=si>}</span><span class=s2>) must be >= med (</span><span class=si>{</span><span class=n>median</span><span class=si>}</span><span class=s2>) if n>1."</span><span class=p>)</span>
+
+        <span class=c1># check arithmetic mean</span>
+        <span class=n>mean_arith</span> <span class=o>=</span> <span class=n>try_int</span><span class=p>(</span><span class=n>mean_arith</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>n</span> <span class=o>==</span> <span class=mi>1</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>mean_arith</span> <span class=o>!=</span> <span class=n>minimum</span><span class=p>:</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"mean_arith (</span><span class=si>{</span><span class=n>mean_arith</span><span class=si>}</span><span class=s2>) must equal "</span>
+                                 <span class=sa>f</span><span class=s2>"minimum (</span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>) if n=1."</span><span class=p>)</span>
+        <span class=k>elif</span> <span class=ow>not</span> <span class=p>(</span><span class=n>minimum</span> <span class=o><=</span> <span class=n>mean_arith</span> <span class=o><=</span> <span class=n>maximum</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"minimum<=mean_arith<=maximum must hold, but "</span>
+                             <span class=sa>f</span><span class=s2>"got </span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>, </span><span class=si>{</span><span class=n>mean_arith</span><span class=si>}</span><span class=s2>, and </span><span class=si>{</span><span class=n>maximum</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+
+        <span class=c1># check geometric mean</span>
+        <span class=k>if</span> <span class=n>mean_geom</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>minimum</span> <span class=o>></span> <span class=mi>0</span><span class=p>:</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                    <span class=sa>f</span><span class=s2>"If minimum (</span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>) > 0, then mean_geom must be "</span>
+                    <span class=sa>f</span><span class=s2>"defined, but it is </span><span class=si>{</span><span class=n>mean_geom</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>minimum</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                    <span class=sa>f</span><span class=s2>"If minimum (</span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>) <= 0, then mean_geom is "</span>
+                    <span class=sa>f</span><span class=s2>"undefined, but it is </span><span class=si>{</span><span class=n>mean_geom</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+            <span class=n>mean_geom</span> <span class=o>=</span> <span class=n>try_int</span><span class=p>(</span><span class=n>mean_geom</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>n</span> <span class=o>==</span> <span class=mi>1</span><span class=p>:</span>
+                <span class=k>if</span> <span class=n>mean_geom</span> <span class=o>!=</span> <span class=n>minimum</span><span class=p>:</span>
+                    <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"mean_geom (</span><span class=si>{</span><span class=n>mean_geom</span><span class=si>}</span><span class=s2>) must equal "</span>
+                                     <span class=sa>f</span><span class=s2>"minimum (</span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>) if n=1."</span><span class=p>)</span>
+            <span class=k>else</span><span class=p>:</span>
+                <span class=k>if</span> <span class=ow>not</span> <span class=p>(</span><span class=n>minimum</span> <span class=o><=</span> <span class=n>mean_geom</span> <span class=o><=</span> <span class=n>maximum</span><span class=p>):</span>
+                    <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                        <span class=s2>"minimum<=mean_geom<=maximum must hold, but "</span>
+                        <span class=sa>f</span><span class=s2>"got </span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>, </span><span class=si>{</span><span class=n>mean_geom</span><span class=si>}</span><span class=s2>, and </span><span class=si>{</span><span class=n>maximum</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+                <span class=k>if</span> <span class=n>mean_geom</span> <span class=o>></span> <span class=n>mean_arith</span><span class=p>:</span>
+                    <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                        <span class=sa>f</span><span class=s2>"mean_geom (</span><span class=si>{</span><span class=n>mean_geom</span><span class=si>}</span><span class=s2>) must be <= "</span>
+                        <span class=sa>f</span><span class=s2>"mean_arith (</span><span class=si>{</span><span class=n>mean_arith</span><span class=si>}</span><span class=s2>)."</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=n>stddev</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>stddev</span> <span class=o>=</span> <span class=n>try_int</span><span class=p>(</span><span class=n>stddev</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>stddev</span> <span class=o><</span> <span class=mi>0</span><span class=p>:</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"stddev must be >= 0, but is </span><span class=si>{</span><span class=n>stddev</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>n</span> <span class=o>></span> <span class=mi>1</span><span class=p>)</span> <span class=ow>and</span> <span class=p>((</span><span class=n>minimum</span> <span class=o>==</span> <span class=n>maximum</span><span class=p>)</span> <span class=o>^</span> <span class=p>(</span><span class=n>stddev</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)):</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                    <span class=sa>f</span><span class=s2>"If stddev (</span><span class=si>{</span><span class=n>stddev</span><span class=si>}</span><span class=s2>) is 0, then minimum (</span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>) "</span>
+                    <span class=sa>f</span><span class=s2>"must equal maximum (</span><span class=si>{</span><span class=n>maximum</span><span class=si>}</span><span class=s2>) and vice versa."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>stddev</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=o>^</span> <span class=p>(</span><span class=n>n</span> <span class=o>==</span> <span class=mi>1</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"If n=1, stddev=None and vice versa, but "</span>
+                             <span class=sa>f</span><span class=s2>"got n=</span><span class=si>{</span><span class=n>n</span><span class=si>}</span><span class=s2> and stddev=</span><span class=si>{</span><span class=n>stddev</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"n"</span><span class=p>,</span> <span class=n>n</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"minimum"</span><span class=p>,</span> <span class=n>minimum</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"median"</span><span class=p>,</span> <span class=n>median</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"maximum"</span><span class=p>,</span> <span class=n>maximum</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"mean_arith"</span><span class=p>,</span> <span class=n>mean_arith</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"mean_geom"</span><span class=p>,</span> <span class=n>mean_geom</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"stddev"</span><span class=p>,</span> <span class=n>stddev</span><span class=p>)</span>
+
+<div class=viewcode-block id=SampleStatistics.min_mean>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.sample_statistics.SampleStatistics.min_mean>[docs]</a>
+    <span class=k>def</span> <span class=nf>min_mean</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Obtain the smallest of the three mean values.</span>
+
+<span class=sd>        :return: the smallest of `mean_arith`, `mean_geom`, and `median`</span>
+
+<span class=sd>        >>> SampleStatistics(1, 0, 0.0, 0, None, 0.0, None).min_mean()</span>
+<span class=sd>        0</span>
+<span class=sd>        >>> SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2).min_mean()</span>
+<span class=sd>        2</span>
+<span class=sd>        >>> SampleStatistics(2, 1, 3.2, 4.0, 3, 6, 0.2).min_mean()</span>
+<span class=sd>        3</span>
+<span class=sd>        >>> SampleStatistics(2, 1, 5.2, 4.0, 3, 6, 0.2).min_mean()</span>
+<span class=sd>        3</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>mean_geom</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>  <span class=c1># geometric mean is always <= arithmean</span>
+            <span class=k>return</span> <span class=nb>min</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>mean_arith</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>median</span><span class=p>)</span>
+        <span class=k>return</span> <span class=nb>min</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>mean_geom</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>median</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=SampleStatistics.max_mean>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.sample_statistics.SampleStatistics.max_mean>[docs]</a>
+    <span class=k>def</span> <span class=nf>max_mean</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Obtain the largest of the three mean values.</span>
+
+<span class=sd>        :return: the largest of `mean_arith`, `mean_geom`, and `median`</span>
+
+<span class=sd>        >>> SampleStatistics(1, 0, 0.0, 0, None, 0.0, None).max_mean()</span>
+<span class=sd>        0</span>
+<span class=sd>        >>> SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2).max_mean()</span>
+<span class=sd>        4</span>
+<span class=sd>        >>> SampleStatistics(2, 1, 3.2, 4.0, 3, 6, 0.2).max_mean()</span>
+<span class=sd>        4</span>
+<span class=sd>        >>> SampleStatistics(2, 1, 5.2, 4.0, 3, 6, 0.2).max_mean()</span>
+<span class=sd>        5.2</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=nb>max</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>mean_arith</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>median</span><span class=p>)</span></div>
+
+
+    <span class=k>def</span> <span class=nf>__key</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>tuple</span><span class=p>[</span><span class=nb>float</span> <span class=o>|</span> <span class=nb>int</span><span class=p>,</span> <span class=nb>float</span> <span class=o>|</span> <span class=nb>int</span><span class=p>,</span> <span class=nb>float</span> <span class=o>|</span> <span class=nb>int</span><span class=p>,</span>
+                             <span class=nb>float</span> <span class=o>|</span> <span class=nb>int</span><span class=p>,</span> <span class=nb>float</span> <span class=o>|</span> <span class=nb>int</span><span class=p>,</span> <span class=nb>float</span> <span class=o>|</span> <span class=nb>int</span><span class=p>,</span> <span class=nb>int</span><span class=p>]:</span>
+<span class=w>        </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>        Get a comparison key.</span>
+
+<span class=sd>        :return: the comparison key</span>
+
+<span class=sd>        >>> SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)._SampleStatistics__key()</span>
+<span class=sd>        (1, 2, 4, 3, 6, 0.2, 2)</span>
+
+<span class=sd>        >>> SampleStatistics(1, 0, 0, 0, None, 0, None)\</span>
+<span class=sd>        ...     ._SampleStatistics__key()</span>
+<span class=sd>        (0, 0, 0, inf, 0, inf, 1)</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>minimum</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>median</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>mean_arith</span><span class=p>,</span>
+                <span class=n>inf</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>mean_geom</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=bp>self</span><span class=o>.</span><span class=n>mean_geom</span><span class=p>,</span>
+                <span class=bp>self</span><span class=o>.</span><span class=n>maximum</span><span class=p>,</span> <span class=n>inf</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>stddev</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=bp>self</span><span class=o>.</span><span class=n>stddev</span><span class=p>,</span>
+                <span class=bp>self</span><span class=o>.</span><span class=n>n</span><span class=p>)</span>
+
+    <span class=k>def</span> <span class=fm>__lt__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>other</span><span class=p>:</span> <span class=s2>"SampleStatistics"</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Check if this object is less than another one.</span>
+
+<span class=sd>        :param other: the other sample statistics</span>
+<span class=sd>        :return: `True` if this object is less, `False` otherwise</span>
+
+<span class=sd>        >>> s1 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)</span>
+<span class=sd>        >>> s2 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)</span>
+<span class=sd>        >>> s1 < s2</span>
+<span class=sd>        False</span>
+
+<span class=sd>        >>> s3 = SampleStatistics(2, 0.5, 2, 4.0, 3, 6, 0.2)</span>
+<span class=sd>        >>> s3 < s1</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s1 < s3</span>
+<span class=sd>        False</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     s3 < 23</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:60])</span>
+<span class=sd>        other should be an instance of pycommons.math.sample_statist</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=n>SampleStatistics</span><span class=p>):</span>
+            <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key</span><span class=p>()</span> <span class=o><</span> <span class=n>other</span><span class=o>.</span><span class=n>__key</span><span class=p>()</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=s2>"other"</span><span class=p>,</span> <span class=n>SampleStatistics</span><span class=p>)</span>
+
+    <span class=k>def</span> <span class=fm>__le__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>other</span><span class=p>:</span> <span class=s2>"SampleStatistics"</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Check if this object is less than or equal to another one.</span>
+
+<span class=sd>        :param other: the other sample statistics</span>
+<span class=sd>        :return: `True` if this object is less or equal, `False` otherwise</span>
+
+<span class=sd>        >>> s1 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)</span>
+<span class=sd>        >>> s2 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)</span>
+<span class=sd>        >>> s1 <= s2</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s3 = SampleStatistics(2, 0.5, 2, 4.0, 3, 6, 0.2)</span>
+<span class=sd>        >>> s3 <= s1</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s1 <= s3</span>
+<span class=sd>        False</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     s3 <= 23</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:60])</span>
+<span class=sd>        other should be an instance of pycommons.math.sample_statist</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=n>SampleStatistics</span><span class=p>):</span>
+            <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key</span><span class=p>()</span> <span class=o><=</span> <span class=n>other</span><span class=o>.</span><span class=n>__key</span><span class=p>()</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=s2>"other"</span><span class=p>,</span> <span class=n>SampleStatistics</span><span class=p>)</span>
+
+    <span class=k>def</span> <span class=fm>__gt__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>other</span><span class=p>:</span> <span class=s2>"SampleStatistics"</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Check if this object is greater than another one.</span>
+
+<span class=sd>        :param other: the other sample statistics</span>
+<span class=sd>        :return: `True` if this object is greater, `False` otherwise</span>
+
+<span class=sd>        >>> s1 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)</span>
+<span class=sd>        >>> s2 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)</span>
+<span class=sd>        >>> s1 > s2</span>
+<span class=sd>        False</span>
+
+<span class=sd>        >>> s3 = SampleStatistics(2, 0.5, 2, 4.0, 3, 6, 0.2)</span>
+<span class=sd>        >>> s3 > s1</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> s1 > s3</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     s3 > 23</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:60])</span>
+<span class=sd>        other should be an instance of pycommons.math.sample_statist</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=n>SampleStatistics</span><span class=p>):</span>
+            <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key</span><span class=p>()</span> <span class=o>></span> <span class=n>other</span><span class=o>.</span><span class=n>__key</span><span class=p>()</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=s2>"other"</span><span class=p>,</span> <span class=n>SampleStatistics</span><span class=p>)</span>
+
+    <span class=k>def</span> <span class=fm>__ge__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>other</span><span class=p>:</span> <span class=s2>"SampleStatistics"</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Check if this object is greater than or equal to another one.</span>
+
+<span class=sd>        :param other: the other sample statistics</span>
+<span class=sd>        :return: `True` if this object is greater or equal, `False` otherwise</span>
+
+<span class=sd>        >>> s1 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)</span>
+<span class=sd>        >>> s2 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)</span>
+<span class=sd>        >>> s1 >= s2</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s3 = SampleStatistics(2, 0.5, 2, 4.0, 3, 6, 0.2)</span>
+<span class=sd>        >>> s3 >= s1</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> s1 >= s3</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     s3 >= 23</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:60])</span>
+<span class=sd>        other should be an instance of pycommons.math.sample_statist</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=n>SampleStatistics</span><span class=p>):</span>
+            <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key</span><span class=p>()</span> <span class=o>>=</span> <span class=n>other</span><span class=o>.</span><span class=n>__key</span><span class=p>()</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=s2>"other"</span><span class=p>,</span> <span class=n>SampleStatistics</span><span class=p>)</span></div>
+
+
+
+<span class=k>def</span> <span class=nf>__mean_of_two</span><span class=p>(</span><span class=n>a</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span> <span class=n>b</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Compute the mean of two numbers.</span>
+
+<span class=sd>    :param a: the first number</span>
+<span class=sd>    :param b: the second number</span>
+<span class=sd>    :return: the mean</span>
+
+<span class=sd>    >>> __mean_of_two(1, 1)</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> __mean_of_two(1.0, 1.0)</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> __mean_of_two(1, 2)</span>
+<span class=sd>    1.5</span>
+<span class=sd>    >>> __mean_of_two(1, 3)</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> __mean_of_two(1.5, 1.7)</span>
+<span class=sd>    1.6</span>
+
+<span class=sd>    >>> __mean_of_two(-1, -1)</span>
+<span class=sd>    -1</span>
+<span class=sd>    >>> __mean_of_two(-1.0, -1.0)</span>
+<span class=sd>    -1</span>
+<span class=sd>    >>> __mean_of_two(-1, -2)</span>
+<span class=sd>    -1.5</span>
+<span class=sd>    >>> __mean_of_two(-1, -3)</span>
+<span class=sd>    -2</span>
+<span class=sd>    >>> __mean_of_two(-1.5, -1.7)</span>
+<span class=sd>    -1.6</span>
+
+<span class=sd>    >>> __mean_of_two(1, -1)</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> __mean_of_two(-1.0, 1.0)</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> __mean_of_two(1, -2)</span>
+<span class=sd>    -0.5</span>
+<span class=sd>    >>> __mean_of_two(1, -3)</span>
+<span class=sd>    -1</span>
+<span class=sd>    >>> __mean_of_two(1.5, -1.7)</span>
+<span class=sd>    -0.09999999999999998</span>
+<span class=sd>    >>> __mean_of_two(-1.5, 1.7)</span>
+<span class=sd>    0.09999999999999998</span>
+
+<span class=sd>    >>> __mean_of_two(1.7976931348623157e+308, 1.7976931348623157e+308)</span>
+<span class=sd>    1.7976931348623157e+308</span>
+<span class=sd>    >>> __mean_of_two(1.7976931348623155e+308, 1.7976931348623157e+308)</span>
+<span class=sd>    1.7976931348623155e+308</span>
+<span class=sd>    """</span>
+    <span class=n>a</span> <span class=o>=</span> <span class=n>try_int</span><span class=p>(</span><span class=n>a</span><span class=p>)</span>
+    <span class=n>b</span> <span class=o>=</span> <span class=n>try_int</span><span class=p>(</span><span class=n>b</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>a</span> <span class=o>==</span> <span class=n>b</span><span class=p>:</span>
+        <span class=k>return</span> <span class=n>a</span>
+    <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>a</span><span class=p>,</span> <span class=nb>int</span><span class=p>)</span> <span class=ow>and</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>b</span><span class=p>,</span> <span class=nb>int</span><span class=p>):</span>
+        <span class=n>int_res</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>a</span> <span class=o>+</span> <span class=n>b</span>
+        <span class=n>int_res_sr</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=n>int_res</span> <span class=o>>></span> <span class=mi>1</span>
+        <span class=k>return</span> <span class=n>int_res_sr</span> <span class=o>+</span> <span class=mf>0.5</span> <span class=k>if</span> <span class=p>(</span><span class=n>int_res</span> <span class=o>&</span> <span class=mi>1</span><span class=p>)</span> <span class=o>!=</span> <span class=mi>0</span> <span class=k>else</span> <span class=n>int_res_sr</span>
+    <span class=n>res</span><span class=p>:</span> <span class=nb>float</span> <span class=o>=</span> <span class=n>a</span> <span class=o>+</span> <span class=n>b</span>
+    <span class=k>return</span> <span class=p>(</span><span class=mf>0.5</span> <span class=o>*</span> <span class=n>res</span><span class=p>)</span> <span class=k>if</span> <span class=n>isfinite</span><span class=p>(</span><span class=n>res</span><span class=p>)</span> <span class=k>else</span> <span class=p>((</span><span class=mf>0.5</span> <span class=o>*</span> <span class=n>a</span><span class=p>)</span> <span class=o>+</span> <span class=p>(</span><span class=mf>0.5</span> <span class=o>*</span> <span class=n>b</span><span class=p>))</span>
+
+
+<div class=viewcode-block id=from_sample>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.sample_statistics.from_sample>[docs]</a>
+<span class=k>def</span> <span class=nf>from_sample</span><span class=p>(</span><span class=n>source</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>])</span> <span class=o>-></span> <span class=n>SampleStatistics</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Create a statistics object from an iterable.</span>
+
+<span class=sd>    :param source: the source</span>
+<span class=sd>    :return: a statistics representing the statistics over `source`</span>
+
+<span class=sd>    >>> s = from_sample([0.0])</span>
+<span class=sd>    >>> s.n</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> s.minimum</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> s.maximum</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> print(s.mean_geom)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> s.median</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> print(s.stddev)</span>
+<span class=sd>    None</span>
+
+<span class=sd>    >>> s = from_sample([1.0])</span>
+<span class=sd>    >>> s.n</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> s.minimum</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> s.maximum</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> print(s.mean_geom)</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> s.median</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> print(s.stddev)</span>
+<span class=sd>    None</span>
+
+<span class=sd>    >>> s = from_sample([1.0, 1])</span>
+<span class=sd>    >>> s.n</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> s.minimum</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> s.maximum</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> print(s.mean_geom)</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> s.median</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> print(s.stddev)</span>
+<span class=sd>    0</span>
+
+<span class=sd>    >>> s = from_sample([0, 0.0])</span>
+<span class=sd>    >>> s.n</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> s.minimum</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> s.maximum</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> print(s.mean_geom)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> s.median</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> print(s.stddev)</span>
+<span class=sd>    0</span>
+
+<span class=sd>    >>> dd = [1.5, 2.5]</span>
+<span class=sd>    >>> s = from_sample(dd)</span>
+<span class=sd>    >>> s.n</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> s.minimum</span>
+<span class=sd>    1.5</span>
+<span class=sd>    >>> s.maximum</span>
+<span class=sd>    2.5</span>
+<span class=sd>    >>> print(s.mean_geom)</span>
+<span class=sd>    1.9364916731037085</span>
+<span class=sd>    >>> stat_geomean(dd)</span>
+<span class=sd>    1.9364916731037085</span>
+<span class=sd>    >>> s.median</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> print(s.stddev)</span>
+<span class=sd>    0.7071067811865476</span>
+<span class=sd>    >>> stat_stddev(dd)</span>
+<span class=sd>    0.7071067811865476</span>
+
+<span class=sd>    >>> dd = [1.0, 2.0]</span>
+<span class=sd>    >>> s = from_sample(dd)</span>
+<span class=sd>    >>> s.n</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> s.minimum</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> s.maximum</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> print(s.mean_geom)</span>
+<span class=sd>    1.4142135623730951</span>
+<span class=sd>    >>> (1 * 2) ** 0.5</span>
+<span class=sd>    1.4142135623730951</span>
+<span class=sd>    >>> stat_geomean(dd)</span>
+<span class=sd>    1.414213562373095</span>
+<span class=sd>    >>> s.median</span>
+<span class=sd>    1.5</span>
+<span class=sd>    >>> print(s.stddev)</span>
+<span class=sd>    0.7071067811865476</span>
+<span class=sd>    >>> stat_stddev(dd)</span>
+<span class=sd>    0.7071067811865476</span>
+
+<span class=sd>    >>> dd = [1.0, 2.0, 3.0]</span>
+<span class=sd>    >>> s = from_sample(dd)</span>
+<span class=sd>    >>> s.n</span>
+<span class=sd>    3</span>
+<span class=sd>    >>> s.minimum</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> s.maximum</span>
+<span class=sd>    3</span>
+<span class=sd>    >>> print(s.mean_geom)</span>
+<span class=sd>    1.8171205928321397</span>
+<span class=sd>    >>> (1 * 2 * 3) ** (1 / 3)</span>
+<span class=sd>    1.8171205928321397</span>
+<span class=sd>    >>> stat_geomean(dd)</span>
+<span class=sd>    1.8171205928321397</span>
+<span class=sd>    >>> s.median</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> print(s.stddev)</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> stat_stddev(dd)</span>
+<span class=sd>    1.0</span>
+
+<span class=sd>    >>> dd = [1.0, 0, 3.0]</span>
+<span class=sd>    >>> s = from_sample(dd)</span>
+<span class=sd>    >>> s.n</span>
+<span class=sd>    3</span>
+<span class=sd>    >>> s.minimum</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> s.maximum</span>
+<span class=sd>    3</span>
+<span class=sd>    >>> print(s.mean_geom)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> s.median</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> print(s.stddev)</span>
+<span class=sd>    1.5275252316519468</span>
+<span class=sd>    >>> stat_stddev(dd)</span>
+<span class=sd>    1.5275252316519468</span>
+
+<span class=sd>    >>> dd = [1.0, -2, 3.0]</span>
+<span class=sd>    >>> s = from_sample(dd)</span>
+<span class=sd>    >>> s.n</span>
+<span class=sd>    3</span>
+<span class=sd>    >>> s.minimum</span>
+<span class=sd>    -2</span>
+<span class=sd>    >>> s.maximum</span>
+<span class=sd>    3</span>
+<span class=sd>    >>> print(s.mean_geom)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> s.median</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> print(s.stddev)</span>
+<span class=sd>    2.516611478423583</span>
+<span class=sd>    >>> stat_stddev(dd)</span>
+<span class=sd>    2.516611478423583</span>
+
+<span class=sd>    >>> dd = [1e5, 2e7, 3e9]</span>
+<span class=sd>    >>> s = from_sample(dd)</span>
+<span class=sd>    >>> s.n</span>
+<span class=sd>    3</span>
+<span class=sd>    >>> s.minimum</span>
+<span class=sd>    100000</span>
+<span class=sd>    >>> s.maximum</span>
+<span class=sd>    3000000000</span>
+<span class=sd>    >>> print(s.mean_geom)</span>
+<span class=sd>    18171205.92832138</span>
+<span class=sd>    >>> (100000 * 20000000 * 3000000000) ** (1 / 3)</span>
+<span class=sd>    18171205.92832138</span>
+<span class=sd>    >>> s.median</span>
+<span class=sd>    20000000</span>
+<span class=sd>    >>> print(s.stddev)</span>
+<span class=sd>    1726277112.7487035</span>
+<span class=sd>    >>> stat_stddev(dd)</span>
+<span class=sd>    1726277112.7487035</span>
+
+<span class=sd>    >>> dd = [3.3, 2.5, 3.7, 4.9]</span>
+<span class=sd>    >>> s = from_sample(dd)</span>
+<span class=sd>    >>> s.n</span>
+<span class=sd>    4</span>
+<span class=sd>    >>> s.minimum</span>
+<span class=sd>    2.5</span>
+<span class=sd>    >>> s.maximum</span>
+<span class=sd>    4.9</span>
+<span class=sd>    >>> print(s.mean_geom)</span>
+<span class=sd>    3.497139351921697</span>
+<span class=sd>    >>> (3.3 * 2.5 * 3.7 * 4.9) ** 0.25</span>
+<span class=sd>    3.497139351921697</span>
+<span class=sd>    >>> s.median</span>
+<span class=sd>    3.5</span>
+<span class=sd>    >>> print(s.stddev)</span>
+<span class=sd>    1.0000000000000002</span>
+<span class=sd>    >>> stat_stddev(dd)</span>
+<span class=sd>    1.0000000000000002</span>
+
+<span class=sd>    >>> s = from_sample([3, 1, 2, 5])</span>
+<span class=sd>    >>> print(s.minimum)</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> print(s.maximum)</span>
+<span class=sd>    5</span>
+<span class=sd>    >>> print(s.mean_arith)</span>
+<span class=sd>    2.75</span>
+<span class=sd>    >>> print(s.median)</span>
+<span class=sd>    2.5</span>
+<span class=sd>    >>> print(f"{s.mean_geom:.4f}")</span>
+<span class=sd>    2.3403</span>
+<span class=sd>    >>> print(f"{s.min_mean():.4f}")</span>
+<span class=sd>    2.3403</span>
+<span class=sd>    >>> print(f"{s.max_mean()}")</span>
+<span class=sd>    2.75</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     from_sample(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    source should be an instance of typing.Iterable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     from_sample(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    source should be an instance of typing.Iterable but is int, namely '1'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     from_sample([])</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Data source cannot be empty.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>source</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>source</span><span class=p>,</span> <span class=s2>"source"</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>)</span>
+
+    <span class=c1># The median function of statistics would do this anyway, so we may as</span>
+    <span class=c1># well do it now.</span>
+    <span class=n>data</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>]]</span> <span class=o>=</span> <span class=nb>sorted</span><span class=p>(</span><span class=nb>map</span><span class=p>(</span><span class=n>try_int</span><span class=p>,</span> <span class=n>source</span><span class=p>))</span>
+    <span class=n>n</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=nb>list</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>data</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>n</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Data source cannot be empty."</span><span class=p>)</span>
+
+    <span class=n>minimum</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>=</span> <span class=n>data</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span>  <span class=c1># because data is now sorted</span>
+    <span class=n>maximum</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>=</span> <span class=n>data</span><span class=p>[</span><span class=o>-</span><span class=mi>1</span><span class=p>]</span>  <span class=c1># because data is now sorted</span>
+    <span class=k>if</span> <span class=p>(</span><span class=n>minimum</span> <span class=o>>=</span> <span class=n>maximum</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>n</span> <span class=o><=</span> <span class=mi>1</span><span class=p>):</span>  <span class=c1># all data is the same</span>
+        <span class=k>return</span> <span class=n>SampleStatistics</span><span class=p>(</span>
+            <span class=n>n</span><span class=o>=</span><span class=n>n</span><span class=p>,</span> <span class=n>minimum</span><span class=o>=</span><span class=n>minimum</span><span class=p>,</span> <span class=n>median</span><span class=o>=</span><span class=n>minimum</span><span class=p>,</span> <span class=n>mean_arith</span><span class=o>=</span><span class=n>minimum</span><span class=p>,</span>
+            <span class=n>mean_geom</span><span class=o>=</span><span class=kc>None</span> <span class=k>if</span> <span class=n>minimum</span> <span class=o><=</span> <span class=mi>0</span> <span class=k>else</span> <span class=n>minimum</span><span class=p>,</span> <span class=n>maximum</span><span class=o>=</span><span class=n>minimum</span><span class=p>,</span>
+            <span class=n>stddev</span><span class=o>=</span><span class=kc>None</span> <span class=k>if</span> <span class=n>n</span> <span class=o><=</span> <span class=mi>1</span> <span class=k>else</span> <span class=mi>0</span><span class=p>)</span>
+
+    <span class=c1># Go over the data once and see if we can treat it as all-integer.</span>
+    <span class=c1># If yes, then we can compute some statistics very precisely.</span>
+    <span class=n>can_int</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span>  <span class=c1># are all values integers?</span>
+    <span class=n>int_sum</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>  <span class=c1># the integer sum (for mean, stddev)</span>
+    <span class=n>int_prod</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>1</span>  <span class=c1># the integer product (for geom_mean)</span>
+    <span class=n>int_sum_sqr</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>  <span class=c1># the sum of squares (for stddev)</span>
+    <span class=k>for</span> <span class=n>e</span> <span class=ow>in</span> <span class=n>data</span><span class=p>:</span>  <span class=c1># iterate over all data</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>e</span><span class=p>,</span> <span class=nb>int</span><span class=p>):</span>
+            <span class=n>can_int</span> <span class=o>=</span> <span class=kc>False</span>
+            <span class=k>break</span>
+        <span class=n>int_sum</span> <span class=o>+=</span> <span class=n>e</span>  <span class=c1># so we can sum exactly</span>
+        <span class=n>int_prod</span> <span class=o>*=</span> <span class=n>e</span>  <span class=c1># and can compute exact products</span>
+        <span class=n>int_sum_sqr</span> <span class=o>+=</span> <span class=n>e</span> <span class=o>*</span> <span class=n>e</span>  <span class=c1># and compute the sum of squares</span>
+
+    <span class=n>mean_arith</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>__mean_of_two</span><span class=p>(</span>
+        <span class=n>data</span><span class=p>[</span><span class=mi>0</span><span class=p>],</span> <span class=n>data</span><span class=p>[</span><span class=mi>1</span><span class=p>])</span> <span class=k>if</span> <span class=n>n</span> <span class=o>==</span> <span class=mi>2</span> <span class=k>else</span> <span class=kc>None</span>
+    <span class=n>mean_geom</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=n>stddev</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=k>if</span> <span class=n>can_int</span><span class=p>:</span>
+        <span class=k>if</span> <span class=n>stddev</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>int_sum2</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>int_sum</span> <span class=o>*</span> <span class=n>int_sum</span>
+            <span class=n>i_gcd</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=n>gcd</span><span class=p>(</span><span class=n>int_sum2</span><span class=p>,</span> <span class=n>n</span><span class=p>)</span>
+            <span class=n>int_sum2</span> <span class=o>=</span> <span class=n>int_sum2</span> <span class=o>//</span> <span class=n>i_gcd</span>
+            <span class=n>i_n</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=n>n</span> <span class=o>//</span> <span class=n>i_gcd</span>
+
+            <span class=n>var</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span>  <span class=c1># the container for the variance</span>
+            <span class=n>var</span> <span class=o>=</span> <span class=n>try_int_div</span><span class=p>(</span><span class=n>int_sum_sqr</span> <span class=o>-</span> <span class=n>int_sum2</span><span class=p>,</span> <span class=n>n</span> <span class=o>-</span> <span class=mi>1</span><span class=p>)</span> \
+                <span class=k>if</span> <span class=n>i_n</span> <span class=o>==</span> <span class=mi>1</span> <span class=k>else</span> \
+                <span class=p>((</span><span class=n>int_sum_sqr</span> <span class=o>-</span> <span class=p>(</span><span class=n>int_sum2</span> <span class=o>/</span> <span class=n>i_n</span><span class=p>))</span> <span class=o>/</span> <span class=p>(</span><span class=n>n</span> <span class=o>-</span> <span class=mi>1</span><span class=p>))</span>
+
+            <span class=n>stddev_test</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>float</span><span class=p>]</span> <span class=o>=</span> <span class=n>sqrt</span><span class=p>(</span><span class=n>var</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>stddev_test</span> <span class=o>></span> <span class=mi>0</span><span class=p>:</span>
+                <span class=n>stddev</span> <span class=o>=</span> <span class=n>stddev_test</span>
+
+        <span class=k>if</span> <span class=n>minimum</span> <span class=o>></span> <span class=mi>0</span><span class=p>:</span>  <span class=c1># geometric mean only defined for all-positive</span>
+            <span class=k>with</span> <span class=n>suppress</span><span class=p>(</span><span class=ne>BaseException</span><span class=p>):</span>
+                <span class=n>mean_geom_test</span> <span class=o>=</span> <span class=mi>2</span> <span class=o>**</span> <span class=n>try_int</span><span class=p>(</span><span class=n>log2</span><span class=p>(</span><span class=n>int_prod</span><span class=p>)</span> <span class=o>/</span> <span class=n>n</span><span class=p>)</span>
+                <span class=k>if</span> <span class=n>isfinite</span><span class=p>(</span><span class=n>mean_geom_test</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span>
+                        <span class=n>minimum</span> <span class=o><=</span> <span class=n>mean_geom_test</span> <span class=o><</span> <span class=n>maximum</span><span class=p>):</span>
+                    <span class=n>mean_geom</span> <span class=o>=</span> <span class=n>mean_geom_test</span>
+
+        <span class=k>if</span> <span class=n>mean_arith</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>mean_arith</span> <span class=o>=</span> <span class=n>try_int_div</span><span class=p>(</span><span class=n>int_sum</span><span class=p>,</span> <span class=n>n</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=n>mean_arith</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>mean_arith</span> <span class=o>=</span> <span class=n>stat_mean</span><span class=p>(</span><span class=n>data</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>stddev</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>stddev</span> <span class=o>=</span> <span class=n>stat_stddev</span><span class=p>(</span><span class=n>data</span><span class=p>)</span>
+    <span class=k>if</span> <span class=p>(</span><span class=n>mean_geom</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=n>minimum</span> <span class=o>></span> <span class=mi>0</span><span class=p>):</span>
+        <span class=n>mean_geom</span> <span class=o>=</span> <span class=n>stat_geomean</span><span class=p>(</span><span class=n>data</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=n>mean_geom</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=c1># Deal with errors that may have arisen due to</span>
+        <span class=c1># numerical imprecision.</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>mean_geom</span> <span class=o><</span> <span class=n>minimum</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=n>nextafter</span><span class=p>(</span>
+                <span class=n>mean_geom</span><span class=p>,</span> <span class=n>inf</span><span class=p>)</span> <span class=o>>=</span> <span class=n>nextafter</span><span class=p>(</span><span class=n>minimum</span><span class=p>,</span> <span class=o>-</span><span class=n>inf</span><span class=p>)):</span>
+            <span class=n>mean_geom</span> <span class=o>=</span> <span class=n>minimum</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>mean_geom</span> <span class=o>></span> <span class=n>mean_arith</span><span class=p>)</span> <span class=ow>and</span> <span class=p>((</span><span class=n>nextafter</span><span class=p>(</span>
+                <span class=n>mean_arith</span><span class=p>,</span> <span class=n>inf</span><span class=p>)</span> <span class=o>>=</span> <span class=n>nextafter</span><span class=p>(</span><span class=n>mean_geom</span><span class=p>,</span> <span class=o>-</span><span class=n>inf</span><span class=p>))</span> <span class=ow>or</span> <span class=p>(</span>
+                <span class=p>(</span><span class=mf>0.9999999999999</span> <span class=o>*</span> <span class=n>mean_geom</span><span class=p>)</span> <span class=o><=</span> <span class=n>mean_arith</span><span class=p>)):</span>
+            <span class=n>mean_geom</span> <span class=o>=</span> <span class=n>mean_arith</span>
+
+    <span class=c1># compute the median</span>
+    <span class=n>middle</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=n>n</span> <span class=o>>></span> <span class=mi>1</span>
+    <span class=n>median</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>]</span> <span class=o>=</span> <span class=n>data</span><span class=p>[</span><span class=n>middle</span><span class=p>]</span> <span class=k>if</span> <span class=p>(</span><span class=n>n</span> <span class=o>&</span> <span class=mi>1</span><span class=p>)</span> <span class=o>==</span> <span class=mi>1</span> <span class=k>else</span> <span class=p>(</span>
+        <span class=n>__mean_of_two</span><span class=p>(</span><span class=n>data</span><span class=p>[</span><span class=n>middle</span> <span class=o>-</span> <span class=mi>1</span><span class=p>],</span> <span class=n>data</span><span class=p>[</span><span class=n>middle</span><span class=p>]))</span>
+
+    <span class=k>return</span> <span class=n>SampleStatistics</span><span class=p>(</span><span class=n>minimum</span><span class=o>=</span><span class=n>minimum</span><span class=p>,</span> <span class=n>median</span><span class=o>=</span><span class=n>median</span><span class=p>,</span>
+                            <span class=n>mean_arith</span><span class=o>=</span><span class=n>mean_arith</span><span class=p>,</span> <span class=n>mean_geom</span><span class=o>=</span><span class=n>mean_geom</span><span class=p>,</span>
+                            <span class=n>maximum</span><span class=o>=</span><span class=n>maximum</span><span class=p>,</span> <span class=n>stddev</span><span class=o>=</span><span class=n>stddev</span><span class=p>,</span> <span class=n>n</span><span class=o>=</span><span class=n>n</span><span class=p>)</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label="main navigation"class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><div id=searchbox role=search style=display:none><h3 id=searchlabel>Quick search</h3><div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div></div><script>document.getElementById(`searchbox`).style.display=`block`</script></div></div><div class=clearer></div></div><div aria-label="related navigation"class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.15 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.math.sample_statistics</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2024, Thomas Weise.</div>
