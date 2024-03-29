@@ -2,13 +2,13 @@
 
 from contextlib import suppress
 from dataclasses import dataclass
-from math import gcd, inf, isfinite, log2, nextafter, sqrt
+from math import inf, isfinite, log2, nextafter, sqrt
 from statistics import geometric_mean as stat_geomean
 from statistics import mean as stat_mean
 from statistics import stdev as stat_stddev
 from typing import Final, Iterable
 
-from pycommons.math.int_math import try_int, try_int_div
+from pycommons.math.int_math import try_float_div, try_int, try_int_div
 from pycommons.types import check_int_range, type_error
 
 
@@ -508,9 +508,8 @@ def __mean_of_two(a: int | float, b: int | float) -> int | float:
     if a == b:
         return a
     if isinstance(a, int) and isinstance(b, int):
-        int_res: int = a + b
-        int_res_sr: Final[int] = int_res >> 1
-        return int_res_sr + 0.5 if (int_res & 1) != 0 else int_res_sr
+        return try_int_div(a + b, 2)
+
     res: float = a + b
     return (0.5 * res) if isfinite(res) else ((0.5 * a) + (0.5 * b))
 
@@ -711,7 +710,8 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     >>> stat_stddev(dd)
     1.0000000000000002
 
-    >>> s = from_sample([3, 1, 2, 5])
+    >>> dd = [3, 1, 2, 5]
+    >>> s = from_sample(dd)
     >>> print(s.minimum)
     1
     >>> print(s.maximum)
@@ -726,6 +726,179 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     2.3403
     >>> print(f"{s.max_mean()}")
     2.75
+
+    >>> dd = [8, 8, 8, 8, 9, 10, 10, 11, 11, 12, 12, 12, 12, 13,
+    ...       13, 13, 14, 14, 14, 15, 15, 15, 15, 15, 15, 16, 16, 16]
+    >>> s = from_sample(dd)
+    >>> print(s.minimum)
+    8
+    >>> print(s.maximum)
+    16
+    >>> print(s.mean_arith)
+    12.5
+    >>> print(s.median)
+    13
+    >>> print(s.mean_geom)
+    12.19715026502289
+    >>> stat_geomean(dd)
+    12.19715026502289
+    >>> print(s.stddev)
+    2.673602092336881
+    >>> stat_stddev(dd)
+    2.673602092336881
+
+    >>> dd = [3, 4, 7, 14, 15, 16, 26, 28, 29, 30, 31, 31]
+    >>> s = from_sample(dd)
+    >>> print(s.minimum)
+    3
+    >>> print(s.maximum)
+    31
+    >>> print(s.mean_arith)
+    19.5
+    >>> print(s.median)
+    21
+
+    >>> print(s.mean_geom)
+    15.354984483655892
+    >>> stat_geomean(dd)
+    15.354984483655894
+    >>> k = 1
+    >>> for i in dd:
+    ...     k *= i
+    >>> k
+    171787904870400
+    >>> len(dd)
+    12
+    >>> k ** (1 / 12)
+    15.354984483655889
+    >>> 15.354984483655889 ** 12
+    171787904870399.62
+    >>> 15.354984483655894 ** 12
+    171787904870400.34
+    >>> 15.354984483655892 ** 12
+    171787904870400.1
+
+    >>> print(s.stddev)
+    10.917042556563485
+    >>> stat_stddev(dd)
+    10.917042556563485
+
+    >>> dd = [375977836981734264856247621159545315,
+    ...       1041417453269301410322718941408784761,
+    ...       2109650311556162106262064987699051941]
+    >>> s = from_sample(dd)
+    >>> print(s.minimum)
+    375977836981734264856247621159545315
+    >>> print(s.maximum)
+    2109650311556162106262064987699051941
+    >>> print(s.mean_arith)
+    1175681867269065927147010516755794006
+    >>> stat_mean(dd)
+    1.1756818672690659e+36
+    >>> print(s.median)
+    1041417453269301410322718941408784761
+
+    >>> print(s.mean_geom)
+    9.382801392765291e+35
+    >>> stat_geomean(dd)
+    9.38280139276522e+35
+
+    >>> str(dd[0] * dd[1] * dd[2])[:60]
+    '826033329443972563356247815302467930409182372405786485790679'
+    >>> str(int(9.382801392765291e+35) ** 3)[:60]
+    '826033329443972374842763874805993468673735440486439147266106'
+    >>> str(int(9.38280139276522e+35) ** 3)[:60]
+    '826033329443953666416831847378532327244986484162191539691938'
+
+    >>> print(s.stddev)
+    8.746000582690812e+35
+    >>> stat_stddev(dd)
+    8.746000582690812e+35
+
+    >>> dd = [104275295274308290135253194482044160663473778025704,
+    ...       436826861307375084714000787588311944456580437896461,
+    ...       482178404791292289021955619498303854464057392180997,
+    ...       521745351662201002493923306143082542601267608373030,
+    ...       676289718505789968602970820038005797309334755525626]
+    >>> s = from_sample(dd)
+    >>> print(s.minimum)
+    104275295274308290135253194482044160663473778025704
+    >>> print(s.maximum)
+    676289718505789968602970820038005797309334755525626
+    >>> print(s.mean_arith)
+    444263126308193326993620745549949659898942794400364
+    >>> stat_mean(dd)
+    4.442631263081933e+50
+    >>> print(s.median)
+    482178404791292289021955619498303854464057392180997
+
+    >>> print(s.mean_geom)
+    3.783188481668667e+50
+    >>> stat_geomean(dd)
+    3.78318848166862e+50
+
+    >>> print(s.stddev)
+    2.1031192688681374e+50
+    >>> stat_stddev(dd)
+    2.1031192688681374e+50
+
+    >>> dd = [4, 5, 5, 6, 6, 6, 6, 6, 8, 8]
+    >>> s = from_sample(dd)
+    >>> print(s.mean_geom)
+    5.884283961687533
+    >>> print(stat_geomean(dd))
+    5.884283961687533
+
+    >>> dd = [4, 4, 4, 5, 5, 8]
+    >>> s = from_sample(dd)
+    >>> print(s.mean_geom)
+    4.836542350243914
+    >>> print(stat_geomean(dd))
+    4.8365423502439135
+
+    >>> dd = [2, 8, 11, 17, 26, 30, 32]
+    >>> s = from_sample(dd)
+    >>> print(s.mean_geom)
+    13.327348017053906
+    >>> print(stat_geomean(dd))
+    13.327348017053906
+
+    >>> dd = [2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4]
+    >>> s = from_sample(dd)
+    >>> print(s.mean_geom)
+    3.4710522375429465
+    >>> print(stat_geomean(dd))
+    3.471052237542947
+
+    >>> dd = [3, 4, 4, 5, 6, 8, 8, 8, 8]
+    >>> s = from_sample(dd)
+    >>> print(s.mean_geom)
+    5.653305998922543
+    >>> print(stat_geomean(dd))
+    5.653305998922543
+
+    >>> dd = [16, 17, 19, 20, 20, 21, 22, 23, 24, 24, 25, 26, 29, 31,
+    ...       31, 31, 32, 32, 32]
+    >>> s = from_sample(dd)
+    >>> print(s.mean_geom)
+    24.419566831650357
+    >>> print(stat_geomean(dd))
+    24.41956683165036
+
+    >>> dd = [66, 68, 69, 70, 72, 73, 73, 79, 81, 87, 94, 99, 100, 102, 103,
+    ...       112, 118, 119, 123, 123]
+    >>> s = from_sample(dd)
+    >>> print(s.mean_geom)
+    89.45680043258344
+    >>> print(stat_geomean(dd))
+    89.45680043258346
+
+    >>> dd = [44, 63, 63, 68, 68, 68, 70, 74, 74, 80, 95, 108, 110, 128]
+    >>> s = from_sample(dd)
+    >>> print(s.mean_geom)
+    76.6864641736076
+    >>> print(stat_geomean(dd))
+    76.68646417360763
 
     >>> try:
     ...     from_sample(None)
@@ -783,26 +956,47 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     stddev: int | float | None = None
     if can_int:
         if stddev is None:
-            int_sum2: int = int_sum * int_sum
-            i_gcd: Final[int] = gcd(int_sum2, n)
-            int_sum2 = int_sum2 // i_gcd
-            i_n: Final[int] = n // i_gcd
-
-            var: int | float  # the container for the variance
-            var = try_int_div(int_sum_sqr - int_sum2, n - 1) \
-                if i_n == 1 else \
-                ((int_sum_sqr - (int_sum2 / i_n)) / (n - 1))
+            var_sub: int | float = try_int_div(int_sum * int_sum, n)
+            var: int | float = try_int_div(int_sum_sqr - var_sub, n - 1) \
+                if isinstance(var_sub, int) else try_float_div(
+                int_sum_sqr - var_sub, n - 1)
 
             stddev_test: Final[float] = sqrt(var)
             if stddev_test > 0:
                 stddev = stddev_test
 
         if minimum > 0:  # geometric mean only defined for all-positive
+            mean_geom_a: float | None = None
+            mean_geom_b: float | None = None
+
+            # two different attempts to compute the geometric mean
+            # either by log-scaling
             with suppress(BaseException):
                 mean_geom_test = 2 ** try_int(log2(int_prod) / n)
                 if isfinite(mean_geom_test) and (
                         minimum <= mean_geom_test < maximum):
-                    mean_geom = mean_geom_test
+                    mean_geom = mean_geom_a = mean_geom_test
+
+            # or by computing the actual root
+            with suppress(BaseException):
+                mean_geom_test = try_int(int_prod ** (1 / n))
+                if isfinite(mean_geom_test) and (
+                        minimum <= mean_geom_test < maximum):
+                    mean_geom_b = mean_geom_test
+
+            if mean_geom_a is None:  # the log scaling failed
+                mean_geom = mean_geom_b  # maybe None, maybe not
+            elif mean_geom_b is not None:  # so the actual root worked, too
+                if mean_geom_a > mean_geom_b:
+                    mean_geom_a, mean_geom_b = mean_geom_b, mean_geom_a
+                # the difference will not be big, we can try everything
+                best_diff = inf
+                while mean_geom_a <= mean_geom_b:
+                    diff = abs(int_prod - (mean_geom_a ** n))
+                    if diff < best_diff:
+                        best_diff = diff
+                        mean_geom = mean_geom_a
+                    mean_geom_a = nextafter(mean_geom_a, inf)
 
         if mean_arith is None:
             mean_arith = try_int_div(int_sum, n)
