@@ -23,8 +23,8 @@ from pycommons.types import check_int_range, type_error
 #: When the test is executed in a GitHub workflow, all hosts should be
 #: reachable.
 __SOMETIMES_UNREACHABLE_HOSTS: Final[set[str]] = \
-    set() if "GITHUB_JOB" in environ else \
-    {"img.shields.io", "pypi.org", "docs.python.org"}
+    {"iao.hfuu.edu.cn"} if "GITHUB_JOB" in environ else \
+    {"iao.hfuu.edu.cn", "img.shields.io", "pypi.org", "docs.python.org"}
 
 #: URLs that we never need to check because they are OK
 __CORRECT_URLS: Final[set[str]] = {
@@ -333,6 +333,7 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
 
     >>> from contextlib import redirect_stdout
     >>> from io import StringIO
+
     >>> with redirect_stdout(StringIO()):
     ...     __check_url("https://thomasweise.github.io/pycommons", vu)
     ...     __check_url("http://iao.hfuu.edu.cn", vu)
@@ -342,7 +343,9 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     >>> __check_url("https://thomasweise.github.io/pycommons", vu)
     >>> __check_url(
     ...     "https://thomasweise.github.io/pycommons/pycommons.io.html", vu)
-    >>> __check_url("http://iao.hfuu.edu.cn/", vu)
+
+    >>> with redirect_stdout(StringIO()):
+    ...     __check_url("http://iao.hfuu.edu.cn/", vu)
     >>> __check_url("https://thomasweise.github.io/pycommons/pycommons"
     ...             ".io.html#pycommons.io.path.Path", vu)
     >>> __check_url("http://example.com", vu)

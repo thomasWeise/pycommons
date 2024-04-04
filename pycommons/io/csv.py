@@ -16,6 +16,11 @@ Different from other CSV processing tools, we want to
    into memory at once.
 5. The order of the columns is unimportant.
 6. Useless white space is automatically stripped and ignored.
+7. Multiple objects may be written per row, maybe even nested objects, and
+   this is signified by "scope" column titles, e.g., something like
+   `"weight.min"`, `"weight.median"`, ..., `"age.min"`, `"age.median"`, ...
+8. Comments may be added to the header or footer of the CSV file that describe
+   the contents of the columns.
 
 The separator is configurable, but by default set to :const:`CSV_SEPARATOR`.
 Comments start with a comment start with :const:`COMMENT_START` by default.
@@ -32,24 +37,38 @@ CSV_SEPARATOR: Final[str] = ";"
 #: everything after this character is considered a comment
 COMMENT_START: Final[str] = "#"
 
+#: the separator to be used between scopes for nested column prefixes
+SCOPE_SEPARATOR: Final[str] = "."
 
-def csv_parse(rows: Iterable[str],
-              create_row_parser: Callable[[dict[str, int]], Callable[
-                  [list[str]], Any]],
-              separator: str = CSV_SEPARATOR,
-              comment_start: str | None = COMMENT_START) -> None:
+#: the type variable for data to be written to CSV or to be read from CSV
+T = TypeVar("T")
+
+# mypy: disable-error-code=valid-type
+#: the type variable for the CSV output setup
+S = TypeVar("S")
+
+
+def csv_read(rows: Iterable[str],
+             setup: Callable[[dict[str, int]], S],
+             parse_row: Callable[[S, list[str]], T],
+             consumer: Callable[[T], Any] = lambda _: None,
+             separator: str = CSV_SEPARATOR,
+             comment_start: str | None = COMMENT_START) -> None:
     r"""
-    Parse a sequence of strings as CSV data.
+    Read (parse) a sequence of strings as CSV data.
 
     All lines str :meth:`~str.split` based on the `separator` string and each
-    of the resulting string is stripped via :meth:`~str.strip`.
+    of the resulting strings is stripped via :meth:`~str.strip`.
     The first non-empty line of the data is interpreted as header line.
 
-    This header is passed to the `create_row_parser` function in form of
-    a :class:`dict` that maps column titles to column indices. This function
-    is then supposed to return another function that will then iteratively be
-    fed the :meth:`~str.split` and :meth:`~str.strip`-ped lines row by row.
-    It is permitted that a line in the CSV file contains less columns than
+    This header is passed to the `setup` function in form of a :class:`dict`
+    that maps column titles to column indices. This function then returns an
+    object of setup data. To each of the rows of CSV data, the function
+    `parse_row` is applied. This function receives the object returned by
+    `setup` as first argument and the row as list of strings as second
+    argument. Each line is therefore :meth:`~str.split` (by the CSV separator)
+    and its component :meth:`~str.strip`-ped.
+    It is permitted that a line in the CSV file contains fewer columns than
     declared in the header. In this case, the missing columns are set to empty
     strings. Lines that are entirely empty are skipped.
 
@@ -58,41 +77,49 @@ def csv_parse(rows: Iterable[str],
     processed.
 
     :param rows: the rows of text
-    :param create_row_parser: a function to create the row parser to which
-        rows of the same length as the header are passed
+    :param setup: a function which creates an object holding the necessary
+        information for row parsing
+    :param parse_row: the unction parsing the rows
+    :param consumer: the consumer function receiving the parsed results
     :param separator: the string used to separate columns
     :param comment_start: the string starting comments
     :raises TypeError: if any of the parameters has the wrong type
     :raises ValueError: if the separator or comment start character are
         incompatible or if the data has some internal error
 
-    >>> def _create(ccc: dict[str, str]) -> Callable[[list[str]], None]:
-    ...     def __print(line, _hl=ccc):
-    ...         print({x: line[y] for x, y in _hl.items()})
-    ...     return __print
+    >>> def _setup(colidx: dict[str, int]) -> dict[str, int]:
+    ...     return colidx
+
+    >>> def _parse_row(colidx: dict[str, int], row: list[str]) -> None:
+    ...         return {x: row[y] for x, y in colidx.items()}
+
+    >>> def _consumer(d: dict[str, str]):
+    ...     print(d)
 
     >>> text = ["a;b;c;d", "# test", " 1; 2;3;4", " 5 ;6 ", ";8;;9",
     ...         "", "10", "# 11;12"]
 
-    >>> csv_parse(text, _create)
+    >>> csv_read(text, _setup, _parse_row, _consumer)
     {'a': '1', 'b': '2', 'c': '3', 'd': '4'}
     {'a': '5', 'b': '6', 'c': '', 'd': ''}
     {'a': '', 'b': '8', 'c': '', 'd': '9'}
     {'a': '10', 'b': '', 'c': '', 'd': ''}
 
-    >>> csv_parse((t.replace(";", ",") for t in text), _create, ",")
+    >>> csv_read((t.replace(";", ",") for t in text), _setup, _parse_row,
+    ...            _consumer, ",")
     {'a': '1', 'b': '2', 'c': '3', 'd': '4'}
     {'a': '5', 'b': '6', 'c': '', 'd': ''}
     {'a': '', 'b': '8', 'c': '', 'd': '9'}
     {'a': '10', 'b': '', 'c': '', 'd': ''}
 
-    >>> csv_parse((t.replace(";", "\t") for t in text), _create, "\t")
+    >>> csv_read((t.replace(";", "\t") for t in text), _setup, _parse_row,
+    ...           _consumer, "\t")
     {'a': '1', 'b': '2', 'c': '3', 'd': '4'}
     {'a': '5', 'b': '6', 'c': '', 'd': ''}
     {'a': '', 'b': '8', 'c': '', 'd': '9'}
     {'a': '10', 'b': '', 'c': '', 'd': ''}
 
-    >>> csv_parse(text, _create, comment_start=None)
+    >>> csv_read(text, _setup, _parse_row, _consumer, comment_start=None)
     {'a': '# test', 'b': '', 'c': '', 'd': ''}
     {'a': '1', 'b': '2', 'c': '3', 'd': '4'}
     {'a': '5', 'b': '6', 'c': '', 'd': ''}
@@ -101,67 +128,91 @@ def csv_parse(rows: Iterable[str],
     {'a': '# 11', 'b': '12', 'c': '', 'd': ''}
 
     >>> try:
-    ...     csv_parse(None, _create)
+    ...     csv_read(None, _setup, _parse_row, _consumer)
     ... except TypeError as te:
     ...     print(te)
     rows should be an instance of typing.Iterable but is None.
 
     >>> try:
-    ...     csv_parse(1, _create)
+    ...     csv_read(1, _setup, _parse_row, _consumer)
     ... except TypeError as te:
     ...     print(te)
     rows should be an instance of typing.Iterable but is int, namely '1'.
 
     >>> try:
-    ...     csv_parse(text, None)
+    ...     csv_read(text, None, _parse_row, _consumer)
     ... except TypeError as te:
     ...     print(te)
-    create_row_parser should be a callable but is None.
+    setup should be a callable but is None.
 
     >>> try:
-    ...     csv_parse(text, 1)
+    ...     csv_read(text, 1, _parse_row, _consumer)
     ... except TypeError as te:
     ...     print(te)
-    create_row_parser should be a callable but is int, namely '1'.
+    setup should be a callable but is int, namely '1'.
 
     >>> try:
-    ...     csv_parse(text, _create, None)
+    ...     csv_read(text, _setup, None, _consumer)
+    ... except TypeError as te:
+    ...     print(te)
+    parse_row should be a callable but is None.
+
+    >>> try:
+    ...     csv_read(text, _setup, 1, _consumer)
+    ... except TypeError as te:
+    ...     print(te)
+    parse_row should be a callable but is int, namely '1'.
+
+    >>> try:
+    ...     csv_read(text, _setup, _parse_row, None)
+    ... except TypeError as te:
+    ...     print(te)
+    consumer should be a callable but is None.
+
+    >>> try:
+    ...     csv_read(text, _setup, _parse_row, 1)
+    ... except TypeError as te:
+    ...     print(te)
+    consumer should be a callable but is int, namely '1'.
+
+    >>> try:
+    ...     csv_read(text, _setup, _parse_row, _consumer, None)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'NoneType'
 
     >>> try:
-    ...     csv_parse(text, _create, 1)
+    ...     csv_read(text, _setup, _parse_row, _consumer, 1)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
 
     >>> try:
-    ...     csv_parse(text, _create, "")
+    ...     csv_read(text, _setup, _parse_row, _consumer, "")
     ... except ValueError as ve:
     ...     print(ve)
     Invalid separator ''.
 
     >>> try:
-    ...     csv_parse(text, _create, "-", 1)
+    ...     csv_read(text, _setup, _parse_row, _consumer, "-", 1)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
 
     >>> try:
-    ...     csv_parse(text, _create, "-", "")
+    ...     csv_read(text, _setup, _parse_row, _consumer, "-", "")
     ... except ValueError as ve:
     ...     print(ve)
     Invalid comment start: ''.
 
     >>> try:
-    ...     csv_parse(text, _create, "-", " ")
+    ...     csv_read(text, _setup, _parse_row, _consumer, "-", " ")
     ... except ValueError as ve:
     ...     print(ve)
     Invalid comment start: ' '.
 
     >>> try:
-    ...     csv_parse(text, _create, ";", ";")
+    ...     csv_read(text, _setup, _parse_row, _consumer, ";", ";")
     ... except ValueError as ve:
     ...     print(ve)
     Invalid comment start: ';'.
@@ -169,28 +220,19 @@ def csv_parse(rows: Iterable[str],
     >>> text2 = ["a;b;a;d", "# test", " 1; 2;3;4", " 5 ;6 ", ";8;;9"]
 
     >>> try:
-    ...     csv_parse(text2, _create)
+    ...     csv_read(text2, _setup, _parse_row, _consumer)
     ... except ValueError as ve:
     ...     print(ve)
     Invalid column headers: ['a', 'b', 'a', 'd'].
-
-    >>> try:
-    ...     csv_parse(text, lambda sy: None)
-    ... except TypeError as te:
-    ...     print(te)
-    result of create_row_parser should be a callable but is None.
-
-    >>> try:
-    ...     csv_parse(text, lambda sy: 1)
-    ... except TypeError as te:
-    ...     print(te)
-    result of create_row_parser should be a callable but is int, namely '1'.
     """
     if not isinstance(rows, Iterable):
         raise type_error(rows, "rows", Iterable)
-    if not callable(create_row_parser):
-        raise type_error(
-            create_row_parser, "create_row_parser", call=True)
+    if not callable(setup):
+        raise type_error(setup, "setup", call=True)
+    if not callable(parse_row):
+        raise type_error(parse_row, "parse_row", call=True)
+    if not callable(consumer):
+        raise type_error(consumer, "consumer", call=True)
     if str.__len__(separator) <= 0:
         raise ValueError(f"Invalid separator {separator!r}.")
     if (comment_start is not None) and (
@@ -200,11 +242,11 @@ def csv_parse(rows: Iterable[str],
         raise ValueError(f"Invalid comment start: {comment_start!r}.")
 
     col_count: int = -1
-    handler: Callable[[list[str]], None] | None = None
 
     # cannot strip spaces that are part of the separator
     stripper: Callable[[str], str] = str.strip if (
         str.strip(separator) == separator) else str.rstrip
+    info: S | None = None
 
     for orig_line in rows:
         line: str = orig_line
@@ -220,17 +262,14 @@ def csv_parse(rows: Iterable[str],
         for i, v in enumerate(cols):
             cols[i] = str.strip(v)
 
-        if handler is None:
+        if info is None:
             col_count = list.__len__(cols)
             colmap: dict[str, int] = {s: i for i, s in enumerate(cols)}
             if any(str.__len__(s) <= 0 for s in cols) or (
                     dict.__len__(colmap) != col_count) or (col_count <= 0):
                 raise ValueError(f"Invalid column headers: {cols!r}.")
-            handler = create_row_parser(colmap)
+            info = setup(colmap)
             del colmap
-            if not callable(handler):
-                raise type_error(handler, "result of create_row_parser",
-                                 call=True)
             continue
 
         count: int = list.__len__(cols)
@@ -241,116 +280,7 @@ def csv_parse(rows: Iterable[str],
         if count < col_count:
             for _ in range(count, col_count):
                 cols.append("")
-        handler(cols)
-
-
-#: the type variable for data to be written to CSV or to be read from CSV
-T = TypeVar("T")
-
-
-def csv_make_consumer(
-        create_row_parser: Callable[[dict[str, int]], Callable[
-            [list[str]], T]], consumer: Callable[[T], Any]) \
-        -> Callable[[dict[str, int]], Callable[[list[str]], None]]:
-    r"""
-    Forward the results of a CSV row parser to a consumer function.
-
-    This function is to be used in conjunction with :func:`csv_parse`. It
-    allows for a line processor to forward its results to a collector, e.g.,
-    `list.append`. If you implement a row parser constructor, then this
-    function wraps this constructor into one which will forward the results
-    of the row parser generated by the constructor to a consumer function.
-
-    :param create_row_parser: the row consumer creator
-    :param consumer: the consumer to which the line parsing result should be
-        forwarded
-    :return: the wrapped processor
-    :raises TypeError: if any of the parameters has the wrong type
-
-    >>> def _ccreate(ccc: dict[str, str]) -> Callable[[list[str]], None]:
-    ...     def __create(line, _hl=ccc):
-    ...         return repr({x: line[y] for x, y in _hl.items()})
-    ...     return __create
-
-    >>> text = ["a;b;c;d", "# test", " 1; 2;3;4", " 5 ;6 ", ";8;;9",
-    ...         "", "10", "# 11;12"]
-
-    >>> csv_parse(text, csv_make_consumer(_ccreate, print))
-    {'a': '1', 'b': '2', 'c': '3', 'd': '4'}
-    {'a': '5', 'b': '6', 'c': '', 'd': ''}
-    {'a': '', 'b': '8', 'c': '', 'd': '9'}
-    {'a': '10', 'b': '', 'c': '', 'd': ''}
-
-    >>> l: list[str] = []
-    >>> csv_parse(text, csv_make_consumer(_ccreate, l.append))
-    >>> print("\n".join(l))
-    {'a': '1', 'b': '2', 'c': '3', 'd': '4'}
-    {'a': '5', 'b': '6', 'c': '', 'd': ''}
-    {'a': '', 'b': '8', 'c': '', 'd': '9'}
-    {'a': '10', 'b': '', 'c': '', 'd': ''}
-
-    >>> try:
-    ...     csv_make_consumer(print, None)
-    ... except TypeError as te:
-    ...     print(te)
-    consumer should be a callable but is None.
-
-    >>> try:
-    ...     csv_make_consumer(print, 1)
-    ... except TypeError as te:
-    ...     print(te)
-    consumer should be a callable but is int, namely '1'.
-
-    >>> try:
-    ...     csv_parse(text, csv_make_consumer(lambda k: None, print))
-    ... except TypeError as te:
-    ...     print(te)
-    result of create_row_parser should be a callable but is None.
-
-    >>> try:
-    ...     csv_parse(text, csv_make_consumer(lambda k: 1, print))
-    ... except TypeError as te:
-    ...     print(te)
-    result of create_row_parser should be a callable but is int, namely '1'.
-
-    >>> try:
-    ...     csv_make_consumer(None, print)
-    ... except TypeError as te:
-    ...     print(te)
-    create_row_parser should be a callable but is None.
-
-    >>> try:
-    ...     csv_make_consumer(1, print)
-    ... except TypeError as te:
-    ...     print(te)
-    create_row_parser should be a callable but is int, namely '1'.
-    """
-    if not callable(consumer):
-        raise type_error(consumer, "consumer", call=True)
-    if not callable(create_row_parser):
-        raise type_error(create_row_parser, "create_row_parser", call=True)
-
-    def __create_row_parser(
-            header: dict[str, int], __consumer=consumer,
-            __create_row_parser=create_row_parser) \
-            -> Callable[[list[str]], None]:
-        proc = __create_row_parser(header)
-        if not callable(proc):
-            raise type_error(proc, "result of create_row_parser", call=True)
-
-        def __row_consumer(
-                row: list[str], __orig=proc, __dest=__consumer) -> None:
-            __dest(__orig(row))
-
-        return cast(Callable[[list[str]], None], __row_consumer)
-
-    return cast(Callable[[dict[str, int]], Callable[[list[str]], None]],
-                __create_row_parser)
-
-
-# mypy: disable-error-code=valid-type
-#: the type variable for the CSV output setup
-S = TypeVar("S")
+        consumer(parse_row(info, cols))
 
 
 def csv_write(data: Iterable[T], consumer: Callable[[str], Any],

@@ -8,8 +8,31 @@ from statistics import mean as stat_mean
 from statistics import stdev as stat_stddev
 from typing import Final, Iterable
 
+from pycommons.io.csv import CSV_SEPARATOR, SCOPE_SEPARATOR
 from pycommons.math.int_math import try_float_div, try_int, try_int_div
+from pycommons.strings.string_conv import (
+    num_or_none_to_str,
+    num_to_str,
+    str_to_num_or_none,
+)
 from pycommons.types import check_int_range, type_error
+
+#: The minimum value key.
+KEY_MINIMUM: Final[str] = "min"
+#: The median value key.
+KEY_MEDIAN: Final[str] = "med"
+#: The arithmetic mean value key.
+KEY_MEAN_ARITH: Final[str] = "mean"
+#: The geometric mean value key.
+KEY_MEAN_GEOM: Final[str] = "geom"
+#: The maximum value key.
+KEY_MAXIMUM: Final[str] = "max"
+#: The standard deviation value key.
+KEY_STDDEV: Final[str] = "sd"
+#: The key for `n`
+KEY_N: Final[str] = "n"
+#: The single value
+KEY_VALUE: Final[str] = "value"
 
 
 @dataclass(frozen=True, init=False, order=False, eq=True, unsafe_hash=True)
@@ -208,7 +231,7 @@ class SampleStatistics:
         ...     print(ve)
         minimum<=mean_geom<=maximum must hold, but got 5, 7, and 6.
         """
-        n = check_int_range(n, "n", 1)
+        n = check_int_range(n, "n", 1, 2 << 62)
 
         # check minimum
         minimum = try_int(minimum)
@@ -286,6 +309,16 @@ class SampleStatistics:
         object.__setattr__(self, "mean_arith", mean_arith)
         object.__setattr__(self, "mean_geom", mean_geom)
         object.__setattr__(self, "stddev", stddev)
+
+    def __str__(self) -> str:
+        """
+        Get a string representation of this object.
+
+        :return: the string
+        """
+        return CSV_SEPARATOR.join(map(str, (
+            self.n, self.minimum, self.median, self.mean_arith,
+            self.mean_geom, self.maximum, self.stddev)))
 
     def min_mean(self) -> int | float:
         """
@@ -1027,3 +1060,440 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     return SampleStatistics(minimum=minimum, median=median,
                             mean_arith=mean_arith, mean_geom=mean_geom,
                             maximum=maximum, stddev=stddev, n=n)
+
+
+class CsvReader:
+    """
+    A csv parser for sample statistics.
+
+    >>> from pycommons.io.csv import csv_read
+    >>> csv = ["n;min;mean;med;geom;max;sd",
+    ...        "3;2;3;4;3;10;5", "6;2;;;;;0", "1;;;2;;;", "3;;;;;0;",
+    ...        "4;5;12;32;11;33;7"]
+    >>> csv_read(csv, CsvReader, CsvReader.parse_row, print)
+    3;2;4;3;3;10;5
+    6;2;2;2;2;2;0
+    1;2;2;2;2;2;None
+    3;0;0;0;None;0;0
+    4;5;32;12;11;33;7
+
+    >>> csv = ["value", "1", "3", "0", "-5", "7"]
+    >>> csv_read(csv, CsvReader, CsvReader.parse_row, print)
+    1;1;1;1;1;1;None
+    1;3;3;3;3;3;None
+    1;0;0;0;None;0;None
+    1;-5;-5;-5;None;-5;None
+    1;7;7;7;7;7;None
+
+    >>> csv = ["n;m;sd", "1;3;", "3;5;0"]
+    >>> csv_read(csv, CsvReader, CsvReader.parse_row, print)
+    1;3;3;3;3;3;None
+    3;5;5;5;5;5;0
+
+    >>> csv = ["n;m", "1;3", "3;5"]
+    >>> csv_read(csv, CsvReader, CsvReader.parse_row, print)
+    1;3;3;3;3;3;None
+    3;5;5;5;5;5;0
+    """
+
+    def __init__(self, columns: dict[str, int]) -> None:
+        """
+        Create a CSV parser for :class:`SampleStatistics`.
+
+        :param columns: the columns
+        """
+        super().__init__()
+        #: the index for n
+        self.__idx_n: int | None = None
+        #: the index for the minimum
+        self.__idx_min: int | None = None
+        #: the index for the arithmetic mean
+        self.__idx_mean_arith: int | None = None
+        #: the index for the median
+        self.__idx_median: int | None = None
+        #: the index for the geometric mean
+        self.__idx_mean_geom: int | None = None
+        #: the index for the maximum
+        self.__idx_max: int | None = None
+        #: the index for the standard deviation
+        self.__idx_sd: int | None = None
+        #: this is a single-value parser
+        self.__is_single: bool = True
+
+        if not isinstance(columns, dict):
+            raise type_error(columns, "columns", dict)
+
+        keys: Final[set[str]] = set(columns.keys())
+        if set.__len__(keys) <= 0:
+            raise ValueError(f"No keys in {columns}.")
+
+        v: int = columns.get(KEY_N, -1)
+        if v >= 0:
+            self.__idx_n = v
+            keys.remove(KEY_N)
+
+        has: int = 0
+        has_idx: int = -1
+        v = columns.get(KEY_MINIMUM, -1)
+        if v >= 0:
+            keys.remove(KEY_MINIMUM)
+            self.__idx_min = v
+            has += 1
+            has_idx = v
+
+        v = columns.get(KEY_MEAN_ARITH, -1)
+        if v >= 0:
+            keys.remove(KEY_MEAN_ARITH)
+            self.__idx_mean_arith = v
+            has += 1
+            has_idx = v
+
+        v = columns.get(KEY_MEDIAN, -1)
+        if v >= 0:
+            keys.remove(KEY_MEDIAN)
+            has += 1
+            self.__idx_median = v
+            has_idx = v
+
+        v = columns.get(KEY_MEAN_GEOM, -1)
+        if v >= 0:
+            keys.remove(KEY_MEAN_GEOM)
+            has += 1
+            self.__idx_mean_geom = v
+            has_idx = v
+
+        v = columns.get(KEY_MAXIMUM, -1)
+        if v >= 0:
+            keys.remove(KEY_MAXIMUM)
+            has += 1
+            self.__idx_max = v
+            has_idx = v
+
+        v = columns.get(KEY_STDDEV, -1)
+        if v >= 0:
+            keys.remove(KEY_STDDEV)
+            self.__idx_sd = v
+
+        remaining_keys: Final[int] = set.__len__(keys)
+        if has > 0:
+            if remaining_keys > 0:
+                raise ValueError(f"Found strange keys {keys}.")
+        elif remaining_keys == 1:
+            self.__idx_min = has_idx = columns[next(iter(keys))]
+            has += 1
+        else:
+            raise ValueError(
+                f"No useful keys remain in {keys} from {columns}.")
+
+        self.__is_single = (self.__idx_sd is None) and (has == 1)
+        if self.__is_single:
+            self.__idx_min = self.__idx_max = self.__idx_median \
+                = self.__idx_mean_arith = has_idx
+
+    def parse_row(self, data: list[str]) -> SampleStatistics:
+        """
+        Parse a row of data.
+
+        :param data: the data row
+        :return: the sample
+        """
+        n: Final[int] = 1 if self.__idx_n is None else int(
+            data[self.__idx_n])
+        mi: int | float | None = None if self.__idx_min is None else (
+            str_to_num_or_none(data[self.__idx_min]))
+
+        if self.__is_single:
+            return SampleStatistics(
+                n=n, minimum=mi, median=mi, mean_arith=mi,
+                mean_geom=mi if (mi > 0) or (self.__idx_mean_geom is not None)
+                else None, maximum=mi, stddev=None if n <= 1 else 0)
+
+        ar: int | float | None = None if self.__idx_mean_arith is None else (
+            str_to_num_or_none(data[self.__idx_mean_arith]))
+        me: int | float | None = None if self.__idx_median is None else (
+            str_to_num_or_none(data[self.__idx_median]))
+        ge: int | float | None = None if self.__idx_mean_geom is None \
+            else str_to_num_or_none(data[self.__idx_mean_geom])
+        ma: int | float | None = None if self.__idx_max is None else (
+            str_to_num_or_none(data[self.__idx_max]))
+        sd: int | float | None = None if self.__idx_sd is None else (
+            str_to_num_or_none(data[self.__idx_sd]))
+
+        if mi is None:
+            if ar is not None:
+                mi = ar
+            elif me is not None:
+                mi = me
+            elif ge is not None:
+                mi = ge
+            elif ma is not None:
+                mi = ma
+            else:
+                raise ValueError(f"No value defined in {data}.")
+        return SampleStatistics(
+            n=n, minimum=mi, mean_arith=mi if ar is None else ar,
+            median=mi if me is None else me, mean_geom=(
+                mi if mi > 0 else None) if (ge is None) else ge,
+            maximum=mi if ma is None else ma,
+            stddev=(0 if (n > 1) else None) if sd is None else sd)
+
+
+class CsvWriter:
+    """A class for CSV writing of :class:`SampleStatistics`."""
+
+    def __init__(self, scope: str | None = None,
+                 n_not_needed: bool = False,
+                 what_short: str | None = None,
+                 what_long: str | None = None) -> None:
+        """
+        Initialize the csv writer.
+
+        :param scope: the prefix to be pre-pended to all columns
+        :param n_not_needed: should we omit the `n` column?
+        :param what_short: the short description of what the statistics is
+            about
+        :param what_long: the long statistics of what the statistics is about
+        """
+        #: an optional scope
+        self.__scope: Final[str | None] = (
+            str.strip(scope)) if scope is not None else None
+        if not isinstance(n_not_needed, bool):
+            raise type_error(n_not_needed, "n_not_needed", bool)
+        #: is the n-column needed
+        self.n_not_needed: Final[bool] = n_not_needed
+
+        #: has this writer been set up?
+        self.__setup: bool = False
+        #: should we print only a single value
+        self.__single_value: bool = False
+        #: do we have the n column
+        self.__has_n: bool = True
+        #: do we need the geometric mean column?
+        self.__has_geo_mean: bool = True
+
+        long_name: str | None = \
+            None if what_long is None else str.strip(what_long)
+        short_name: str | None = \
+            None if what_short is None else str.strip(what_short)
+        if long_name is None:
+            long_name = short_name
+        elif short_name is None:
+            short_name = long_name
+        else:
+            long_name = f"{long_name} ({short_name})"
+
+        #: the short description of what the statistics are about
+        self.__short_name: Final[str | None] = short_name
+        #: the long description of what the statistics are about
+        self.__long_name: Final[str | None] = long_name
+        #: the key for n if n is printed
+        self.__key_n: str | None = None
+        #: the key for single values
+        self.__key_all: str | None = None
+        #: the key for minimum values
+        self.__key_min: str | None = None
+        #: the key for the arithmetic mean
+        self.__key_mean_arith: str | None = None
+        #: the key for the median
+        self.__key_med: str | None = None
+        #: the key for the geometric mean
+        self.__key_mean_geom: str | None = None
+        #: the key for the maximum value
+        self.__key_max: str | None = None
+        #: the key for the standard deviation
+        self.__key_sd: str | None = None
+
+    def setup(self, data: Iterable[SampleStatistics]) -> "CsvWriter":
+        """
+        Set up this csv writer based on existing data.
+
+        :param data: the data to setup with
+        :returns: this writer
+        """
+        if self.__setup:
+            raise ValueError("CSV writer has already been set up.")
+        self.__setup = True
+
+        # If no record has a standard deviation, or the standard deviation is
+        # always 0, then we do not need to add the standard deviation column.
+        # If the `n` column is not needed or if all `n=1`, then we can omit
+        # it as well.
+        # If all minimum, mean, median, maximum (and geometric mean, if
+        # defined) are the same, then we can collapse this column
+        # If no geometric mean is found, then we can also omit this column
+        has_no_geom: bool = True
+        all_same: bool = True
+        # Only need to check if n is not needed if self.n_not_needed is False
+        n_not_needed: bool = not self.n_not_needed
+        needs: int = 3 if n_not_needed else 2
+        for d in data:
+            if n_not_needed and (d.n != 1):
+                n_not_needed = False
+                needs -= 1
+                if needs <= 0:
+                    break
+            if all_same and (d.minimum < d.maximum):
+                all_same = False
+                needs -= 1
+                if needs <= 0:
+                    break
+            if has_no_geom and (d.mean_geom is not None):
+                has_no_geom = False
+                needs -= 1
+                if needs <= 0:
+                    break
+
+        n_not_needed = n_not_needed or self.n_not_needed
+        # Now we know the columns that need to be generated.
+        self.__has_n = not n_not_needed
+        self.__single_value = all_same
+        self.__has_geo_mean = (not has_no_geom) and (not all_same)
+
+        scope: Final[str | None] = self.__scope
+        prefix: Final[str | None] = \
+            None if scope is None else f"{scope}{SCOPE_SEPARATOR}"
+
+        # set up the keys
+        if self.__has_n:
+            self.__key_n = KEY_N if prefix is None else f"{prefix}{KEY_N}"
+        if self.__single_value:
+            self.__key_all = (KEY_VALUE if prefix is None else (
+                f"{prefix}{KEY_VALUE}" if self.__has_n else (
+                    KEY_VALUE if scope is None else scope)))
+        else:
+            self.__key_min = KEY_MINIMUM if prefix is None \
+                else f"{prefix}{KEY_MINIMUM}"
+            self.__key_mean_arith = KEY_MEAN_ARITH if prefix is None \
+                else f"{prefix}{KEY_MEAN_ARITH}"
+            self.__key_med = KEY_MEDIAN if prefix is None \
+                else f"{prefix}{KEY_MEDIAN}"
+            self.__key_max = KEY_MAXIMUM if prefix is None \
+                else f"{prefix}{KEY_MAXIMUM}"
+            if self.__has_geo_mean:
+                self.__key_mean_geom = KEY_MEAN_GEOM if prefix is None \
+                    else f"{prefix}{KEY_MEAN_GEOM}"
+            self.__key_sd = KEY_STDDEV if prefix is None \
+                else f"{prefix}{KEY_STDDEV}"
+
+        return self
+
+    def get_column_titles(self, dest: list[str]) -> None:
+        """
+        Get the column titles.
+
+        :param dest: the destination
+        """
+        if self.__has_n:
+            dest.append(self.__key_n)
+
+        if self.__single_value:
+            dest.append(self.__key_all)
+        else:
+            dest.append(self.__key_min)
+            dest.append(self.__key_mean_arith)
+            dest.append(self.__key_med)
+            if self.__has_geo_mean:
+                dest.append(self.__key_mean_geom)
+            dest.append(self.__key_max)
+            dest.append(self.__key_sd)
+
+    def get_row(self, data: SampleStatistics, dest: list[str]) -> None:
+        """
+        Render a single sample statistics to a CSV row.
+
+        :param data: the data sample
+        :param dest: the destination list
+        """
+        if self.__has_n:
+            dest.append(str(data.n))
+        if self.__single_value:
+            if data.minimum != data.maximum:
+                raise ValueError(f"Inconsistent data {data}.")
+            dest.append(num_to_str(data.minimum))
+        else:
+            dest.append(num_to_str(data.minimum))
+            dest.append(num_to_str(data.mean_arith))
+            dest.append(num_to_str(data.median))
+            if self.__has_geo_mean:
+                dest.append(num_or_none_to_str(data.mean_geom))
+            dest.append(num_to_str(data.maximum))
+            dest.append(num_or_none_to_str(data.stddev))
+
+    def get_header_comments(self, dest: list[str]) -> None:
+        """
+        Get any possible header comments.
+
+        :param dest: the destination
+        """
+        if (self.__scope is not None) and (self.__long_name is not None):
+            dest.append(f"Sample statistics about {self.__long_name}.")
+
+    def get_footer_comments(self, dest: list[str]) -> None:
+        """
+        Get any possible footer comments.
+
+        :param dest: the destination
+        """
+        long_name: str | None = self.__long_name
+        long_name = "" if long_name is None else f" {long_name} "
+        short_name: str | None = self.__short_name
+        short_name = "" if short_name is None else f" {short_name}"
+        name: str = long_name
+        first: bool = list.__len__(dest) > 0
+
+        scope: Final[str] = self.__scope
+        if (scope is not None) and (
+                self.__has_n or (not self.__single_value)):
+            if first:
+                dest.append("")
+                first = False
+            dest.append(f"All{name} sample statistics start with "
+                        f"{(scope + SCOPE_SEPARATOR)!r}.")
+            name = short_name
+
+        if self.__has_n:
+            if first:
+                dest.append("")
+                first = False
+            dest.append(f"{self.__key_n}: the number of{name} samples")
+            name = short_name
+        if self.__single_value:
+            if first:
+                dest.append("")
+            dest.append(
+                f"{self.__key_all}: all{name} samples have this value")
+        else:
+            if first:
+                dest.append("")
+            n_name: str | None = self.__key_n
+            if n_name is None:
+                n_name = KEY_N
+            dest.append(
+                f"{self.__key_min}: the smallest encountered{name} value")
+            name = short_name
+            dest.append(
+                f"{self.__key_mean_arith}: the arithmetic mean of all the"
+                f"{name} values, i.e., the sum of the values divided by "
+                f"their number {n_name}")
+            dest.append(
+                f"{self.__key_med}: the median of all the{name} values, which"
+                "can be computed by sorting the values and then picking the "
+                "value in the middle of the sorted list (in case of an odd "
+                f"number {n_name} of values) or the arithmetic mean (half the"
+                " sum) of the two values in the middle (in case of an even "
+                f"number {n_name})")
+            if self.__has_geo_mean:
+                dest.append(
+                    f"{self.__key_mean_geom}: the geometric mean of all the"
+                    f"{name} values, i.e., the {n_name}-th root of the "
+                    f"product of all values, which is only defined if all "
+                    f"values are > 0")
+            dest.append(
+                f"{self.__key_max}: the largest encountered{name} value")
+            dest.append(
+                f"{self.__key_sd}: the standard deviation of the{name} "
+                "values, which is a measure of spread: the larger it "
+                "is, the farther are the values distributed away from "
+                f"the arithmetic mean {self.__key_mean_arith}. It can be "
+                "computed as the ((sum of squares) - (square of the sum)"
+                f" / {n_name}) / ({n_name} - 1) of all{name} values.")
