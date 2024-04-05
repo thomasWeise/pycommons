@@ -9,10 +9,11 @@ from statistics import mean as statmean
 from statistics import median as statmedian
 from statistics import stdev as statstddev
 from sys import float_info
-from typing import Final
+from typing import Final, Iterable
 
 from pycommons.io.csv import csv_read, csv_write
 from pycommons.math.sample_statistics import (
+    KEY_N,
     CsvReader,
     CsvWriter,
     SampleStatistics,
@@ -709,3 +710,175 @@ def test_special_cases() -> None:
              1.4757395258967641e+20, 1.4757395258967641e+20,
              1.4757395258967641e+20, 1.4757395258967641e+20)]:
         __check_with_data(from_sample(case), case)
+
+
+class _TCR:
+    """A three-CSV-reader."""
+
+    def __init__(self, columns: dict[str, int]) -> None:
+        """
+        Initialize.
+
+        :param columns: the columns
+        """
+        super().__init__()
+
+        a_keys: dict[str, str] = {
+            k[2:]: k for k in columns if k.startswith("a")}
+        b_keys: dict[str, str] = {
+            k[2:]: k for k in columns if k.startswith("b")}
+        c_keys: dict[str, str] = {
+            k[2:]: k for k in columns if k.startswith("c")}
+        n_key: str | None = a_keys[KEY_N] if KEY_N in a_keys else (
+            b_keys[KEY_N] if KEY_N in b_keys else (b_keys.get(KEY_N)))
+        if n_key is None:
+            raise ValueError("Huh?")
+        if KEY_N not in a_keys:
+            a_keys[KEY_N] = n_key
+        if KEY_N not in b_keys:
+            b_keys[KEY_N] = n_key
+        if KEY_N not in c_keys:
+            c_keys[KEY_N] = n_key
+
+        #: the first reader
+        self.ra: Final[CsvReader] = CsvReader({
+            k: columns[v] for k, v in a_keys.items()})
+        #: the second reader
+        self.rb: Final[CsvReader] = CsvReader({
+            k: columns[v] for k, v in b_keys.items()})
+        #: the third reader
+        self.rc: Final[CsvReader] = CsvReader({
+            k: columns[v] for k, v in c_keys.items()})
+
+    def parse_row(self, data: list[str]) -> tuple[
+            SampleStatistics, SampleStatistics, SampleStatistics]:
+        """
+        Parse a row.
+
+        :param data: the row data
+        :return: the result
+        """
+        return (self.ra.parse_row(data), self.rb.parse_row(data),
+                self.rc.parse_row(data))
+
+
+class _TCW:
+    """A three-csv-writer."""
+
+    def __init__(self, needs_n: bool) -> None:
+        """
+        Initialize.
+
+        :param needs_n: do we need all n?
+        """
+        n_set = 7 if needs_n else randint(1, 7)
+
+        #: the first writer
+        self._wa: Final[CsvWriter] = CsvWriter("a", (n_set & 1) == 0)
+        #: the second writer
+        self._wb: Final[CsvWriter] = CsvWriter("b", (n_set & 2) == 0)
+        #: the third writer
+        self._wc: Final[CsvWriter] = CsvWriter("c", (n_set & 4) == 0)
+
+    def setup(self, data: Iterable[tuple[
+            SampleStatistics, SampleStatistics, SampleStatistics]]) \
+            -> "_TCW":
+        """
+        Set up this csv writer based on existing data.
+
+        :param data: the data to setup with
+        :returns: this writer
+        """
+        self._wa.setup(d[0] for d in data)
+        self._wb.setup(d[1] for d in data)
+        self._wc.setup(d[2] for d in data)
+        return self
+
+    def get_column_titles(self, dest: list[str]) -> None:
+        """
+        Get the column titles.
+
+        :param dest: the destination
+        """
+        self._wa.get_column_titles(dest)
+        self._wb.get_column_titles(dest)
+        self._wc.get_column_titles(dest)
+
+    def get_row(self, data: tuple[
+            SampleStatistics, SampleStatistics, SampleStatistics],
+            dest: list[str]) -> None:
+        """
+        Render a single sample statistics to a CSV row.
+
+        :param data: the data sample
+        :param dest: the destination list
+        """
+        self._wa.get_row(data[0], dest)
+        self._wb.get_row(data[1], dest)
+        self._wc.get_row(data[2], dest)
+
+    def get_header_comments(self, dest: list[str]) -> None:
+        """
+        Get any possible header comments.
+
+        :param dest: the destination
+        """
+        self._wa.get_header_comments(dest)
+        self._wb.get_header_comments(dest)
+        self._wc.get_header_comments(dest)
+
+    def get_footer_comments(self, dest: list[str]) -> None:
+        """
+        Get any possible footer comments.
+
+        :param dest: the destination
+        """
+        self._wa.get_footer_comments(dest)
+        self._wb.get_footer_comments(dest)
+        self._wc.get_footer_comments(dest)
+
+
+def __do_test_multi_csv(same_n: bool) -> None:
+    """
+    Test writing and reading multiple CSV formats.
+
+    :param same_n: do all stats have the same n?
+    """
+    data: list[tuple[
+        SampleStatistics, SampleStatistics, SampleStatistics]] = []
+
+    for _ in range(randint(1, 10)):
+        a = __make_sample_statistics(has_geometric_mean=randint(0, 1) <= 0)
+        while True:
+            b = __make_sample_statistics(
+                has_geometric_mean=randint(0, 1) <= 0)
+            if (not same_n) or (b.n == a.n):
+                break
+        while True:
+            c = __make_sample_statistics(
+                has_geometric_mean=randint(0, 1) <= 0)
+            if (not same_n) or (c.n == a.n):
+                break
+        data.append((a, b, c))
+
+    text: list[str] = []
+    csv_write(
+        data=data, consumer=text.append,
+        setup=_TCW(needs_n=not same_n).setup,
+        get_column_titles=_TCW.get_column_titles,
+        get_row=_TCW.get_row,
+        get_footer_comments=_TCW.get_footer_comments,
+        get_header_comments=_TCW.get_header_comments)
+    output: list[SampleStatistics] = []
+    csv_read(rows=text,
+             setup=_TCR,
+             parse_row=_TCR.parse_row,
+             consumer=output.append)
+    assert len(output) == len(data)
+    assert output == data
+
+
+def test_multi_csv() -> None:
+    """Test writing and reading multiple CSV formats."""
+    for i in range(12):
+        __do_test_multi_csv((i & 1) == 0)
