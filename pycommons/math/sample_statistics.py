@@ -2,14 +2,18 @@
 
 from contextlib import suppress
 from dataclasses import dataclass
-from math import inf, isfinite, log2, nextafter, sqrt
+from math import gcd, inf, isfinite, log2, nextafter, sqrt
 from statistics import geometric_mean as stat_geomean
 from statistics import mean as stat_mean
 from statistics import stdev as stat_stddev
-from typing import Final, Iterable
+from typing import Final, Iterable, cast
 
 from pycommons.io.csv import CSV_SEPARATOR, SCOPE_SEPARATOR
-from pycommons.math.int_math import try_float_div, try_int, try_int_div
+from pycommons.math.int_math import (
+    try_float_div,
+    try_int,
+    try_int_div,
+)
 from pycommons.strings.string_conv import (
     num_or_none_to_str,
     num_to_str,
@@ -547,9 +551,120 @@ def __mean_of_two(a: int | float, b: int | float) -> int | float:
     return (0.5 * res) if isfinite(res) else ((0.5 * a) + (0.5 * b))
 
 
+def __almost_le(a: int | float, b: int | float) -> bool:
+    """
+    Check if `a <= b` holds approximately.
+
+    :param a: the first value
+    :param b: the second value
+    :return: `True` if we can say: `a` is approximately less or equal than `b`
+        and any deviation from this probably results from numerical issues.
+
+    >>> __almost_le(1, 0)
+    False
+    >>> __almost_le(0, 0)
+    True
+    >>> __almost_le(1.1, 1.09)
+    False
+    >>> __almost_le(1.1, 1.099999)
+    False
+    >>> __almost_le(1.1, 1.09999999)
+    False
+    >>> __almost_le(1.1, 1.0999999999)
+    False
+    >>> __almost_le(1.1, 1.099999999999)
+    False
+    >>> __almost_le(1.099999999999, 1.1)
+    True
+    >>> __almost_le(1.1, 1.0999999999999)
+    True
+    >>> __almost_le(1.0999999999999, 1.1)
+    True
+
+    >>> __almost_le(0, -1)
+    False
+    >>> __almost_le(-1.09, -1.1)
+    False
+    >>> __almost_le(-1.099999, -1.1)
+    False
+    >>> __almost_le(-1.09999999, -1.1)
+    False
+    >>> __almost_le(-1.0999999999, -1.1)
+    False
+    >>> __almost_le(-1.099999999999, -1.1)
+    False
+    >>> __almost_le(-1.1, -1.099999999999)
+    True
+    >>> __almost_le(-1.0999999999999, -1.1)
+    True
+    >>> __almost_le(-1.1, -1.0999999999999)
+    True
+
+    >>> __almost_le(23384026197294446691258957323460528314494920687616,
+    ...             2.3384026197294286e+49)
+    True
+    >>> __almost_le(nextafter(5, inf), nextafter(5, -inf))
+    True
+    >>> __almost_le(nextafter(nextafter(5, inf), inf),
+    ...             nextafter(nextafter(5, -inf), -inf))
+    True
+    >>> __almost_le(nextafter(nextafter(nextafter(5, inf), inf), inf),
+    ...             nextafter(nextafter(nextafter(5, -inf), -inf), -inf))
+    True
+    >>> __almost_le(nextafter(nextafter(nextafter(nextafter(5, inf), inf),
+    ...             inf), inf), nextafter(nextafter(nextafter(5, -inf),
+    ...             -inf), -inf))
+    True
+    >>> __almost_le(5.114672824837722e+148, 5.1146728248374894e+148)
+    True
+    """
+    if a <= b:
+        return True
+
+    if a < 0:
+        if b >= 0:
+            return False
+        a, b = -b, -a
+    elif b <= 0:
+        return False
+
+    if (a <= 0) != (b <= 0):
+        return False
+
+    with suppress(OverflowError):
+        use_a: int | float = a
+        use_b: int | float = b
+        for _ in range(3):
+            use_a = nextafter(use_a, -inf)
+            use_b = nextafter(use_b, inf)
+            if use_a <= use_b:
+                return True
+    try:
+        return (b / a) > 0.9999999999999
+    except OverflowError:
+        a_int: Final[int] = int(a)
+        b_int: Final[int] = int(b)
+        if (a_int <= 0) or (b_int <= 0):
+            return False
+        with suppress(OverflowError):
+            return (b_int / a_int) > 0.9999999999999
+    return False
+
+
 def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     """
-    Create a statistics object from an iterable.
+    Create a statistics object from an iterable of integers or floats.
+
+    As bottom line, this function will forward computations to the
+    :mod:`statistics` routines that ship with Python if nothing else works.
+    However, sometimes, something else may work: In particular, if the data
+    consists of only integers. In this case, it just might be possible to
+    compute the statistics very accurately with integer precision, where
+    possible.
+
+    Let's say we have a sequence of pure integers.
+    We can compute the arithmetic mean by
+
 
     :param source: the source
     :return: a statistics representing the statistics over `source`
@@ -714,9 +829,16 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     >>> s.maximum
     3000000000
     >>> print(s.mean_geom)
-    18171205.92832138
+    18171205.928321395
     >>> (100000 * 20000000 * 3000000000) ** (1 / 3)
     18171205.92832138
+    >>> 100000 * (((100000 // 100000) * (20000000 // 100000) * (
+    ...     3000000000 // 100000)) ** (1 / 3))
+    18171205.92832139
+    >>> print(s.mean_geom ** 3)
+    5.999999999999999e+21
+    >>> print(18171205.92832139 ** 3)
+    5.999999999999995e+21
     >>> s.median
     20000000
     >>> print(s.stddev)
@@ -969,70 +1091,103 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
             mean_geom=None if minimum <= 0 else minimum, maximum=minimum,
             stddev=None if n <= 1 else 0)
 
-    # Go over the data once and see if we can treat it as all-integer.
-    # If yes, then we can compute some statistics very precisely.
-    can_int: bool = True  # are all values integers?
-    int_sum: int = 0  # the integer sum (for mean, stddev)
-    int_prod: int = 1  # the integer product (for geom_mean)
-    int_sum_sqr: int = 0  # the sum of squares (for stddev)
-    for e in data:  # iterate over all data
-        if not isinstance(e, int):
-            can_int = False
-            break
-        int_sum += e  # so we can sum exactly
-        int_prod *= e  # and can compute exact products
-        int_sum_sqr += e * e  # and compute the sum of squares
+    # Compute the median.
+    middle: Final[int] = n >> 1
+    median: Final[int | float] = data[middle] if (n & 1) == 1 else (
+        __mean_of_two(data[middle - 1], data[middle]))
 
-    mean_arith: int | float | None = __mean_of_two(
-        data[0], data[1]) if n == 2 else None
-    mean_geom: int | float | None = None
-    stddev: int | float | None = None
-    if can_int:
-        if stddev is None:
-            var_sub: int | float = try_int_div(int_sum * int_sum, n)
-            var: int | float = try_int_div(int_sum_sqr - var_sub, n - 1) \
-                if isinstance(var_sub, int) else try_float_div(
-                int_sum_sqr - var_sub, n - 1)
+    # If we have only two numbers, we also already have the mean
+    mean_arith: int | float | None = median if n == 2 else None
+    mean_geom: int | float | None = None  # We do not know the geometric mean
+    stddev: int | float | None = None  # and neither the standard deviation.
 
-            stddev_test: Final[float] = sqrt(var)
-            if stddev_test > 0:
-                stddev = stddev_test
+    can_int: bool = isinstance(minimum, int) and isinstance(maximum, int)
+    if can_int:  # can we try to do exact computations using ints?
+        # Go over the data once and see if we can treat it as all-integer.
+        # If yes, then we can compute some statistics very precisely.
+        # are all values integers?
+        int_sum: int = 0  # the integer sum (for mean, stddev)
+        int_prod: int = 1  # the integer product (for geom_mean)
+        int_sum_sqr: int = 0  # the sum of squares (for stddev)
+        big_gcd: int = cast(int, minimum)  # the GCD of *all* the integers
 
-        if minimum > 0:  # geometric mean only defined for all-positive
-            mean_geom_a: float | None = None
-            mean_geom_b: float | None = None
+        # The following is *only* used if we have *only* integer data.
+        # stddev((a, b, ...)) = stddev((a-x, b-x, ...))
+        # If we can shift the whole data such that its center is around 0,
+        # then the difference that we have to add up become smaller, and thus
+        # the floating point arithmetic that we may need to use becomes more
+        # accurate. If we know the mean, then shifting the data by the mean
+        # will lead to the smallest sum of deviations. If we know only the
+        # median, then this is better than nothing.
+        shift: Final[int] = int(median) if mean_arith is None \
+            else int(mean_arith)
 
-            # two different attempts to compute the geometric mean
-            # either by log-scaling
-            with suppress(BaseException):
-                mean_geom_test = 2 ** try_int(log2(int_prod) / n)
-                if isfinite(mean_geom_test) and (
-                        minimum <= mean_geom_test < maximum):
-                    mean_geom = mean_geom_a = mean_geom_test
+        for ee in data:  # iterate over all data
+            if not isinstance(ee, int):
+                can_int = False
+                break
+            int_prod *= ee  # We can compute exact products (needed for gmean)
+            big_gcd = gcd(big_gcd, ee)
+            e: int = ee - shift  # shift to improve precision
+            int_sum += e  # so we can sum exactly
+            int_sum_sqr += e * e  # and compute the sum of squares
 
-            # or by computing the actual root
-            with suppress(BaseException):
-                mean_geom_test = try_int(int_prod ** (1 / n))
-                if isfinite(mean_geom_test) and (
-                        minimum <= mean_geom_test < maximum):
-                    mean_geom_b = mean_geom_test
+        if can_int:
+            if mean_arith is None:
+                mean_arith = shift + try_int_div(int_sum, n)
 
-            if mean_geom_a is None:  # the log scaling failed
-                mean_geom = mean_geom_b  # maybe None, maybe not
-            elif mean_geom_b is not None:  # so the actual root worked, too
-                if mean_geom_a > mean_geom_b:
-                    mean_geom_a, mean_geom_b = mean_geom_b, mean_geom_a
-                # the difference will not be big, we can try everything
-                best_diff = inf
-                while mean_geom_a <= mean_geom_b:
-                    diff = abs(int_prod - (mean_geom_a ** n))
-                    if diff < best_diff:
-                        best_diff = diff
-                        mean_geom = mean_geom_a
-                    mean_geom_a = nextafter(mean_geom_a, inf)
+            if stddev is None:
+                with suppress(ArithmeticError):
+                    var_sub: int | float = try_int_div(int_sum * int_sum, n)
+                    var: Final[int | float] = try_int_div(
+                        int_sum_sqr - var_sub, n - 1) \
+                        if isinstance(var_sub, int) else try_float_div(
+                        int_sum_sqr - var_sub, n - 1)
 
-        if mean_arith is None:
-            mean_arith = try_int_div(int_sum, n)
+                    stddev_test: Final[float] = sqrt(var)
+                    if stddev_test > 0:
+                        stddev = stddev_test
+
+            if minimum > 0:  # geometric mean only defined for all-positive
+                mean_geom_a: float | None = None
+                mean_geom_b: float | None = None
+
+                # most likely, big_gcd is 1 ... but we can try...
+                int_prod //= (big_gcd ** n)  # must be exact: it's the gcd
+                lower: Final[int] = cast(int, minimum) // big_gcd  # exact
+                upper: Final[int] = cast(int, maximum) // big_gcd  # exact
+
+                # two different attempts to compute the geometric mean
+                # either by log-scaling
+                with suppress(ArithmeticError):
+                    mean_geom_test = 2 ** try_int(log2(int_prod) / n)
+                    if isfinite(mean_geom_test) and (
+                            lower <= mean_geom_test <= upper):
+                        mean_geom_a = mean_geom_test
+
+                # or by computing the actual root
+                with suppress(ArithmeticError):
+                    mean_geom_test = try_int(int_prod ** (1 / n))
+                    if isfinite(mean_geom_test) and (
+                            lower <= mean_geom_test <= upper):
+                        mean_geom_b = mean_geom_test
+
+                if mean_geom_a is None:  # the log scaling failed
+                    mean_geom = None if mean_geom_b is None \
+                        else big_gcd * mean_geom_b  # maybe None, maybe not
+                elif mean_geom_b is not None:  # so the actual root worked, too
+                    if mean_geom_a > mean_geom_b:
+                        mean_geom_a, mean_geom_b = mean_geom_b, mean_geom_a
+                    # the difference will not be big, we can try everything
+                    best_diff = inf
+                    while mean_geom_a <= mean_geom_b:
+                        diff = abs(int_prod - (mean_geom_a ** n))
+                        if diff < best_diff:
+                            best_diff = diff
+                            mean_geom = big_gcd * mean_geom_a
+                        mean_geom_a = nextafter(mean_geom_a, inf)
+                else:
+                    mean_geom = big_gcd * mean_geom_a
 
     if mean_arith is None:
         mean_arith = stat_mean(data)
@@ -1044,18 +1199,17 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     if mean_geom is not None:
         # Deal with errors that may have arisen due to
         # numerical imprecision.
-        if (mean_geom < minimum) and (nextafter(
-                mean_geom, inf) >= nextafter(minimum, -inf)):
-            mean_geom = minimum
-        if (mean_geom > mean_arith) and ((nextafter(
-                mean_arith, inf) >= nextafter(mean_geom, -inf)) or (
-                (0.9999999999999 * mean_geom) <= mean_arith)):
-            mean_geom = mean_arith
-
-    # compute the median
-    middle: Final[int] = n >> 1
-    median: Final[int | float] = data[middle] if (n & 1) == 1 else (
-        __mean_of_two(data[middle - 1], data[middle]))
+        if mean_geom < minimum:
+            if __almost_le(minimum, mean_geom):
+                mean_geom = minimum
+            else:
+                raise ValueError(f"mean_geom={mean_geom} but min={minimum}")
+        if mean_arith < mean_geom:
+            if __almost_le(mean_geom, mean_arith):
+                mean_geom = mean_arith
+            else:
+                raise ValueError(
+                    f"mean_geom={mean_geom} but mean_arith={mean_arith}")
 
     return SampleStatistics(minimum=minimum, median=median,
                             mean_arith=mean_arith, mean_geom=mean_geom,
@@ -1101,6 +1255,42 @@ class CsvReader:
         Create a CSV parser for :class:`SampleStatistics`.
 
         :param columns: the columns
+
+        >>> try:
+        ...     CsvReader(None)
+        ... except TypeError as te:
+        ...     print(te)
+        columns should be an instance of dict but is None.
+
+        >>> try:
+        ...     CsvReader(1)
+        ... except TypeError as te:
+        ...     print(te)
+        columns should be an instance of dict but is int, namely '1'.
+
+        >>> try:
+        ...     CsvReader(dict())
+        ... except ValueError as ve:
+        ...     print(ve)
+        No keys in {}.
+
+        >>> try:
+        ...     CsvReader({"a": 1, "b": 2})
+        ... except ValueError as ve:
+        ...     print(ve)
+        No useful keys remain in ['a', 'b'] from {'a': 1, 'b': 2}.
+
+        >>> try:
+        ...     CsvReader({KEY_N: 1, "b": 2, "c": 3})
+        ... except ValueError as ve:
+        ...     print(ve)
+        No useful keys remain in ['b', 'c'] from {'n': 1, 'b': 2, 'c': 3}.
+
+        >>> try:
+        ...     CsvReader({KEY_MINIMUM: 1, "b": 2, "c": 3})
+        ... except ValueError as ve:
+        ...     print(ve)
+        Found strange keys ['b', 'c'].
         """
         super().__init__()
         #: the index for n
@@ -1129,7 +1319,7 @@ class CsvReader:
 
         v: int = columns.get(KEY_N, -1)
         if v >= 0:
-            self.__idx_n = v
+            self.__idx_n = check_int_range(v, KEY_N, 0, 100_000)
             keys.remove(KEY_N)
 
         has: int = 0
@@ -1137,14 +1327,15 @@ class CsvReader:
         v = columns.get(KEY_MINIMUM, -1)
         if v >= 0:
             keys.remove(KEY_MINIMUM)
-            self.__idx_min = v
+            self.__idx_min = check_int_range(v, KEY_MINIMUM, 0, 100_000)
             has += 1
             has_idx = v
 
         v = columns.get(KEY_MEAN_ARITH, -1)
         if v >= 0:
             keys.remove(KEY_MEAN_ARITH)
-            self.__idx_mean_arith = v
+            self.__idx_mean_arith = check_int_range(
+                v, KEY_MEAN_ARITH, 0, 100_000)
             has += 1
             has_idx = v
 
@@ -1152,38 +1343,40 @@ class CsvReader:
         if v >= 0:
             keys.remove(KEY_MEDIAN)
             has += 1
-            self.__idx_median = v
+            self.__idx_median = check_int_range(v, KEY_MEDIAN, 0, 100_000)
             has_idx = v
 
         v = columns.get(KEY_MEAN_GEOM, -1)
         if v >= 0:
             keys.remove(KEY_MEAN_GEOM)
             has += 1
-            self.__idx_mean_geom = v
+            self.__idx_mean_geom = check_int_range(
+                v, KEY_MEAN_GEOM, 0, 100_000)
             has_idx = v
 
         v = columns.get(KEY_MAXIMUM, -1)
         if v >= 0:
             keys.remove(KEY_MAXIMUM)
             has += 1
-            self.__idx_max = v
+            self.__idx_max = check_int_range(v, KEY_MAXIMUM, 0, 100_000)
             has_idx = v
 
         v = columns.get(KEY_STDDEV, -1)
         if v >= 0:
             keys.remove(KEY_STDDEV)
-            self.__idx_sd = v
+            self.__idx_sd = check_int_range(v, KEY_STDDEV, 0, 100_000)
 
         remaining_keys: Final[int] = set.__len__(keys)
         if has > 0:
             if remaining_keys > 0:
-                raise ValueError(f"Found strange keys {keys}.")
+                raise ValueError(f"Found strange keys {sorted(keys)}.")
         elif remaining_keys == 1:
-            self.__idx_min = has_idx = columns[next(iter(keys))]
+            self.__idx_min = has_idx = check_int_range(
+                columns[next(iter(keys))], "last_key", 0, 100_000)
             has += 1
         else:
             raise ValueError(
-                f"No useful keys remain in {keys} from {columns}.")
+                f"No useful keys remain in {sorted(keys)} from {columns}.")
 
         self.__is_single = (self.__idx_sd is None) and (has == 1)
         if self.__is_single:
@@ -1253,6 +1446,12 @@ class CsvWriter:
         :param what_short: the short description of what the statistics is
             about
         :param what_long: the long statistics of what the statistics is about
+
+        >>> try:
+        ...     CsvWriter(n_not_needed=None)
+        ... except TypeError as te:
+        ...     print(te)
+        n_not_needed should be an instance of bool but is None.
         """
         #: an optional scope
         self.__scope: Final[str | None] = (

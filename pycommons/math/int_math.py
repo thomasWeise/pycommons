@@ -666,7 +666,7 @@ def try_int_div(a: int, b: int) -> int | float:
     # Compute int_frac_2 == (int_res_2 * b - a, but simplified:
     int_frac_2: Final[int] = b - int_frac_1  # == 9 in the example
 
-    with suppress(OverflowError):
+    with suppress(ArithmeticError):
         float_res = __try_int(a / b)  # == 3.5588235294117645 in the example
         if int_res_1 < float_res < int_res_2:
             return -float_res if minus else float_res
