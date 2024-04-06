@@ -360,6 +360,59 @@ class SampleStatistics:
         """
         return max(self.mean_arith, self.median)
 
+    def compact(self, needs_n: bool = True) \
+            -> "int | float | SampleStatistics":
+        """
+        Try to represent this object as single number, if possible.
+
+        :param needs_n: if this is `True`, the default, then the object is
+            only turned into a single number if alsp `n==1`. Otherwise, `n`
+            is ignored
+        :return: an integer or float if this objects minimum equals its
+            maximum, the object itself otherwise
+
+        >>> s = from_single_value(10, 1)
+        >>> s.compact() == 10
+        True
+        >>> s.compact() == s.compact(True)
+        True
+
+        >>> s = from_single_value(10, 2)
+        >>> s.compact() is s
+        True
+        >>> s.compact() == s.compact(True)
+        True
+
+        >>> s = from_single_value(10, 2)
+        >>> s.compact(False) == 10
+        True
+
+        >>> s = SampleStatistics(2, 1, 2, 4, 3, 5, 3)
+        >>> s.compact() is s
+        True
+
+        >>> s = SampleStatistics(2, 1, 2, 4, 3, 5, 3)
+        >>> s.compact(False) is s
+        True
+
+        >>> try:
+        ...     s.compact(1)
+        ... except TypeError as te:
+        ...     print(te)
+        needs_n should be an instance of bool but is int, namely '1'.
+
+        >>> try:
+        ...     s.compact(None)
+        ... except TypeError as te:
+        ...     print(te)
+        needs_n should be an instance of bool but is None.
+        """
+        if not isinstance(needs_n, bool):
+            raise type_error(needs_n, "needs_n", bool)
+        mi: Final[int | float] = self.minimum
+        return self if (mi < self.maximum) or (
+            needs_n and (self.n > 1)) else mi
+
     def __key(self) -> tuple[float | int, float | int, float | int,
                              float | int, float | int, float | int, int]:
         r"""
@@ -651,7 +704,145 @@ def __almost_le(a: int | float, b: int | float) -> bool:
     return False
 
 
-def from_sample(source: Iterable[int | float]) -> SampleStatistics:
+def from_single_value(value: int | float | SampleStatistics, n: int = 1) \
+        -> SampleStatistics:
+    r"""
+    Create a sample statistics from a single number.
+
+    :param value: the single value
+    :param n: the number of samples, i.e., the number of times this value
+        occurred
+    :return: the sample statistics
+
+    >>> s = from_single_value(10, 2)
+    >>> print(s.stddev)
+    0
+    >>> s.minimum == s.maximum == s.mean_arith == s.mean_geom \
+    ...     == s.median == 10
+    True
+    >>> s is from_single_value(s, s.n)
+    True
+
+    >>> s = from_single_value(10, 1)
+    >>> print(s.stddev)
+    None
+    >>> s.minimum == s.maximum == s.mean_arith == s.mean_geom \
+    ...     == s.median == 10
+    True
+    >>> s is from_single_value(s, s.n)
+    True
+
+    >>> s = from_single_value(-10, 2)
+    >>> print(s.stddev)
+    0
+    >>> s.minimum == s.maximum == s.mean_arith == s.median == -10
+    True
+    >>> print(s.mean_geom)
+    None
+    >>> s is from_single_value(s, s.n)
+    True
+
+    >>> s = from_single_value(-10, 1)
+    >>> print(s.stddev)
+    None
+    >>> s.minimum == s.maximum == s.mean_arith == s.median == -10
+    True
+    >>> print(s.mean_geom)
+    None
+    >>> s is from_single_value(s, s.n)
+    True
+
+    >>> s = from_single_value(10.5, 2)
+    >>> print(s.stddev)
+    0
+    >>> s.minimum == s.maximum == s.mean_arith == s.mean_geom \
+    ...     == s.median == 10.5
+    True
+    >>> s is from_single_value(s, s.n)
+    True
+
+    >>> s = from_single_value(10.5, 1)
+    >>> print(s.stddev)
+    None
+    >>> s.minimum == s.maximum == s.mean_arith == s.mean_geom \
+    ...     == s.median == 10.5
+    True
+    >>> s is from_single_value(s, s.n)
+    True
+
+    >>> s = from_single_value(-10.5, 2)
+    >>> print(s.stddev)
+    0
+    >>> s.minimum == s.maximum == s.mean_arith == s.median == -10.5
+    True
+    >>> print(s.mean_geom)
+    None
+    >>> s is from_single_value(s, s.n)
+    True
+
+    >>> s = from_single_value(-10.5, 1)
+    >>> print(s.stddev)
+    None
+    >>> s.minimum == s.maximum == s.mean_arith == s.median == -10.5
+    True
+    >>> print(s.mean_geom)
+    None
+    >>> s is from_single_value(s, s.n)
+    True
+
+    >>> try:
+    ...     from_single_value(None)
+    ... except TypeError as te:
+    ...     print(str(te)[:20])
+    value should be an i
+
+    >>> try:
+    ...     from_single_value("a")
+    ... except TypeError as te:
+    ...     print(str(te)[:20])
+    value should be an i
+
+    >>> try:
+    ...     from_single_value(1, None)
+    ... except TypeError as te:
+    ...     print(str(te)[:20])
+    n should be an insta
+
+    >>> try:
+    ...     from_single_value(1, "a")
+    ... except TypeError as te:
+    ...     print(str(te)[:20])
+    n should be an insta
+
+    >>> try:
+    ...     from_single_value(s, 12)
+    ... except ValueError as ve:
+    ...     print(str(ve)[:20])
+    Incompatible numbers
+
+    >>> try:
+    ...     from_single_value(inf)
+    ... except ValueError as ve:
+    ...     print(str(ve)[:20])
+    value=inf is not fin
+    """
+    n = check_int_range(n, "n", 1, 1_000_000_000_000_000_000)
+    if isinstance(value, SampleStatistics):
+        if value.n == n:
+            return value
+        raise ValueError(  # noqa: TRY004
+            f"Incompatible numbers of values {n} and {value}.")
+    if not isinstance(value, int | float):
+        raise type_error(value, "value", (int, float, SampleStatistics))
+    if not isfinite(value):
+        raise ValueError(f"value={value} is not finite.")
+    return SampleStatistics(
+        n=n, minimum=value, median=value, mean_arith=value,
+        mean_geom=None if value <= 0 else value, maximum=value,
+        stddev=None if n <= 1 else 0)
+
+
+def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     """
     Create a statistics object from an iterable of integers or floats.
 
@@ -669,7 +860,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     :param source: the source
     :return: a statistics representing the statistics over `source`
 
-    >>> s = from_sample([0.0])
+    >>> s = from_samples([0.0])
     >>> s.n
     1
     >>> s.minimum
@@ -683,7 +874,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     >>> print(s.stddev)
     None
 
-    >>> s = from_sample([1.0])
+    >>> s = from_samples([1.0])
     >>> s.n
     1
     >>> s.minimum
@@ -697,7 +888,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     >>> print(s.stddev)
     None
 
-    >>> s = from_sample([1.0, 1])
+    >>> s = from_samples([1.0, 1])
     >>> s.n
     2
     >>> s.minimum
@@ -711,7 +902,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     >>> print(s.stddev)
     0
 
-    >>> s = from_sample([0, 0.0])
+    >>> s = from_samples([0, 0.0])
     >>> s.n
     2
     >>> s.minimum
@@ -726,7 +917,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     0
 
     >>> dd = [1.5, 2.5]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> s.n
     2
     >>> s.minimum
@@ -745,7 +936,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     0.7071067811865476
 
     >>> dd = [1.0, 2.0]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> s.n
     2
     >>> s.minimum
@@ -766,7 +957,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     0.7071067811865476
 
     >>> dd = [1.0, 2.0, 3.0]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> s.n
     3
     >>> s.minimum
@@ -787,7 +978,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     1.0
 
     >>> dd = [1.0, 0, 3.0]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> s.n
     3
     >>> s.minimum
@@ -804,7 +995,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     1.5275252316519468
 
     >>> dd = [1.0, -2, 3.0]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> s.n
     3
     >>> s.minimum
@@ -821,7 +1012,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     2.516611478423583
 
     >>> dd = [1e5, 2e7, 3e9]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> s.n
     3
     >>> s.minimum
@@ -847,7 +1038,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     1726277112.7487035
 
     >>> dd = [3.3, 2.5, 3.7, 4.9]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> s.n
     4
     >>> s.minimum
@@ -866,7 +1057,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     1.0000000000000002
 
     >>> dd = [3, 1, 2, 5]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> print(s.minimum)
     1
     >>> print(s.maximum)
@@ -884,7 +1075,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
 
     >>> dd = [8, 8, 8, 8, 9, 10, 10, 11, 11, 12, 12, 12, 12, 13,
     ...       13, 13, 14, 14, 14, 15, 15, 15, 15, 15, 15, 16, 16, 16]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> print(s.minimum)
     8
     >>> print(s.maximum)
@@ -903,7 +1094,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     2.673602092336881
 
     >>> dd = [3, 4, 7, 14, 15, 16, 26, 28, 29, 30, 31, 31]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> print(s.minimum)
     3
     >>> print(s.maximum)
@@ -941,7 +1132,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     >>> dd = [375977836981734264856247621159545315,
     ...       1041417453269301410322718941408784761,
     ...       2109650311556162106262064987699051941]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> print(s.minimum)
     375977836981734264856247621159545315
     >>> print(s.maximum)
@@ -975,7 +1166,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     ...       482178404791292289021955619498303854464057392180997,
     ...       521745351662201002493923306143082542601267608373030,
     ...       676289718505789968602970820038005797309334755525626]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> print(s.minimum)
     104275295274308290135253194482044160663473778025704
     >>> print(s.maximum)
@@ -998,35 +1189,35 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     2.1031192688681374e+50
 
     >>> dd = [4, 5, 5, 6, 6, 6, 6, 6, 8, 8]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> print(s.mean_geom)
     5.884283961687533
     >>> print(stat_geomean(dd))
     5.884283961687533
 
     >>> dd = [4, 4, 4, 5, 5, 8]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> print(s.mean_geom)
     4.836542350243914
     >>> print(stat_geomean(dd))
     4.8365423502439135
 
     >>> dd = [2, 8, 11, 17, 26, 30, 32]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> print(s.mean_geom)
     13.327348017053906
     >>> print(stat_geomean(dd))
     13.327348017053906
 
     >>> dd = [2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> print(s.mean_geom)
     3.4710522375429465
     >>> print(stat_geomean(dd))
     3.471052237542947
 
     >>> dd = [3, 4, 4, 5, 6, 8, 8, 8, 8]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> print(s.mean_geom)
     5.653305998922543
     >>> print(stat_geomean(dd))
@@ -1034,7 +1225,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
 
     >>> dd = [16, 17, 19, 20, 20, 21, 22, 23, 24, 24, 25, 26, 29, 31,
     ...       31, 31, 32, 32, 32]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> print(s.mean_geom)
     24.419566831650357
     >>> print(stat_geomean(dd))
@@ -1042,33 +1233,33 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
 
     >>> dd = [66, 68, 69, 70, 72, 73, 73, 79, 81, 87, 94, 99, 100, 102, 103,
     ...       112, 118, 119, 123, 123]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> print(s.mean_geom)
     89.45680043258344
     >>> print(stat_geomean(dd))
     89.45680043258346
 
     >>> dd = [44, 63, 63, 68, 68, 68, 70, 74, 74, 80, 95, 108, 110, 128]
-    >>> s = from_sample(dd)
+    >>> s = from_samples(dd)
     >>> print(s.mean_geom)
     76.6864641736076
     >>> print(stat_geomean(dd))
     76.68646417360763
 
     >>> try:
-    ...     from_sample(None)
+    ...     from_samples(None)
     ... except TypeError as te:
     ...     print(te)
     source should be an instance of typing.Iterable but is None.
 
     >>> try:
-    ...     from_sample(1)
+    ...     from_samples(1)
     ... except TypeError as te:
     ...     print(te)
     source should be an instance of typing.Iterable but is int, namely '1'.
 
     >>> try:
-    ...     from_sample([])
+    ...     from_samples([])
     ... except ValueError as ve:
     ...     print(ve)
     Data source cannot be empty.
@@ -1086,10 +1277,7 @@ def from_sample(source: Iterable[int | float]) -> SampleStatistics:
     minimum: int | float = data[0]  # because data is now sorted
     maximum: int | float = data[-1]  # because data is now sorted
     if (minimum >= maximum) or (n <= 1):  # all data is the same
-        return SampleStatistics(
-            n=n, minimum=minimum, median=minimum, mean_arith=minimum,
-            mean_geom=None if minimum <= 0 else minimum, maximum=minimum,
-            stddev=None if n <= 1 else 0)
+        return from_single_value(minimum, n)
 
     # Compute the median.
     middle: Final[int] = n >> 1

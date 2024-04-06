@@ -17,7 +17,7 @@ from pycommons.math.sample_statistics import (
     CsvReader,
     CsvWriter,
     SampleStatistics,
-    from_sample,
+    from_samples,
 )
 
 #: the maximum n
@@ -239,7 +239,7 @@ def __make_sample_statistics(
     use_data: Final[tuple[int | float, ...]] = tuple(data)
     if tuple.__len__(use_data) != n_samples:
         raise ValueError(f"{tuple.__len__(use_data)} != {n_samples}")
-    result: Final[SampleStatistics] = __check(from_sample(use_data))
+    result: Final[SampleStatistics] = __check(from_samples(use_data))
 
     if has_geometric_mean != (result.mean_geom is not None):
         raise ValueError(f"{has_geometric_mean} -> {result.mean_geom}")
@@ -709,7 +709,7 @@ def test_special_cases() -> None:
              1.4757395258967645e+20, 1.4757395258967641e+20,
              1.4757395258967641e+20, 1.4757395258967641e+20,
              1.4757395258967641e+20, 1.4757395258967641e+20)]:
-        __check_with_data(from_sample(case), case)
+        __check_with_data(from_samples(case), case)
 
 
 class _TCR:
@@ -730,7 +730,7 @@ class _TCR:
         c_keys: dict[str, str] = {
             k[2:]: k for k in columns if k.startswith("c")}
         n_key: str | None = a_keys[KEY_N] if KEY_N in a_keys else (
-            b_keys[KEY_N] if KEY_N in b_keys else (b_keys.get(KEY_N)))
+            b_keys[KEY_N] if KEY_N in b_keys else (c_keys.get(KEY_N)))
         if n_key is None:
             raise ValueError("Huh?")
         if KEY_N not in a_keys:
@@ -847,7 +847,7 @@ def __do_test_multi_csv(same_n: bool) -> None:
     data: list[tuple[
         SampleStatistics, SampleStatistics, SampleStatistics]] = []
 
-    for _ in range(randint(1, 10)):
+    for _ in range(randint(1, 22)):
         a = __make_sample_statistics(has_geometric_mean=randint(0, 1) <= 0)
         while True:
             b = __make_sample_statistics(
