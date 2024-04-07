@@ -1,19 +1,23 @@
 """Integer maths routines."""
 
 from contextlib import suppress
-from math import gcd, isfinite
+from math import gcd, isfinite, isqrt, sqrt
 from typing import Final
 
 from pycommons.types import type_error
 
 #: The positive limit for doubles that can be represented exactly as ints.
+#: We cannot represent any number `z` with `|z| >= 2 ** 53` as float without
+#: losing some digits, because floats have only 52 bits.
+#: `float(9007199254740992) == 9007199254740992.0`
+#: `float(9007199254740991) == 9007199254740991.0`
+#: But:
+#: #: `float(9007199254740993) == 9007199254740992.0`.
 __DBL_INT_LIMIT_P_I: Final[int] = 9007199254740992
 #: The positive limit for doubles that can be represented exactly as ints.
 __DBL_INT_LIMIT_P_F: Final[float] = float(__DBL_INT_LIMIT_P_I)  # = 1 << 53
 #: The negative limit for doubles that can be represented exactly as ints.
-__DBL_INT_LIMIT_N_I: Final[int] = -__DBL_INT_LIMIT_P_I
-#: The negative limit for doubles that can be represented exactly as ints.
-__DBL_INT_LIMIT_N_F: Final[float] = float(__DBL_INT_LIMIT_N_I)
+__DBL_INT_LIMIT_N_F: Final[float] = -__DBL_INT_LIMIT_P_F
 
 
 def __try_int(val: float) -> int | float:
@@ -666,9 +670,18 @@ def try_int_div(a: int, b: int) -> int | float:
     # Compute int_frac_2 == (int_res_2 * b - a, but simplified:
     int_frac_2: Final[int] = b - int_frac_1  # == 9 in the example
 
+    # OK, there may be a loss of precision if we do the floating point
+    # computation. But we should try it now anyway.
+    # if `a` and `b` can exactly be represented as floats (by being not more
+    # than `__DBL_INT_LIMIT_P_I`, then we are OK and can directly use the
+    # result. Otherwise, if the result is between the lower and the upper
+    # limit, then we will also take it. This would mean to basically default
+    # to the normal division in Python in cases where it falls into the
+    # expected range of possible results.
     with suppress(ArithmeticError):
         float_res = __try_int(a / b)  # == 3.5588235294117645 in the example
-        if int_res_1 < float_res < int_res_2:
+        if ((a <= __DBL_INT_LIMIT_P_I) and (b <= __DBL_INT_LIMIT_P_I)) or (
+                int_res_1 < float_res < int_res_2):
             return -float_res if minus else float_res
 
     best_result: Final[int] = \
@@ -786,3 +799,257 @@ def try_float_div(a: int | float, b: int | float) -> int | float:
     if not isfinite(val):
         raise ValueError(f"Result must be finite, but is {a}/{b}={val}.")
     return __try_int(val)
+
+
+#: the maximum value of a root that can be computed with floats exactly
+__MAX_I_ROOT: Final[int] = __DBL_INT_LIMIT_P_I * __DBL_INT_LIMIT_P_I
+
+
+def try_int_sqrt(value: int) -> int | float:
+    """
+    Try to compute the root of a potentially large integer.
+
+    :param value: the value
+    :return: the root
+    :raises ValueError: if `root` is negative
+
+    >>> try_int_sqrt(0)
+    0
+
+    >>> try_int_sqrt(1)
+    1
+
+    >>> try_int_sqrt(2)
+    1.4142135623730951
+
+    >>> try_int_sqrt(3)
+    1.7320508075688772
+
+    >>> try_int_sqrt(4)
+    2
+
+    >>> try_int_sqrt(5)
+    2.23606797749979
+
+    >>> try_int_sqrt(6)
+    2.449489742783178
+
+    >>> try_int_sqrt(7)
+    2.6457513110645907
+
+    >>> try_int_sqrt(8)
+    2.8284271247461903
+
+    >>> try_int_sqrt(9)
+    3
+
+    >>> try_int_sqrt(4503599627370497)
+    67108864
+    >>> 67108864 * 67108864
+    4503599627370496
+    >>> sqrt(4503599627370497)
+    67108864.0
+    >>> sqrt(4503599627370497) * sqrt(4503599627370497)
+    4503599627370496.0
+
+    >>> try_int_sqrt(2535301200456458802993406410753)
+    1592262918131443.2
+    >>> sqrt(2535301200456458802993406410753)
+    1592262918131443.2
+
+    >>> try_int_sqrt(40564819207303340847894502572033)
+    6369051672525773
+    >>> sqrt(40564819207303340847894502572033)
+    6369051672525773.0
+
+    >>> try_int_sqrt(2596148429267413814265248164610049)
+    50952413380206181
+    >>> sqrt(2596148429267413814265248164610049)
+    5.0952413380206184e+16
+
+    >>> try_int_sqrt(2274861614661668407597778085)
+    47695509376267.99
+    >>> sqrt(2274861614661668407597778085)
+    47695509376267.99
+
+    >>> try_int_sqrt(82220649911902536690031728766315)
+    9067560306493833
+    >>> sqrt(82220649911902536690031728766315)
+    9067560306493832.0
+
+    >>> try_int_sqrt(1156)
+    34
+    >>> 34 * 34
+    1156
+    >>> sqrt(1156)
+    34.0
+    >>> 34.0 * 34.0
+    1156.0
+
+    >>> try_int_sqrt(1005)
+    31.701734968294716
+    >>> 31.701734968294716 * 31.701734968294716
+    1005.0
+    >>> sqrt(1005)
+    31.701734968294716
+    >>> 31.701734968294716 * 31.701734968294716
+    1005.0
+
+    >>> try_int_sqrt(int("1206411441012088169768424908631547135410050\
+450349701156359323012992324468898745458674194715627653148741645085002\
+880167432962708099995812635821183919553390204438671018341579206970136\
+807811815836079357669821219116858017489215282754293788095448310134150\
+6291035205862448784848059094859987648259778470316291228729945882624"))
+    10983676256208975543971041278530229147631096480229288655031141534\
+696869093436249683396095425058327287963674098226369372859395180799546\
+6301001184452657840914432
+
+    >>> try_int_sqrt(12660745164150321)
+    112519976.73369081
+    >>> 112519976.73369081 * 112519976.73369081
+    1.2660745164150322e+16
+    >>> sqrt(12660745164150321)
+    112519976.7336908
+    >>> 112519976.7336908 * 112519976.7336908
+    1.2660745164150318e+16
+
+    >>> try_int_sqrt(12369445361672285)
+    111218008.26157734
+    >>> sqrt(12369445361672285)
+    111218008.26157734
+
+    >>> try_int_sqrt(9007199254740993)
+    94906265.62425156
+    >>> 94906265.62425156 * 94906265.62425156
+    9007199254740994.0
+    >>> sqrt(9007199254740993)
+    94906265.62425156
+    >>> 94906265.62425156 * 94906265.62425156
+    9007199254740994.0
+
+    >>> try_int_sqrt(16121301469375805)
+    126969687.20673373
+    >>> 126969687.20673373 * 126969687.20673373
+    1.6121301469375804e+16
+    >>> sqrt(16121301469375805)
+    126969687.20673373
+    >>> 126969687.20673373 * 126969687.20673373
+    1.6121301469375804e+16
+
+    >>> try_int_sqrt(9007199254740995)
+    94906265.62425156
+    >>> 94906265.62425156 * 94906265.62425156
+    9007199254740994.0
+    >>> sqrt(9007199254740995)
+    94906265.62425157
+    >>> 94906265.62425157 * 94906265.62425157
+    9007199254740996.0
+
+    >>> try_int_sqrt(10487144142025273)
+    102406758.2829633
+    >>> 102406758.2829633 * 102406758.2829633
+    1.0487144142025274e+16
+    >>> sqrt(10487144142025273)
+    102406758.28296329
+    >>> 102406758.28296329 * 102406758.28296329
+    1.048714414202527e+16
+
+    >>> try_int_sqrt(10235141177565705)
+    101168874.54926889
+    >>> 101168874.54926889 * 101168874.54926889
+    1.0235141177565706e+16
+    >>> sqrt(10235141177565705)
+    101168874.54926887
+    >>> 101168874.54926887 * 101168874.54926887
+    1.0235141177565702e+16
+
+    >>> try_int_sqrt(15366441080170523)
+    123961449.9760733
+    >>> 123961449.9760733 * 123961449.9760733
+    1.5366441080170522e+16
+    >>> sqrt(15366441080170523)
+    123961449.97607331
+    >>> 123961449.97607331 * 123961449.97607331
+    1.5366441080170526e+16
+
+    >>> try_int_sqrt(22661588475548439582669426672241)
+    4760418939079673
+    >>> 4760418939079673 * 4760418939079673
+    22661588475548439437260241786929
+    >>> sqrt(22661588475548439582669426672241)
+    4760418939079673.0
+    >>> 4760418939079673.0 * 4760418939079673.0
+    2.266158847554844e+31
+
+    >>> try_int_sqrt(32628992270041785263905793906381)
+    5712179292532911
+    >>> 5712179292532911 * 5712179292532911
+    32628992270041787621642018133921
+    >>> sqrt(32628992270041785263905793906381)
+    5712179292532911.0
+    >>> 5712179292532911.0 * 5712179292532911.0
+    3.2628992270041787e+31
+
+    >>> try:
+    ...     try_int_sqrt(-1)
+    ... except ValueError as ve:
+    ...     print(ve)
+    Compute the root of -1 ... really?
+    """
+    if value < 0:
+        raise ValueError(f"Compute the root of {value} ... really?")
+
+    # First, let's compute the integer root. This is basically the
+    # rounded-down version of the actual root. The integer root (isqrt) is the
+    # lower limit for the result.
+    # In the odd chance that this is already the correct result, we can
+    # directly stop and return it.
+    result_low: Final[int] = isqrt(value)
+    diff_low: Final[int] = value - (result_low * result_low)
+    if diff_low <= 0:
+        # Notice: If we get here, then seemingly `isqrt(value) == sqrt(value)`
+        # in Python's implementation if `value` the result fits into the
+        # float range (I think).
+        return result_low
+
+    # First, we use the floating point sqrt for all numbers that can exactly
+    # be represented as floating point numbers. Of course we try to convert
+    # the result to integers.
+    if value <= __DBL_INT_LIMIT_P_I:  # default to the normal Python sqrt.
+        return __try_int(sqrt(value))  # we can compute the exact square root
+
+    # `value` is bigger than 2 ** 53 and definitely does not fit into a float
+    # without losing precision.
+    # We cannot accurately compute the root of value, because transforming
+    # value to an int will already lead to a loss of precision.
+    # However, what if sqrt(value) < 2 ** 53?
+    # In this case, we *could* represent some fractional digits in the
+    # result. But we cannot get them using `sqrt`. So we do a trick:
+    # `root(a) = root(a * mul * mul) / mul`.
+    # We compute the integer square root of `value` times some value `mul`.
+    # We pick `mul` just large enough so that the result of
+    # `isqrt(mul * mul * value)` will still be `<= __DBL_INT_LIMIT_P_I` and
+    # thus fits into a `float` nicely. We then get the approximate fractional
+    # part by dividing by `mul`.
+    if result_low < __DBL_INT_LIMIT_P_I:
+        mul: int = __DBL_INT_LIMIT_P_I // result_low
+        if mul > 1:
+            # We can proceed like before, just do the integer root at a higher
+            # resolution. In this high resolution, we compute both the upper
+            # and the lower bound for the root. We then pick the one closer to
+            # the actual value, rounding up on draw situations. This value is
+            # then divided by the multiplier to give us the maximum precision.
+            new_value: Final[int] = value * mul * mul
+            new_low: Final[int] = isqrt(new_value)
+            new_diff_low: Final[int] = new_value - (new_low * new_low)
+            new_high: Final[int] = new_low + 1
+            new_diff_high: Final[int] = (new_high * new_high) - new_value
+            return try_int_div(
+                new_high if new_diff_high <= new_diff_low else new_low, mul)
+
+    #: If we get here, then there is just no way to get useful fractional
+    #: parts. We then just check if we should round up the result or return
+    #: the rounded-down result.
+    result_up: Final[int] = (result_low + 1)
+    diff_up: int = (result_up * result_up) - value
+    return result_up if diff_up <= diff_low else result_low

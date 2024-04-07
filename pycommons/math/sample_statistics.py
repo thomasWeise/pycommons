@@ -13,6 +13,7 @@ from pycommons.math.int_math import (
     try_float_div,
     try_int,
     try_int_div,
+    try_int_sqrt,
 )
 from pycommons.strings.string_conv import (
     num_or_none_to_str,
@@ -1157,7 +1158,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     '826033329443953666416831847378532327244986484162191539691938'
 
     >>> print(s.stddev)
-    8.746000582690812e+35
+    874600058269081159245960567663054887
     >>> stat_stddev(dd)
     8.746000582690812e+35
 
@@ -1184,7 +1185,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     3.78318848166862e+50
 
     >>> print(s.stddev)
-    2.1031192688681374e+50
+    210311926886813737006941586539087921260462032505870
     >>> stat_stddev(dd)
     2.1031192688681374e+50
 
@@ -1325,14 +1326,15 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
                 mean_arith = shift + try_int_div(int_sum, n)
 
             if stddev is None:
-                with suppress(ArithmeticError):
+                with (suppress(ArithmeticError)):
                     var_sub: int | float = try_int_div(int_sum * int_sum, n)
                     var: Final[int | float] = try_int_div(
                         int_sum_sqr - var_sub, n - 1) \
                         if isinstance(var_sub, int) else try_float_div(
                         int_sum_sqr - var_sub, n - 1)
 
-                    stddev_test: Final[float] = sqrt(var)
+                    stddev_test: Final[float] = try_int_sqrt(var) if \
+                        isinstance(var, int) else sqrt(var)
                     if stddev_test > 0:
                         stddev = stddev_test
 
