@@ -17,7 +17,9 @@ __DBL_INT_LIMIT_P_I: Final[int] = 9007199254740992
 #: The positive limit for doubles that can be represented exactly as ints.
 __DBL_INT_LIMIT_P_F: Final[float] = float(__DBL_INT_LIMIT_P_I)  # = 1 << 53
 #: The negative limit for doubles that can be represented exactly as ints.
-__DBL_INT_LIMIT_N_F: Final[float] = -__DBL_INT_LIMIT_P_F
+__DBL_INT_LIMIT_N_I: Final[int] = -__DBL_INT_LIMIT_P_I
+#: The negative limit for doubles that can be represented exactly as ints.
+__DBL_INT_LIMIT_N_F: Final[float] = __DBL_INT_LIMIT_N_I
 
 
 def __try_int(val: float) -> int | float:
@@ -185,6 +187,7 @@ def try_int_div(a: int, b: int) -> int | float:
     :param b: the second integer
     :return: a/b, either as `int` or as `float` but always a finite value
     :raises ZeroDivisionError: if `b==0`
+    :raises TypeError: if `a` or `b` are not integers
 
     >>> print(try_int_div(10, 2))
     5
@@ -644,7 +647,23 @@ def try_int_div(a: int, b: int) -> int | float:
 26674807243894898200722561326294551914700598739493395761954564220400052036328\
 58909594484124974270252599224045683880122299500249240856446063861849302671425\
 05617327729864850535306650812894643758024556770793387750201
+
+    >>> try:
+    ...     try_int_div(1.0, 2)
+    ... except TypeError as te:
+    ...     print(te)
+    a should be an instance of int but is float, namely '1.0'.
+
+    >>> try:
+    ...     try_int_div(1, 2.0)
+    ... except TypeError as te:
+    ...     print(te)
+    b should be an instance of int but is float, namely '2.0'.
     """
+    if not isinstance(a, int):
+        raise type_error(a, "a", int)
+    if not isinstance(b, int):
+        raise type_error(b, "b", int)
     minus: bool = False
     if a < 0:
         minus = True
@@ -705,6 +724,8 @@ def try_float_div(a: int | float, b: int | float) -> int | float:
 
     :raises ValueError: if either one of the arguments or the final result
         would not be finite
+    :raises TypeError: if either one of `a` or `b` is neither an integer nor
+        a float
 
     >>> try_float_div(1e180, 1e60)
     1.0000000000000001e+120
@@ -790,11 +811,27 @@ def try_float_div(a: int | float, b: int | float) -> int | float:
     ... except ValueError as ve:
     ...     print(ve)
     Result must be finite, but is 1e+300/1e-60=inf.
+
+    >>> try:
+    ...     try_float_div("y", 1)
+    ... except TypeError as te:
+    ...     print(te)
+    value should be an instance of any in {float, int} but is str, namely 'y'.
+
+    >>> try:
+    ...     try_float_div(1, "x")
+    ... except TypeError as te:
+    ...     print(te)
+    value should be an instance of any in {float, int} but is str, namely 'x'.
     """
     ia: Final[int | float] = try_int(a)
     ib: Final[int | float] = try_int(b)
     if isinstance(ia, int) and isinstance(ib, int):
         return try_int_div(ia, ib)
+    if not isinstance(a, float | int):
+        raise type_error(a, "a", (int, float))
+    if not isinstance(b, float | int):
+        raise type_error(b, "b", (int, float))
     val: Final[float] = ia / ib
     if not isfinite(val):
         raise ValueError(f"Result must be finite, but is {a}/{b}={val}.")
@@ -807,11 +844,12 @@ __MAX_I_ROOT: Final[int] = __DBL_INT_LIMIT_P_I * __DBL_INT_LIMIT_P_I
 
 def try_int_sqrt(value: int) -> int | float:
     """
-    Try to compute the root of a potentially large integer.
+    Try to compute the square root of a potentially large integer.
 
     :param value: the value
-    :return: the root
-    :raises ValueError: if `root` is negative
+    :return: the square root
+    :raises ValueError: if `value` is negative
+    :raises TypeError: if `value` is not an integer
 
     >>> try_int_sqrt(0)
     0
@@ -995,7 +1033,15 @@ def try_int_sqrt(value: int) -> int | float:
     ... except ValueError as ve:
     ...     print(ve)
     Compute the root of -1 ... really?
+
+    >>> try:
+    ...     try_int_sqrt(1.0)
+    ... except TypeError as te:
+    ...     print(te)
+    value should be an instance of int but is float, namely '1.0'.
     """
+    if not isinstance(value, int):
+        raise type_error(value, "value", int)
     if value < 0:
         raise ValueError(f"Compute the root of {value} ... really?")
 
@@ -1053,3 +1099,162 @@ def try_int_sqrt(value: int) -> int | float:
     result_up: Final[int] = (result_low + 1)
     diff_up: int = (result_up * result_up) - value
     return result_up if diff_up <= diff_low else result_low
+
+
+def try_int_add(a: int, b: int | float) -> int | float:
+    """
+    Try to add a floating point number to an integer.
+
+    :param a: the integer
+    :param b: the floating point number
+    :return: `a + b` or the best possible approximation thereof
+    :raises TypeError: if `a` is not an integer or if `b` is neither a
+        float nor an integer
+    :raises ValueError: if `b` or the result is not finite
+
+    >>> try_int_add(0, -8670.320148166094)
+    -8670.320148166094
+    >>> 0 + -8670.320148166094
+    -8670.320148166094
+
+    >>> try_int_add(-63710, 100.96227261264141)
+    -63609.03772738736
+    >>> -63710 + 100.96227261264141
+    -63609.03772738736
+
+    >>> try_int_add(77, 12975.955050422272)
+    13052.955050422272
+    >>> 77 + 12975.955050422272
+    13052.955050422272
+
+    >>> try_int_add(-308129344193738, 62995516.01169562)
+    -308129281198222
+    >>> -308129344193738 + 62995516.01169562
+    -308129281198222.0
+
+    >>> try_int_add(-2158504468760619, -1.3773316665252534e+16)
+    -1.5931821134013152e+16
+    >>> -2158504468760619 + -1.3773316665252534e+16
+    -1.5931821134013152e+16
+
+    >>> try_int_add(-960433622582960, 1.491132239895968e+16)
+    1.395088877637672e+16
+    >>> -960433622582960 + 1.491132239895968e+16
+    1.395088877637672e+16
+
+    >>> try_int_add(10796862236149287, 146056785.70684135)
+    10796862382206073
+    >>> 10796862236149287 + 146056785.70684135
+    1.0796862382206074e+16
+
+    >>> try_int_add(-11909677351933537, -1392628259.5206623)
+    -11909678744561797
+    >>> -11909677351933537 + -1392628259.5206623
+    -1.1909678744561796e+16
+
+    >>> try_int_add(9257476766666634, -265956769672788.75)
+    8991519996993845
+    >>> 9257476766666634 + -265956769672788.75
+    8991519996993845.0
+
+    >>> v = int("-9166650131241408540833319855375552663116961087945581\
+6489173691561634548053405237489064")
+    >>> try_int_add(v, 6.147962494740932e+217)
+    6.147962494740932e+217
+    >>> v + 6.147962494740932e+217
+    6.147962494740932e+217
+
+    >>> v = int("2060196266381720280000783609573994641953401509142043\
+1778715465940577470980")
+    >>> try_int_add(v, 50.192914550695235)
+    20601962663817202800007836095739946419534015091420431778715465940\
+577471030
+    >>> v + 50.192914550695235
+    2.0601962663817203e+73
+
+    >>> try:
+    ...     try_int_add(2.0, 1)
+    ... except TypeError as te:
+    ...     print(te)
+    a should be an instance of int but is float, namely '2.0'.
+
+    >>> try:
+    ...     try_int_add(2, "1")
+    ... except TypeError as te:
+    ...     print(te)
+    b should be an instance of any in {float, int} but is str, namely '1'.
+
+    >>> from math import inf
+    >>> try:
+    ...     try_int_add(2, inf)
+    ... except ValueError as ve:
+    ...     print(ve)
+    b=inf is not finite
+    """
+    if not isinstance(a, int):
+        raise type_error(a, "a", int)
+    if isinstance(b, int):
+        return a + b
+    if not isinstance(b, float):
+        raise type_error(b, "b", (int, float))
+    if not isfinite(b):
+        raise ValueError(f"b={b} is not finite")
+
+    # First we attempt to turn b into an integer, because that would solve all
+    # of our problems.
+    b = __try_int(b)
+    if isinstance(b, int):
+        return a + b  # We are lucky, the result is an integer
+
+    b_int: Final[int] = int(b)
+    int_res: Final[int] = a + b_int
+
+    a_exact: Final[bool] = __DBL_INT_LIMIT_N_I < a < __DBL_INT_LIMIT_P_I
+    b_exact: Final[bool] = __DBL_INT_LIMIT_N_I < b < __DBL_INT_LIMIT_P_I
+    res_exact: Final[bool] = \
+        __DBL_INT_LIMIT_N_I < int_res < __DBL_INT_LIMIT_P_I
+    if a_exact and b_exact and res_exact:
+        # We know that the result should fit well into the float range.
+        # So we can just compute it normally
+        return __try_int(a + b)
+
+    # OK, so at least one parameter will step out of our comfort zone.
+    b_frac: Final[float] = b - b_int
+    if b_exact and res_exact:
+        # `b` is a float whose integer part is exactly represented.
+        # `a` is not.
+        # So if we convert `a` to a float by doing `a + b`, we lose precision.
+        # So the right thing to do would be to first compute the integer
+        # result by adding `a + int(b)`. This result will be exact, because we
+        # already know that it fits into the exactly representable range.
+        # So we compute it without transforming it to a float.
+        # Now we can add the floating point fraction of `b` to it.
+        # This will turn the result into a float that is represented as
+        # exactly as possible.
+        return __try_int(int_res + b_frac)
+
+    if not b_exact:
+        # Now if we get here, we are in a strange territory.
+        # The floating point character of `b` will definitely pollute the
+        # result. Regardless of what we do, we will not just have a rounding
+        # error that costs us a fractional part, but it will cost decimals.
+        # The right thing to do may be to return a float here, because we do
+        # know that floats have a limited resolution and the returned value
+        # may be biased.
+        float_res: Final[float] = a + b
+        if isfinite(float_res):
+            return __try_int(float_res)
+
+    # If we get here, then b is either an exactly representable float or the
+    # result of adding a to b would no longer be finite.
+    # If `b` is an exactly represented float, this means that the result does
+    # not fit into a float. So we just try to round the result.
+    # We will lose a fractional part, but the integer part will be exact.
+    # `a` is an integer, so it is exact anyway. The integer part of `b`
+    # can be represented as exact integer as well. So this means that we
+    # will lose the fractional part only.
+    # We can do the same thing if the result of the computation would not be
+    # finite. Although it would be a bit pretentious to round in such a
+    # situation ... well ... why not.
+    return (int_res + 1) if (b_frac >= 0.5) else (
+        (int_res - 1) if (b_frac <= -0.5) else int_res)

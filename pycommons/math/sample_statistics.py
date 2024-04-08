@@ -6,12 +6,14 @@ from math import gcd, inf, isfinite, log2, nextafter, sqrt
 from statistics import geometric_mean as stat_geomean
 from statistics import mean as stat_mean
 from statistics import stdev as stat_stddev
-from typing import Final, Iterable, cast
+from typing import Callable, Final, Iterable, cast
 
 from pycommons.io.csv import CSV_SEPARATOR, SCOPE_SEPARATOR
 from pycommons.math.int_math import (
+    __DBL_INT_LIMIT_P_I,
     try_float_div,
     try_int,
+    try_int_add,
     try_int_div,
     try_int_sqrt,
 )
@@ -44,19 +46,26 @@ KEY_VALUE: Final[str] = "value"
 class SampleStatistics:
     """An immutable record with sample statistics of one quantity."""
 
-    #: The sample size
+    #: The number of data samples over which the statistics were computed.
     n: int
-    #: The minimum.
+    #: The minimum, i.e., the value of the smallest among the :attr:`~n` data
+    #: samples.
     minimum: int | float
-    #: The median.
+    #: The median, i.e., the value in the middle of the sorted list of
+    #: :attr:`~n` data samples.
     median: int | float
-    #: The arithmetic mean value.
+    #: The arithmetic mean value, i.e., the sum of the :attr:`~n` data samples
+    #: divided by :attr:`~n`.
     mean_arith: int | float
-    #: The geometric mean value, if defined.
+    #: The geometric mean value, if defined. This is the :attr:`~n`-th root of
+    #: the product of all data samples. This value will be `None` if there
+    #: was any sample which is not greater than 0.
     mean_geom: int | float | None
-    #: The maximum.
+    #: The maximum, i.e., the value of the largest among the :attr:`~n` data
+    #: samples.
     maximum: int | float
-    #: The standard deviation.
+    #: The standard deviation, if defined. This value will be `None` if there
+    #: was only a single sample.
     stddev: int | float | None
 
     def __init__(self, n: int, minimum: int | float, median: int | float,
@@ -544,6 +553,229 @@ class SampleStatistics:
         if isinstance(other, SampleStatistics):
             return self.__key() >= other.__key()
         raise type_error(other, "other", SampleStatistics)
+
+    def get_n(self) -> int:
+        """
+        Get the number :attr:`~n` of samples.
+
+        :return: the number :attr:`~n` of samples.
+        :raises TypeError: if an object of the wrong type is passed in as self
+
+        >>> SampleStatistics(5, 3, 5, 6, 4, 7, 2).get_n()
+        5
+
+        >>> try:
+        ...     SampleStatistics.get_n(None)
+        ... except TypeError as te:
+        ...     print(str(te)[:20])
+        self should be an in
+        """
+        if not isinstance(self, SampleStatistics):
+            raise type_error(self, "self", SampleStatistics)
+        return self.n
+
+    def get_minimum(self) -> int | float:
+        """
+        Get the :attr:`~minimum` of all the samples.
+
+        :return: the :attr:`~minimum` of all the samples
+        :raises TypeError: if an object of the wrong type is passed in as self
+
+        >>> SampleStatistics(5, 3, 5, 6, 4, 7, 2).get_minimum()
+        3
+
+        >>> try:
+        ...     SampleStatistics.get_minimum(None)
+        ... except TypeError as te:
+        ...     print(str(te)[:20])
+        self should be an in
+        """
+        if not isinstance(self, SampleStatistics):
+            raise type_error(self, "self", SampleStatistics)
+        return self.minimum
+
+    def get_maximum(self) -> int | float:
+        """
+        Get the :attr:`~maximum` of all the samples.
+
+        :return: the :attr:`~maximum` of all the samples
+        :raises TypeError: if an object of the wrong type is passed in as self
+
+        >>> SampleStatistics(5, 3, 5, 6, 4, 7, 2).get_maximum()
+        7
+
+        >>> try:
+        ...     SampleStatistics.get_maximum(None)
+        ... except TypeError as te:
+        ...     print(str(te)[:20])
+        self should be an in
+        """
+        if not isinstance(self, SampleStatistics):
+            raise type_error(self, "self", SampleStatistics)
+        return self.maximum
+
+    def get_mean_arith(self) -> int | float:
+        """
+        Get the arithmetic mean (:attr:`~mean_arith`) of all the samples.
+
+        :return: the arithmetic mean (:attr:`~mean_arith`) of all the samples.
+        :raises TypeError: if an object of the wrong type is passed in as self
+
+        >>> SampleStatistics(5, 3, 5, 6, 4, 7, 2).get_mean_arith()
+        6
+
+        >>> try:
+        ...     SampleStatistics.get_mean_arith(None)
+        ... except TypeError as te:
+        ...     print(str(te)[:20])
+        self should be an in
+        """
+        if not isinstance(self, SampleStatistics):
+            raise type_error(self, "self", SampleStatistics)
+        return self.mean_arith
+
+    def get_mean_geom(self) -> int | float | None:
+        """
+        Get the geometric mean (:attr:`~mean_geom`) of all the samples.
+
+        :return: the geometric mean (:attr:`~mean_geom`) of all the samples,
+            `None` if the geometric mean is not defined.
+        :raises TypeError: if an object of the wrong type is passed in as self
+
+        >>> SampleStatistics(5, 3, 5, 6, 4, 7, 2).get_mean_geom()
+        4
+
+        >>> try:
+        ...     SampleStatistics.get_mean_geom(None)
+        ... except TypeError as te:
+        ...     print(str(te)[:20])
+        self should be an in
+        """
+        if not isinstance(self, SampleStatistics):
+            raise type_error(self, "self", SampleStatistics)
+        return self.mean_geom
+
+    def get_median(self) -> int | float:
+        """
+        Get the :attr:`~median` of all the samples.
+
+        :return: the :attr:`~median` of all the samples.
+        :raises TypeError: if an object of the wrong type is passed in as self
+
+        >>> SampleStatistics(5, 3, 5, 6, 4, 7, 2).get_median()
+        5
+
+        >>> try:
+        ...     SampleStatistics.get_median(None)
+        ... except TypeError as te:
+        ...     print(str(te)[:20])
+        self should be an in
+        """
+        if not isinstance(self, SampleStatistics):
+            raise type_error(self, "self", SampleStatistics)
+        return self.median
+
+    def get_stddev(self) -> int | float | None:
+        """
+        Get the standard deviation mean (:attr:`~stddev`) of all the samples.
+
+        :return: the standard deviation (:attr:`~stddev`) of all the samples,
+            `None` if the standard deviation is not defined, i.e., if there is
+            only a single sample
+        :raises TypeError: if an object of the wrong type is passed in as self
+
+        >>> SampleStatistics(5, 3, 5, 6, 4, 7, 2).get_stddev()
+        2
+
+        >>> try:
+        ...     SampleStatistics.get_stddev(None)
+        ... except TypeError as te:
+        ...     print(str(te)[:20])
+        self should be an in
+        """
+        if not isinstance(self, SampleStatistics):
+            raise type_error(self, "self", SampleStatistics)
+        return self.stddev
+
+
+#: the internal map of property names to getters
+__PROPERTIES: Final[Callable[[str, None], Callable[[
+    SampleStatistics], int | float | None] | None]] = {
+    KEY_N: SampleStatistics.get_n,
+    KEY_MINIMUM: SampleStatistics.get_minimum,
+    KEY_MEAN_ARITH: SampleStatistics.get_mean_arith,
+    KEY_MEDIAN: SampleStatistics.get_median,
+    KEY_MEAN_GEOM: SampleStatistics.get_mean_geom,
+    KEY_MAXIMUM: SampleStatistics.get_maximum,
+    KEY_STDDEV: SampleStatistics.get_stddev,
+}.get
+
+
+def getter(dimension: str) -> Callable[
+        [SampleStatistics], int | float | None]:
+    """
+    Get a function returning the dimension from :class:`SampleStatistics`.
+
+    :param dimension: the dimension
+    :returns: a :class:`Callable` that returns the value corresponding to the
+        dimension
+    :raises TypeError: if `dimension` is not a string
+    :raises ValueError: if `dimension` is unknown
+
+    >>> getter(KEY_N) is SampleStatistics.get_n
+    True
+    >>> getter(KEY_MINIMUM) is SampleStatistics.get_minimum
+    True
+    >>> getter(KEY_MEAN_ARITH) is SampleStatistics.get_mean_arith
+    True
+    >>> getter(KEY_MEDIAN) is SampleStatistics.get_median
+    True
+    >>> getter(KEY_MEAN_GEOM) is SampleStatistics.get_mean_geom
+    True
+    >>> getter(KEY_MAXIMUM) is SampleStatistics.get_maximum
+    True
+    >>> getter(KEY_STDDEV) is SampleStatistics.get_stddev
+    True
+
+    >>> s = SampleStatistics(5, 3, 5, 6, 4, 7, 2)
+    >>> getter(KEY_N)(s)
+    5
+    >>> getter(KEY_MINIMUM)(s)
+    3
+    >>> getter(KEY_MEAN_ARITH)(s)
+    6
+    >>> getter(KEY_MEDIAN)(s)
+    5
+    >>> getter(KEY_MEAN_GEOM)(s)
+    4
+    >>> getter(KEY_MAXIMUM)(s)
+    7
+    >>> getter(KEY_STDDEV)(s)
+    2
+
+    >>> try:
+    ...     getter(None)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object
+
+    >>> try:
+    ...     getter(1)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
+    >>> try:
+    ...     getter("hello")
+    ... except ValueError as ve:
+    ...     print(ve)
+    Unknown dimension 'hello'.
+    """
+    result: Callable[[SampleStatistics], int | float | None] | None = \
+        __PROPERTIES(str.strip(dimension), None)
+    if result is None:
+        raise ValueError(f"Unknown dimension {dimension!r}.")
+    return result
 
 
 def __mean_of_two(a: int | float, b: int | float) -> int | float:
@@ -1253,6 +1485,15 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     ...     print(te)
     source should be an instance of typing.Iterable but is None.
 
+    >>> from_samples((int("343213544728723549420193506618248802478442\
+545733127827402743350092428341563721880022852900744775368104117201410\
+41"), int("4543178800835483269512609282884075126142677531600199807725\
+0558561959304806690567285991174956892786401583087254156"), int("35473\
+203294104466229269097724582630304968924904656920211268628173495602053\
+843032960943121516556362641127137000879"))).mean_arith
+    38408781925110551288804847071749420604746651597990567009597840581\
+565913672301929416406528849308895284373981465359
+
     >>> try:
     ...     from_samples(1)
     ... except TypeError as te:
@@ -1285,12 +1526,21 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     median: Final[int | float] = data[middle] if (n & 1) == 1 else (
         __mean_of_two(data[middle - 1], data[middle]))
 
-    # If we have only two numbers, we also already have the mean
-    mean_arith: int | float | None = median if n == 2 else None
+    # Is it possible, at this stage, that all data are integers?
+    can_int: bool = isinstance(minimum, int) and isinstance(maximum, int)
+
+    # If we have only two numbers, we also already have the mean.
+    # Otherwise, if we have only integer data so far and we know that
+    # regardless how we dice it, the sum of the data will never exceed
+    # the range in which floats can accurately represent integers, then
+    # we also know that we can compute the arithmetic mean exactly.
+    mean_arith: int | float | None = median if n <= 2 else (
+        try_int(stat_mean(data)) if can_int and (
+            (n * (1 + max(maximum, 0) - min(minimum, 0)))
+            < __DBL_INT_LIMIT_P_I) else None)
     mean_geom: int | float | None = None  # We do not know the geometric mean
     stddev: int | float | None = None  # and neither the standard deviation.
 
-    can_int: bool = isinstance(minimum, int) and isinstance(maximum, int)
     if can_int:  # can we try to do exact computations using ints?
         # Go over the data once and see if we can treat it as all-integer.
         # If yes, then we can compute some statistics very precisely.
@@ -1309,7 +1559,8 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
         # will lead to the smallest sum of deviations. If we know only the
         # median, then this is better than nothing.
         shift: Final[int] = int(median) if mean_arith is None \
-            else int(mean_arith)
+            else (mean_arith if isinstance(mean_arith, int)
+                  else int(round(mean_arith)))
 
         for ee in data:  # iterate over all data
             if not isinstance(ee, int):
@@ -1322,16 +1573,16 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
             int_sum_sqr += e * e  # and compute the sum of squares
 
         if can_int:
-            if mean_arith is None:
-                mean_arith = shift + try_int_div(int_sum, n)
+            if n > 2:  # mean_arith is None or an approximation
+                mean_arith = try_int_add(shift, try_int_div(int_sum, n))
 
             if stddev is None:
-                with (suppress(ArithmeticError)):
-                    var_sub: int | float = try_int_div(int_sum * int_sum, n)
-                    var: Final[int | float] = try_int_div(
-                        int_sum_sqr - var_sub, n - 1) \
-                        if isinstance(var_sub, int) else try_float_div(
-                        int_sum_sqr - var_sub, n - 1)
+                with suppress(ArithmeticError):
+                    issmvs: int | float = try_int_add(
+                        int_sum_sqr, -try_int_div(int_sum * int_sum, n))
+                    var: Final[int | float] = try_int_div(issmvs, n - 1) \
+                        if isinstance(issmvs, int) else try_float_div(
+                        issmvs, n - 1)
 
                     stddev_test: Final[float] = try_int_sqrt(var) if \
                         isinstance(var, int) else sqrt(var)
