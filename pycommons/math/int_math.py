@@ -1,7 +1,17 @@
-"""Integer maths routines."""
+"""
+Mathematics routines combining integers and floats.
+
+These routines try to return results with the highest possible precision,
+ideally as integers.
+If floating point values need to be converted to integers, then we round
+towards the nearest integer numbers, whereas `0.5` is always rounded up and
+`-0.5` is always rounded down.
+Thus, `1.5` becomes `2` and `-1.5` becomes `-2`.
+"""
 
 from contextlib import suppress
 from math import gcd, isfinite, isqrt, sqrt
+from sys import float_info
 from typing import Final
 
 from pycommons.types import type_error
@@ -13,7 +23,7 @@ from pycommons.types import type_error
 #: `float(9007199254740991) == 9007199254740991.0`
 #: But:
 #: #: `float(9007199254740993) == 9007199254740992.0`.
-__DBL_INT_LIMIT_P_I: Final[int] = 9007199254740992
+__DBL_INT_LIMIT_P_I: Final[int] = 2 ** float_info.mant_dig
 #: The positive limit for doubles that can be represented exactly as ints.
 __DBL_INT_LIMIT_P_F: Final[float] = float(__DBL_INT_LIMIT_P_I)  # = 1 << 53
 #: The negative limit for doubles that can be represented exactly as ints.
@@ -828,10 +838,6 @@ def try_float_div(a: int | float, b: int | float) -> int | float:
     ib: Final[int | float] = try_int(b)
     if isinstance(ia, int) and isinstance(ib, int):
         return try_int_div(ia, ib)
-    if not isinstance(a, float | int):
-        raise type_error(a, "a", (int, float))
-    if not isinstance(b, float | int):
-        raise type_error(b, "b", (int, float))
     val: Final[float] = ia / ib
     if not isfinite(val):
         raise ValueError(f"Result must be finite, but is {a}/{b}={val}.")
@@ -1258,3 +1264,267 @@ def try_int_add(a: int, b: int | float) -> int | float:
     # situation ... well ... why not.
     return (int_res + 1) if (b_frac >= 0.5) else (
         (int_res - 1) if (b_frac <= -0.5) else int_res)
+
+
+def try_int_mul(a: int, b: int | float) -> int | float:
+    """
+    Try to multiply an integer with an int or float as exactly as possible.
+
+    :param a: the integer
+    :param b: the int or float to multiply `a` with
+    :return: `a * b`
+    :raises ValueError: if `b` or the result is not finite
+    :raises TypeError: if `a` is not an integer or if `b` is neither an
+        integer nor a float
+
+    # exact result: -111038109230780524.216538356
+    >>> try_int_mul(197262324754, -562895.673916714)
+    -111038109230780524
+    >>> 197262324754 * -562895.673916714
+    -1.1103810923078053e+17
+
+    >>> try_int_mul(4, -2493374.0)
+    -9973496
+    >>> 4 * -2493374.0
+    -9973496.0
+
+    # exact result: -805144077682.7549712841791
+    >>> try_int_mul(609329061, -1321.3616897926931)
+    -805144077682.755
+    >>> 609329061 * -1321.3616897926931
+    -805144077682.755
+
+    # exact result: -88939650274621002534.99
+    >>> try_int_mul(-6548165, 13582377700412.406)
+    -88939650274621002535
+    >>> -6548165 * 13582377700412.406
+    -8.8939650274621e+19
+
+    >>> try_int_mul(4, 0.687279486538305)
+    2.74911794615322
+    >>> 4 * 0.687279486538305
+    2.74911794615322
+
+    # exact result: -2236563847561524626.733
+    >>> try_int_mul(21396228, -104530754091.86725)
+    -2236563847561524627
+    >>> 21396228 * -104530754091.86725
+    -2.2365638475615245e+18
+
+    # exact result: -92649832027598387270282.5408
+    >>> try_int_mul(29187432758, -3174305626527.0176)
+    -92649832027598387270283
+    >>> 29187432758 * -3174305626527.0176
+    -9.264983202759838e+22
+
+    # exact result: 47954872443652456553018463.12996
+    >>> try_int_mul(-317420410641789, -151076839534.96564)
+    47954872443652456553018463
+    >>> -317420410641789 * -151076839534.96564
+    4.795487244365246e+25
+
+    # exact result: 369200712310299349798.80066193866
+    >>> try_int_mul(8136505182920565, 45375.834465796564)
+    369200712310299349799
+    >>> 8136505182920565 * 45375.834465796564
+    3.6920071231029936e+20
+
+    # exact result: 431520767093145743090.73845486
+    >>> try_int_mul(40196153594795, 10735374.619252708)
+    431520767093145743091
+    >>> 40196153594795 * 10735374.619252708
+    4.315207670931457e+20
+
+    # exact result: -250242005217172713.52783326
+    >>> try_int_mul(27941562579, -8955905.90217194)
+    -250242005217172714
+    >>> 27941562579 * -8955905.90217194
+    -2.502420052171727e+17
+
+    # exact result: -6563728914129924.848948421
+    >>> try_int_mul(-672426819, 9761253.906991959)
+    -6563728914129925
+    >>> -672426819 * 9761253.906991959
+    -6563728914129925.0
+
+    >>> try_int_mul(14059, 1.0673811010650016e+16)
+    1.5006310899872858e+20
+    >>> 14059 * 1.0673811010650016e+16
+    1.5006310899872858e+20
+
+    # exact result: 14493050353163113.126430160675
+    >>> try_int_mul(240712887635, 60208.867483403505)
+    14493050353163113
+    >>> 240712887635 * 60208.867483403505
+    1.4493050353163114e+16
+
+    # exact result: 805460953505875910367.5205722154
+    >>> try_int_mul(1812115257906061, 444486.6020479314)
+    805460953505875910368
+    >>> 1812115257906061 * 444486.6020479314
+    8.054609535058759e+20
+
+    # exact result: -1384354228892504466.5554728510606
+    >>> try_int_mul(6815245310862468, -203.12610416033795)
+    -1384354228892504467
+    >>> 6815245310862468 * -203.12610416033795
+    -1.3843542288925043e+18
+
+    # exact result: -572028608656496.423924280629596728
+    >>> try_int_mul(11587431214834713, -0.049366300265425656)
+    -572028608656496.4
+    >>> 11587431214834713 * -0.049366300265425656
+    -572028608656496.4
+
+    # exact result: 1128618866534760.28918431873755142
+    >>> try_int_mul(16354919666787217, 0.06900791257487526)
+    1128618866534760.2
+    >>> 16354919666787217 * 0.06900791257487526
+    1128618866534760.2
+
+    # exact result: -2507326755278071.50624700782133248
+    >>> try_int_mul(13217245192529664, -0.18970116077556032)
+    -2507326755278071.5
+    >>> 13217245192529664 * -0.18970116077556032
+    -2507326755278071.5
+
+    # exact result: 696151526057376.88027486041356184
+    >>> try_int_mul(-10333677547666606, -0.06736725844658964)
+    696151526057376.9
+    >>> -10333677547666606 * -0.06736725844658964
+    696151526057376.9
+
+    # exact result: -958450150333374.5128889837837098
+    >>> try_int_mul(12016909016999122, -0.0797584594322509)
+    -958450150333374.6
+    >>> 12016909016999122 * -0.0797584594322509
+    -958450150333374.6
+
+    >>> aa = int("1318537368301039863303586092319665276843530233302383387022\
+8761465225501763768872549741384158750496877681759291226540877199284501122993\
+0897105528797412214008383330709731057075605034370259681835287681493225337651\
+3905721656778533145739528500419884652958325779506781860934858448618309985340\
+2653730863759125601710698375950989559971436924737005754922330642277477754688\
+4919382044527420457991975491785609852030831998308070776211565814942350933642\
+672902063132158594646597242361650005228312919254855")
+    >>> try_int_mul(aa, -2.6624992899981142e+135)
+    -351060480693750067023466245152649892002999065255934301704877652547763327\
+6089966682336505079318741356239668825559602782030707188045613260112506124428\
+5093101537350651589582291623074853138852161694399953627874101912036884548311\
+3943182522040204678426415272831389201291563075971101530142027750716673015540\
+6607295740699570851331926013149304528681479677945207671002858436171729151698\
+2605494077197133963560833620694245352416036979307296330832320075339786871572\
+1081562940452582181193916472585786212351939273376298627389308264810746868150\
+8750173489935541952565972019057307171584167883509392857532886341625435169602\
+03062012311114874880
+    """
+    if not isinstance(a, int):
+        raise type_error(a, "a", int)
+    if isinstance(b, int):
+        return a * b
+    if not isinstance(b, float):
+        raise type_error(b, "b", (int, float))
+    if not isfinite(b):
+        raise ValueError(f"b={b} is not finite")
+
+    # First we attempt to turn b into an integer, because that would solve all
+    # of our problems.
+    b = __try_int(b)
+    if isinstance(b, int):
+        return a * b  # We are lucky, the result is an integer
+
+    minus: bool = False
+    if a < 0:
+        a = -a
+        minus = True
+    if b < 0:
+        b = -b
+        minus = not minus
+
+    # Try to get the result as floating point number
+    float_res: int | float | None = None
+    with suppress(ArithmeticError):
+        float_res = a * b
+        float_res = __try_int(float_res) if isfinite(float_res) else None
+
+    # pylint: disable=R0916
+    if (float_res is not None) and (isinstance(float_res, int) or (
+            a >= __DBL_INT_LIMIT_P_I) or (b >= __DBL_INT_LIMIT_P_I) or (
+            (a <= __DBL_INT_LIMIT_P_I) and (b <= __DBL_INT_LIMIT_P_I) and (
+            float_res <= __DBL_INT_LIMIT_P_F))):
+        # If float_res could be transformed to an int, then we are good.
+        # If either a or b are outside of the range where we can represent
+        # digits exactly, then there is nothing that we can do and we may
+        # as well return the result of the floating point computation.
+        # Trying to use integers would suggest a precision that we cannot
+        # offer.
+        # Alternatively, if everything falls into the range where we do not
+        # have a loss of precision, then trying anything would be odd.
+        # Using integer precision would be pretentious.
+        return -float_res if minus else float_res  # pylint: disable=E1130
+
+    # If we get here, then we can either not compute the result as floating
+    # point number or it would make sense to attempt to do some integer
+    # computation.
+    # If we have something like "a * 123.456", then a relatively exact way to
+    # compute the result would be to do "a*123 + a*456/1000".
+    # This seems like a strange thing to do ... unless you realize that "a"
+    # could be so big that a*123.456 falls outside of the range where floats
+    # can represent integers accurately and that this could yield something
+    # like "9.4E18" which has maybe some integer digits cut off.
+    # Using the above method, we would still lose the fractional part.
+    # But we would at least get the integer part approximately right (give and
+    # take some rounding).
+    # Using strings feels awkward here, nevertheless. Probably the method used
+    # as fallback later on with the powers of 2 is as same as good ... but it
+    # does not produce results as beautifully close to the real value as this
+    # method here.
+    b_int: int | None = None
+    b_frac_int: int | None = None
+    b_frac_div: int | None = None
+    b_str: Final[str] = str(b)
+    b_str_len: Final[int] = str.__len__(b_str)
+    if ("e" not in b_str) and (b_str_len >= 3):
+        dot = b_str.find(".")
+        if 0 < dot < (b_str_len - 1):
+            b_int = int(b_str[:dot])
+            b_frac_int = int(b_str[dot + 1:])
+            b_frac_div = 10 ** (b_str_len - dot - 1)
+            result = try_int_add(a * b_int, try_int_div(
+                a * b_frac_int, b_frac_div))
+            return -result if minus else result
+
+    # If we get here, then we are dealing with a strange overflow
+    # situation. `float_res` is probably None, i.e., there probably
+    # was some sort of overflow.
+    # So what can we do here? We must resort to integer calculations.
+    # So we try to split up b into an integer and a fractional part.
+    # But we cannot do it exactly (via the string method, because we already
+    # know that this does not work). So instead, we do it "manually" via
+    # floating point arithmetics using powers of 2.
+    # Probably either b_int or b_frac will be 0, meaning that "b" is either
+    # something very large like "1.3e123" or something very small like
+    # "1.2e-30".
+    # We compute a*b_int + a*b_frac separately. But we need to turn b_frac
+    # into an integer again, so we get a*b_int + a*b_frac_int/b_frac_div.
+    # Then we would have some approximately fitting integer.
+    # The result will be pretty ugly.
+    # But it would be the best effort to somehow get a number that roughly
+    # fits to a * b.
+    if b_int is None:
+        b_int = int(b)
+    int_res: Final[int] = a * b_int
+    b_frac: Final[float] = b - b_int
+
+    if b_frac == 0:  # this is extremely unlikely
+        return -int_res if minus else int_res
+
+    b_frac_div = 2
+    while True:
+        b_frac_multiplied: float = b_frac * b_frac_div
+        b_frac_int = int(b_frac_multiplied)
+        if b_frac_int == b_frac_multiplied:
+            break
+        b_frac_div += b_frac_div
+    result = try_int_add(int_res, try_int_div(a * b_frac_int, b_frac_div))
+    return -result if minus else result

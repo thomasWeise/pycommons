@@ -15,6 +15,7 @@ from pycommons.math.int_math import (
     try_int,
     try_int_add,
     try_int_div,
+    try_int_mul,
     try_int_sqrt,
 )
 from pycommons.strings.string_conv import (
@@ -1615,7 +1616,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
 
                 if mean_geom_a is None:  # the log scaling failed
                     mean_geom = None if mean_geom_b is None \
-                        else big_gcd * mean_geom_b  # maybe None, maybe not
+                        else try_int_mul(big_gcd, mean_geom_b)
                 elif mean_geom_b is not None:  # so the actual root worked, too
                     if mean_geom_a > mean_geom_b:
                         mean_geom_a, mean_geom_b = mean_geom_b, mean_geom_a
@@ -1625,10 +1626,10 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
                         diff = abs(int_prod - (mean_geom_a ** n))
                         if diff < best_diff:
                             best_diff = diff
-                            mean_geom = big_gcd * mean_geom_a
+                            mean_geom = try_int_mul(big_gcd, mean_geom_a)
                         mean_geom_a = nextafter(mean_geom_a, inf)
                 else:
-                    mean_geom = big_gcd * mean_geom_a
+                    mean_geom = try_int_mul(big_gcd, mean_geom_a)
 
     if mean_arith is None:
         mean_arith = stat_mean(data)
