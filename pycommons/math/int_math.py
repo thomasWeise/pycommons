@@ -157,6 +157,81 @@ def try_int(value: int | float) -> int | float:
     raise type_error(value, "value", (int, float))
 
 
+def float_to_frac(value: int | float) -> tuple[int, int]:
+    """
+    Turn a floating point number into an integer fraction.
+
+    :param value: the floating point value
+    :return: the integer fraction
+    :raises TypeError: if value is neither an integer nor a float
+    :raises ValueError: if value is not finite
+
+    >>> float_to_frac(0.1)
+    (1, 10)
+
+    >>> float_to_frac(1e-1)
+    (1, 10)
+
+    >>> float_to_frac(1e-20)
+    (1, 100000000000000000000)
+
+    >>> float_to_frac(1e-30)
+    (1, 1000000000000000000000000000000)
+
+    >>> float_to_frac(1e30)
+    (1000000000000000000000000000000, 1)
+
+    >>> float_to_frac(1000)
+    (1000, 1)
+
+    >>> float_to_frac(1000.567)
+    (1000567, 1000)
+
+    >>> float_to_frac(1.234e-5)
+    (617, 50000000)
+
+    >>> float_to_frac(1.234e5)
+    (123400, 1)
+    """
+    value = try_int(value)
+    if isinstance(value, int):
+        return value, 1
+
+    value_str: Final[str] = float.__repr__(value)
+    minus: Final[bool] = value_str[0] == "-"
+
+    start_idx: int = 1 if minus else 0
+    end_idx: int = str.__len__(value_str)
+    dot_idx: Final[int] = str.find(value_str, ".")
+    exp_idx: Final[int] = str.find(value_str, "e")
+
+    int_denominator: int = 1
+    int_multiplier: int = 1
+    if exp_idx > 0:
+        int_exp = int(value_str[exp_idx + 1:end_idx])
+        if int_exp < 0:
+            int_denominator = 10 ** (-int_exp)
+        else:
+            int_multiplier = 10 ** int_exp
+        end_idx = exp_idx
+
+    int_numerator: int = 0
+    if dot_idx >= 0:
+        int_denom_2 = 10 ** (end_idx - dot_idx - 1)
+        int_numerator = ((int(value_str[start_idx:dot_idx]) * int_denom_2)
+                         + int(value_str[dot_idx + 1:end_idx]))
+        int_denominator *= int_denom_2
+    else:
+        int_numerator = int(value_str[start_idx:end_idx])
+
+    int_numerator *= int_multiplier
+    divi: Final[int] = gcd(int_numerator, int_denominator)
+    int_numerator = int_numerator // divi
+    int_denominator = int_denominator // divi
+
+    return -int_numerator if minus else int_numerator, int_denominator
+
+
 def try_int_div(a: int, b: int) -> int | float:
     """
     Try to divide two integers at best precision.
@@ -718,18 +793,12 @@ def try_int_div(a: int, b: int) -> int | float:
     return -best_result if minus else best_result  # fix sign of result
 
 
-def try_float_div(a: int | float, b: int | float) -> int | float:
+def try_float_int_div(a: int | float, b: int) -> int | float:
     """
-    Try to divide two numbers at best precision.
+    Try to divide a float by an int at best precision.
 
-    First, we will check if we can convert the numbers to integers
-    without loss of precision via :func:`try_int`. If yes, then
-    we go for the maximum-precision integer division via :func:`try_int_div`.
-    If no, then we do the normal floating point division and try to convert
-    the result to an integer if that can be done without loss of precision.
-
-    :param a: the first number
-    :param b: the second number
+    :param a: the first number, which is either a float or an int
+    :param b: the second number, which must be an int
     :return: `a/b`, but always finite
 
     :raises ValueError: if either one of the arguments or the final result
@@ -737,111 +806,88 @@ def try_float_div(a: int | float, b: int | float) -> int | float:
     :raises TypeError: if either one of `a` or `b` is neither an integer nor
         a float
 
-    >>> try_float_div(1e180, 1e60)
-    1.0000000000000001e+120
-    >>> try_float_div(1e60, 1e-60)
-    1e+120
-    >>> try_float_div(1e14, 1e-1)
-    1000000000000000
-    >>> try_float_div(1e14, -1e-1)
-    -1000000000000000
-    >>> try_float_div(-1e14, 1e-1)
-    -1000000000000000
-    >>> try_float_div(-1e14, -1e-1)
-    1000000000000000
-    >>> try_float_div(1e15, 1e-1)
-    1e+16
-    >>> try_float_div(1e15, -1e-1)
-    -1e+16
-    >>> try_float_div(-1e15, 1e-1)
-    -1e+16
-    >>> try_float_div(-1e15, -1e-1)
-    1e+16
-    >>> try_float_div(1e15, 1e-15)
-    9.999999999999999e+29
+    >>> try_float_int_div(10, 2)
+    5
 
-    >>> print(type(try_float_div(10, 2)))
+    >>> try_float_int_div(10.0, 2)
+    5
+
+    >>> try_float_int_div(10, 3)
+    3.3333333333333335
+
+    >>> try_float_int_div(-10, 2)
+    -5
+
+    >>> try_float_int_div(-10.2, 2)
+    -5.1
+
+    >>> try_float_int_div(-10.0, 2)
+    -5
+
+    >>> try_float_int_div(-10, 3)
+    -3.3333333333333335
+
+    >>> print(type(try_float_int_div(10.0, 2)))
     <class 'int'>
-    >>> print(type(try_float_div(10, 3)))
+
+    >>> print(type(try_float_int_div(10.0, 3)))
     <class 'float'>
-    >>> print(type(try_float_div(10, 0.5)))
-    <class 'int'>
+
+    >>> try:
+    ...     try_float_int_div(10, 0.5)
+    ... except TypeError as te:
+    ...     print(te)
+    b should be an instance of int but is float, namely '0.5'.
 
     >>> from math import inf, nan
     >>> try:
-    ...     try_float_div(1.0, 0)
+    ...     try_float_int_div(1.0, 0)
     ... except ZeroDivisionError as zde:
     ...     print(zde)
     integer division or modulo by zero
 
     >>> try:
-    ...     try_float_div(1.0, -0.0)
-    ... except ZeroDivisionError as zde:
-    ...     print(zde)
-    integer division or modulo by zero
-
-    >>> try:
-    ...     try_float_div(inf, 0)
+    ...     try_float_int_div(inf, 0)
     ... except ValueError as ve:
     ...     print(ve)
     Value must be finite, but is inf.
 
     >>> try:
-    ...     try_float_div(-inf, 0)
+    ...     try_float_int_div(-inf, 0)
     ... except ValueError as ve:
     ...     print(ve)
     Value must be finite, but is -inf.
 
     >>> try:
-    ...     try_float_div(nan, 0)
+    ...     try_float_int_div(nan, 0)
     ... except ValueError as ve:
     ...     print(ve)
     Value must be finite, but is nan.
 
     >>> try:
-    ...     try_float_div(1, inf)
-    ... except ValueError as ve:
-    ...     print(ve)
-    Value must be finite, but is inf.
+    ...     try_float_int_div(1, inf)
+    ... except TypeError as te:
+    ...     print(te)
+    b should be an instance of int but is float, namely 'inf'.
 
     >>> try:
-    ...     try_float_div(1, -inf)
-    ... except ValueError as ve:
-    ...     print(ve)
-    Value must be finite, but is -inf.
-
-    >>> try:
-    ...     try_float_div(1, nan)
-    ... except ValueError as ve:
-    ...     print(ve)
-    Value must be finite, but is nan.
-
-    >>> try:
-    ...     try_float_div(1e300, 1e-60)
-    ... except ValueError as ve:
-    ...     print(ve)
-    Result must be finite, but is 1e+300/1e-60=inf.
-
-    >>> try:
-    ...     try_float_div("y", 1)
+    ...     try_float_int_div("y", 1)
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of any in {float, int} but is str, namely 'y'.
 
     >>> try:
-    ...     try_float_div(1, "x")
+    ...     try_float_int_div(1, "x")
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of any in {float, int} but is str, namely 'x'.
+    b should be an instance of int but is str, namely 'x'.
     """
-    ia: Final[int | float] = try_int(a)
-    ib: Final[int | float] = try_int(b)
-    if isinstance(ia, int) and isinstance(ib, int):
-        return try_int_div(ia, ib)
-    val: Final[float] = ia / ib
-    if not isfinite(val):
-        raise ValueError(f"Result must be finite, but is {a}/{b}={val}.")
-    return __try_int(val)
+    if not isinstance(b, int):
+        raise type_error(b, "b", int)
+    a = try_int(a)
+    if isinstance(a, int):
+        return try_int_div(a, b)
+    return __try_int(a / b)
 
 
 #: the maximum value of a root that can be computed with floats exactly
@@ -887,6 +933,7 @@ def try_int_sqrt(value: int) -> int | float:
     >>> try_int_sqrt(9)
     3
 
+    # exact result: 67108864.0000000074505805969238277
     >>> try_int_sqrt(4503599627370497)
     67108864
     >>> 67108864 * 67108864
@@ -896,26 +943,31 @@ def try_int_sqrt(value: int) -> int | float:
     >>> sqrt(4503599627370497) * sqrt(4503599627370497)
     4503599627370496.0
 
+    # exact result: 1592262918131443.14115595358963
     >>> try_int_sqrt(2535301200456458802993406410753)
     1592262918131443.2
     >>> sqrt(2535301200456458802993406410753)
     1592262918131443.2
 
+    # exact result: 6369051672525772.564623814
     >>> try_int_sqrt(40564819207303340847894502572033)
     6369051672525773
     >>> sqrt(40564819207303340847894502572033)
     6369051672525773.0
 
+    # exact result: 50952413380206180.51699051486817387
     >>> try_int_sqrt(2596148429267413814265248164610049)
     50952413380206181
     >>> sqrt(2596148429267413814265248164610049)
     5.0952413380206184e+16
 
+    # exact result: 47695509376267.99690952215843525
     >>> try_int_sqrt(2274861614661668407597778085)
     47695509376267.99
     >>> sqrt(2274861614661668407597778085)
     47695509376267.99
 
+    # exact result: 9067560306493833.1123015448971368313360
     >>> try_int_sqrt(82220649911902536690031728766315)
     9067560306493833
     >>> sqrt(82220649911902536690031728766315)
@@ -939,6 +991,9 @@ def try_int_sqrt(value: int) -> int | float:
     >>> 31.701734968294716 * 31.701734968294716
     1005.0
 
+    exact result: 1098367625620897554397104127853022914763109648022\
+928865503114153469686909343624968339609542505832728796367409822636937\
+28593951807995466301001184452657840914432
     >>> try_int_sqrt(int("1206411441012088169768424908631547135410050\
 450349701156359323012992324468898745458674194715627653148741645085002\
 880167432962708099995812635821183919553390204438671018341579206970136\
@@ -948,6 +1003,7 @@ def try_int_sqrt(value: int) -> int | float:
 696869093436249683396095425058327287963674098226369372859395180799546\
 6301001184452657840914432
 
+    # exact result: 112519976.73369080909552361
     >>> try_int_sqrt(12660745164150321)
     112519976.73369081
     >>> 112519976.73369081 * 112519976.73369081
@@ -962,6 +1018,7 @@ def try_int_sqrt(value: int) -> int | float:
     >>> sqrt(12369445361672285)
     111218008.26157734
 
+    # exact result: 94906265.624251558157461955425
     >>> try_int_sqrt(9007199254740993)
     94906265.62425156
     >>> 94906265.62425156 * 94906265.62425156
@@ -971,6 +1028,7 @@ def try_int_sqrt(value: int) -> int | float:
     >>> 94906265.62425156 * 94906265.62425156
     9007199254740994.0
 
+    # exact result: 126969687.206733737782866
     >>> try_int_sqrt(16121301469375805)
     126969687.20673373
     >>> 126969687.20673373 * 126969687.20673373
@@ -980,6 +1038,8 @@ def try_int_sqrt(value: int) -> int | float:
     >>> 126969687.20673373 * 126969687.20673373
     1.6121301469375804e+16
 
+    # exact result: 94906265.6242515686941740831
+    # here we are off a bit!
     >>> try_int_sqrt(9007199254740995)
     94906265.62425156
     >>> 94906265.62425156 * 94906265.62425156
@@ -989,6 +1049,7 @@ def try_int_sqrt(value: int) -> int | float:
     >>> 94906265.62425157 * 94906265.62425157
     9007199254740996.0
 
+    # exact result: 102406758.28296330267545316
     >>> try_int_sqrt(10487144142025273)
     102406758.2829633
     >>> 102406758.2829633 * 102406758.2829633
@@ -998,6 +1059,7 @@ def try_int_sqrt(value: int) -> int | float:
     >>> 102406758.28296329 * 102406758.28296329
     1.048714414202527e+16
 
+    # exact result: 101168874.5492688823358
     >>> try_int_sqrt(10235141177565705)
     101168874.54926889
     >>> 101168874.54926889 * 101168874.54926889
@@ -1007,6 +1069,7 @@ def try_int_sqrt(value: int) -> int | float:
     >>> 101168874.54926887 * 101168874.54926887
     1.0235141177565702e+16
 
+    # exact result: 123961449.976073299398431984
     >>> try_int_sqrt(15366441080170523)
     123961449.9760733
     >>> 123961449.9760733 * 123961449.9760733
@@ -1016,6 +1079,7 @@ def try_int_sqrt(value: int) -> int | float:
     >>> 123961449.97607331 * 123961449.97607331
     1.5366441080170526e+16
 
+    # exact result: 4760418939079673.01527272985
     >>> try_int_sqrt(22661588475548439582669426672241)
     4760418939079673
     >>> 4760418939079673 * 4760418939079673
@@ -1025,6 +1089,7 @@ def try_int_sqrt(value: int) -> int | float:
     >>> 4760418939079673.0 * 4760418939079673.0
     2.266158847554844e+31
 
+    # exact result: 5712179292532910.79362200453777547
     >>> try_int_sqrt(32628992270041785263905793906381)
     5712179292532911
     >>> 5712179292532911 * 5712179292532911
@@ -1148,16 +1213,19 @@ def try_int_add(a: int, b: int | float) -> int | float:
     >>> -960433622582960 + 1.491132239895968e+16
     1.395088877637672e+16
 
+    # exact result: 10796862382206072.70684135
     >>> try_int_add(10796862236149287, 146056785.70684135)
     10796862382206073
     >>> 10796862236149287 + 146056785.70684135
     1.0796862382206074e+16
 
+    # exact result: -11909678744561796.5206623
     >>> try_int_add(-11909677351933537, -1392628259.5206623)
     -11909678744561797
     >>> -11909677351933537 + -1392628259.5206623
     -1.1909678744561796e+16
 
+    # exact result: 8991519996993845.25
     >>> try_int_add(9257476766666634, -265956769672788.75)
     8991519996993845
     >>> 9257476766666634 + -265956769672788.75
@@ -1170,6 +1238,8 @@ def try_int_add(a: int, b: int | float) -> int | float:
     >>> v + 6.147962494740932e+217
     6.147962494740932e+217
 
+    exact result: 2060196266381720280000783609573994641953401509142\
+0431778715465940577471030.192914550695235
     >>> v = int("2060196266381720280000783609573994641953401509142043\
 1778715465940577470980")
     >>> try_int_add(v, 50.192914550695235)
@@ -1212,8 +1282,9 @@ def try_int_add(a: int, b: int | float) -> int | float:
     if isinstance(b, int):
         return a + b  # We are lucky, the result is an integer
 
-    b_int: Final[int] = int(b)
-    int_res: Final[int] = a + b_int
+    b_num, b_denom = float_to_frac(b)
+    int_num: Final[int] = b_num // b_denom
+    int_res: Final[int] = a + int_num
 
     a_exact: Final[bool] = __DBL_INT_LIMIT_N_I < a < __DBL_INT_LIMIT_P_I
     b_exact: Final[bool] = __DBL_INT_LIMIT_N_I < b < __DBL_INT_LIMIT_P_I
@@ -1223,21 +1294,6 @@ def try_int_add(a: int, b: int | float) -> int | float:
         # We know that the result should fit well into the float range.
         # So we can just compute it normally
         return __try_int(a + b)
-
-    # OK, so at least one parameter will step out of our comfort zone.
-    b_frac: Final[float] = b - b_int
-    if b_exact and res_exact:
-        # `b` is a float whose integer part is exactly represented.
-        # `a` is not.
-        # So if we convert `a` to a float by doing `a + b`, we lose precision.
-        # So the right thing to do would be to first compute the integer
-        # result by adding `a + int(b)`. This result will be exact, because we
-        # already know that it fits into the exactly representable range.
-        # So we compute it without transforming it to a float.
-        # Now we can add the floating point fraction of `b` to it.
-        # This will turn the result into a float that is represented as
-        # exactly as possible.
-        return __try_int(int_res + b_frac)
 
     if not b_exact:
         # Now if we get here, we are in a strange territory.
@@ -1262,8 +1318,10 @@ def try_int_add(a: int, b: int | float) -> int | float:
     # We can do the same thing if the result of the computation would not be
     # finite. Although it would be a bit pretentious to round in such a
     # situation ... well ... why not.
-    return (int_res + 1) if (b_frac >= 0.5) else (
-        (int_res - 1) if (b_frac <= -0.5) else int_res)
+    b_num -= int_num * b_denom
+    round_up: Final[bool] = abs(b_num + b_num) >= b_denom
+    return (int_res - 1) if (round_up and (b_num < 0)) else (
+        (int_res + 1) if round_up and (b_num > 0) else int_res)
 
 
 def try_int_mul(a: int, b: int | float) -> int | float:
@@ -1408,15 +1466,15 @@ def try_int_mul(a: int, b: int | float) -> int | float:
 4919382044527420457991975491785609852030831998308070776211565814942350933642\
 672902063132158594646597242361650005228312919254855")
     >>> try_int_mul(aa, -2.6624992899981142e+135)
-    -351060480693750067023466245152649892002999065255934301704877652547763327\
-6089966682336505079318741356239668825559602782030707188045613260112506124428\
-5093101537350651589582291623074853138852161694399953627874101912036884548311\
-3943182522040204678426415272831389201291563075971101530142027750716673015540\
-6607295740699570851331926013149304528681479677945207671002858436171729151698\
-2605494077197133963560833620694245352416036979307296330832320075339786871572\
-1081562940452582181193916472585786212351939273376298627389308264810746868150\
-8750173489935541952565972019057307171584167883509392857532886341625435169602\
-03062012311114874880
+    -35106048069375006445383529242807653499806562624820585939422413192829780\
+7375572486365608096664361429217283292718296360530276771619617508933170356074\
+4988120284425121093171262696954695038088240282639132134536157970777415620680\
+5447778726081994964719875373469690469544441689454664634008609059625552837063\
+0342399126802523139567432239948562798671234539502947563959737236970890902877\
+4243842755397630769057958666859505455598999506335122025009809406354300546655\
+5487570330833402606650906923383583401921404981919444100000000000000000000000\
+0000000000000000000000000000000000000000000000000000000000000000000000000000\
+000000000000000000000
     """
     if not isinstance(a, int):
         raise type_error(a, "a", int)
@@ -1463,68 +1521,6 @@ def try_int_mul(a: int, b: int | float) -> int | float:
         # Using integer precision would be pretentious.
         return -float_res if minus else float_res  # pylint: disable=E1130
 
-    # If we get here, then we can either not compute the result as floating
-    # point number or it would make sense to attempt to do some integer
-    # computation.
-    # If we have something like "a * 123.456", then a relatively exact way to
-    # compute the result would be to do "a*123 + a*456/1000".
-    # This seems like a strange thing to do ... unless you realize that "a"
-    # could be so big that a*123.456 falls outside of the range where floats
-    # can represent integers accurately and that this could yield something
-    # like "9.4E18" which has maybe some integer digits cut off.
-    # Using the above method, we would still lose the fractional part.
-    # But we would at least get the integer part approximately right (give and
-    # take some rounding).
-    # Using strings feels awkward here, nevertheless. Probably the method used
-    # as fallback later on with the powers of 2 is as same as good ... but it
-    # does not produce results as beautifully close to the real value as this
-    # method here.
-    b_int: int | None = None
-    b_frac_int: int | None = None
-    b_frac_div: int | None = None
-    b_str: Final[str] = str(b)
-    b_str_len: Final[int] = str.__len__(b_str)
-    if ("e" not in b_str) and (b_str_len >= 3):
-        dot = b_str.find(".")
-        if 0 < dot < (b_str_len - 1):
-            b_int = int(b_str[:dot])
-            b_frac_int = int(b_str[dot + 1:])
-            b_frac_div = 10 ** (b_str_len - dot - 1)
-            result = try_int_add(a * b_int, try_int_div(
-                a * b_frac_int, b_frac_div))
-            return -result if minus else result
-
-    # If we get here, then we are dealing with a strange overflow
-    # situation. `float_res` is probably None, i.e., there probably
-    # was some sort of overflow.
-    # So what can we do here? We must resort to integer calculations.
-    # So we try to split up b into an integer and a fractional part.
-    # But we cannot do it exactly (via the string method, because we already
-    # know that this does not work). So instead, we do it "manually" via
-    # floating point arithmetics using powers of 2.
-    # Probably either b_int or b_frac will be 0, meaning that "b" is either
-    # something very large like "1.3e123" or something very small like
-    # "1.2e-30".
-    # We compute a*b_int + a*b_frac separately. But we need to turn b_frac
-    # into an integer again, so we get a*b_int + a*b_frac_int/b_frac_div.
-    # Then we would have some approximately fitting integer.
-    # The result will be pretty ugly.
-    # But it would be the best effort to somehow get a number that roughly
-    # fits to a * b.
-    if b_int is None:
-        b_int = int(b)
-    int_res: Final[int] = a * b_int
-    b_frac: Final[float] = b - b_int
-
-    if b_frac == 0:  # this is extremely unlikely
-        return -int_res if minus else int_res
-
-    b_frac_div = 2
-    while True:
-        b_frac_multiplied: float = b_frac * b_frac_div
-        b_frac_int = int(b_frac_multiplied)
-        if b_frac_int == b_frac_multiplied:
-            break
-        b_frac_div += b_frac_div
-    result = try_int_add(int_res, try_int_div(a * b_frac_int, b_frac_div))
+    num, denom = float_to_frac(b)
+    result = try_int_div(a * num, denom)
     return -result if minus else result

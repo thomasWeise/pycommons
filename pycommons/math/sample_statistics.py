@@ -11,7 +11,7 @@ from typing import Callable, Final, Iterable, cast
 from pycommons.io.csv import CSV_SEPARATOR, SCOPE_SEPARATOR
 from pycommons.math.int_math import (
     __DBL_INT_LIMIT_P_I,
-    try_float_div,
+    try_float_int_div,
     try_int,
     try_int_add,
     try_int_div,
@@ -1581,10 +1581,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
                 with suppress(ArithmeticError):
                     issmvs: int | float = try_int_add(
                         int_sum_sqr, -try_int_div(int_sum * int_sum, n))
-                    var: Final[int | float] = try_int_div(issmvs, n - 1) \
-                        if isinstance(issmvs, int) else try_float_div(
-                        issmvs, n - 1)
-
+                    var: Final[int | float] = try_float_int_div(issmvs, n - 1)
                     stddev_test: Final[float] = try_int_sqrt(var) if \
                         isinstance(var, int) else sqrt(var)
                     if stddev_test > 0:
