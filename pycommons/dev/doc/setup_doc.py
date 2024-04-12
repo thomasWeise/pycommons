@@ -21,6 +21,7 @@ __DEFAULT_INTERSPHINX: Final[dict[str, tuple[str, None]]] = {
     "moptipy": ("https://thomasweise.github.io/moptipy/", None),
     "moptipyapps": ("https://thomasweise.github.io/moptipyapps/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
+    "psutil": ("https://psutil.readthedocs.io/en/stable/", None),
     "pycommons": ("https://thomasweise.github.io/pycommons/", None),
     "python": ("https://docs.python.org/3/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
