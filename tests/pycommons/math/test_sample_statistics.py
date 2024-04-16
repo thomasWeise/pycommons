@@ -9,7 +9,7 @@ from statistics import mean as statmean
 from statistics import median as statmedian
 from statistics import stdev as statstddev
 from sys import float_info
-from typing import Final, Iterable
+from typing import Callable, Final, Iterable
 
 from pycommons.io.csv import csv_read, csv_write
 from pycommons.math.sample_statistics import (
@@ -460,7 +460,7 @@ def test_csv_3() -> None:
     w = CsvWriter()
     w.setup(data_2)
     try:
-        w.get_row(data[0], [])
+        w.get_row(data[0], [].append)
         error = True
     except ValueError:
         pass
@@ -967,7 +967,7 @@ class _TCW:
         self._wc.setup(d[2] for d in data)
         return self
 
-    def get_column_titles(self, dest: list[str]) -> None:
+    def get_column_titles(self, dest: Callable[[str], None]) -> None:
         """
         Get the column titles.
 
@@ -979,7 +979,7 @@ class _TCW:
 
     def get_row(self, data: tuple[
             SampleStatistics, SampleStatistics, SampleStatistics],
-            dest: list[str]) -> None:
+            dest: Callable[[str], None]) -> None:
         """
         Render a single sample statistics to a CSV row.
 
@@ -990,7 +990,7 @@ class _TCW:
         self._wb.get_row(data[1], dest)
         self._wc.get_row(data[2], dest)
 
-    def get_header_comments(self, dest: list[str]) -> None:
+    def get_header_comments(self, dest: Callable[[str], None]) -> None:
         """
         Get any possible header comments.
 
@@ -1000,7 +1000,7 @@ class _TCW:
         self._wb.get_header_comments(dest)
         self._wc.get_header_comments(dest)
 
-    def get_footer_comments(self, dest: list[str]) -> None:
+    def get_footer_comments(self, dest: Callable[[str], None]) -> None:
         """
         Get any possible footer comments.
 

@@ -2015,58 +2015,59 @@ class CsvWriter:
 
         return self
 
-    def get_column_titles(self, dest: list[str]) -> None:
+    def get_column_titles(self, dest: Callable[[str], None]) -> None:
         """
         Get the column titles.
 
-        :param dest: the destination
+        :param dest: the destination string consumer
         """
         if self.__has_n:
-            dest.append(self.__key_n)
+            dest(self.__key_n)
 
         if self.__single_value:
-            dest.append(self.__key_all)
+            dest(self.__key_all)
         else:
-            dest.append(self.__key_min)
-            dest.append(self.__key_mean_arith)
-            dest.append(self.__key_med)
+            dest(self.__key_min)
+            dest(self.__key_mean_arith)
+            dest(self.__key_med)
             if self.__has_geo_mean:
-                dest.append(self.__key_mean_geom)
-            dest.append(self.__key_max)
-            dest.append(self.__key_sd)
+                dest(self.__key_mean_geom)
+            dest(self.__key_max)
+            dest(self.__key_sd)
 
-    def get_row(self, data: SampleStatistics, dest: list[str]) -> None:
+    def get_row(self, data: SampleStatistics,
+                dest: Callable[[str], None]) -> None:
         """
         Render a single sample statistics to a CSV row.
 
         :param data: the data sample
-        :param dest: the destination list
+        :param dest: the string consumer
         """
         if self.__has_n:
-            dest.append(str(data.n))
+            dest(str(data.n))
         if self.__single_value:
             if data.minimum != data.maximum:
                 raise ValueError(f"Inconsistent data {data}.")
-            dest.append(num_to_str(data.minimum))
+            dest(num_to_str(data.minimum))
         else:
-            dest.append(num_to_str(data.minimum))
-            dest.append(num_to_str(data.mean_arith))
-            dest.append(num_to_str(data.median))
+            dest(num_to_str(data.minimum))
+            dest(num_to_str(data.mean_arith))
+            dest(num_to_str(data.median))
             if self.__has_geo_mean:
-                dest.append(num_or_none_to_str(data.mean_geom))
-            dest.append(num_to_str(data.maximum))
-            dest.append(num_or_none_to_str(data.stddev))
+                dest(num_or_none_to_str(data.mean_geom))
+            dest(num_to_str(data.maximum))
+            dest(num_or_none_to_str(data.stddev))
 
-    def get_header_comments(self, dest: list[str]) -> None:
+    def get_header_comments(self, dest: Callable[[str], None]) -> None:
         """
         Get any possible header comments.
 
         :param dest: the destination
         """
         if (self.__scope is not None) and (self.__long_name is not None):
-            dest.append(f"Sample statistics about {self.__long_name}.")
+            dest(f"Sample statistics about {self.__long_name}.")
 
-    def get_footer_comments(self, dest: list[str]) -> None:
+    def get_footer_comments(self, dest: Callable[[str], None]) -> None:
         """
         Get any possible footer comments.
 
@@ -2077,61 +2078,54 @@ class CsvWriter:
         short_name: str | None = self.__short_name
         short_name = "" if short_name is None else f" {short_name}"
         name: str = long_name
-        first: bool = list.__len__(dest) > 0
+        first: bool = True
 
         scope: Final[str] = self.__scope
         if (scope is not None) and (
                 self.__has_n or (not self.__single_value)):
             if first:
-                dest.append("")
+                dest("")
                 first = False
-            dest.append(f"All{name} sample statistics start with "
-                        f"{(scope + SCOPE_SEPARATOR)!r}.")
+            dest(f"All{name} sample statistics start with "
+                 f"{(scope + SCOPE_SEPARATOR)!r}.")
             name = short_name
 
         if self.__has_n:
             if first:
-                dest.append("")
+                dest("")
                 first = False
-            dest.append(f"{self.__key_n}: the number of{name} samples")
+            dest(f"{self.__key_n}: the number of{name} samples")
             name = short_name
         if self.__single_value:
             if first:
-                dest.append("")
-            dest.append(
-                f"{self.__key_all}: all{name} samples have this value")
+                dest("")
+            dest(f"{self.__key_all}: all{name} samples have this value")
         else:
             if first:
-                dest.append("")
+                dest("")
             n_name: str | None = self.__key_n
             if n_name is None:
                 n_name = KEY_N
-            dest.append(
-                f"{self.__key_min}: the smallest encountered{name} value")
+            dest(f"{self.__key_min}: the smallest encountered{name} value")
             name = short_name
-            dest.append(
-                f"{self.__key_mean_arith}: the arithmetic mean of all the"
-                f"{name} values, i.e., the sum of the values divided by "
-                f"their number {n_name}")
-            dest.append(
-                f"{self.__key_med}: the median of all the{name} values, which"
-                "can be computed by sorting the values and then picking the "
-                "value in the middle of the sorted list (in case of an odd "
-                f"number {n_name} of values) or the arithmetic mean (half the"
-                " sum) of the two values in the middle (in case of an even "
-                f"number {n_name})")
+            dest(f"{self.__key_mean_arith}: the arithmetic mean of all the"
+                 f"{name} values, i.e., the sum of the values divided by "
+                 f"their number {n_name}")
+            dest(f"{self.__key_med}: the median of all the{name} values, "
+                 f"which can be computed by sorting the values and then "
+                 f"picking the value in the middle of the sorted list (in "
+                 f"case of an odd number {n_name} of values) or the "
+                 f"arithmetic mean (half the sum) of the two values in the "
+                 f"middle (in case of an even number {n_name})")
             if self.__has_geo_mean:
-                dest.append(
-                    f"{self.__key_mean_geom}: the geometric mean of all the"
-                    f"{name} values, i.e., the {n_name}-th root of the "
-                    f"product of all values, which is only defined if all "
-                    f"values are > 0")
-            dest.append(
-                f"{self.__key_max}: the largest encountered{name} value")
-            dest.append(
-                f"{self.__key_sd}: the standard deviation of the{name} "
-                "values, which is a measure of spread: the larger it "
-                "is, the farther are the values distributed away from "
-                f"the arithmetic mean {self.__key_mean_arith}. It can be "
-                "computed as the ((sum of squares) - (square of the sum)"
-                f" / {n_name}) / ({n_name} - 1) of all{name} values.")
+                dest(f"{self.__key_mean_geom}: the geometric mean of all the"
+                     f"{name} values, i.e., the {n_name}-th root of the "
+                     f"product of all values, which is only defined if all "
+                     f"values are > 0")
+            dest(f"{self.__key_max}: the largest encountered{name} value")
+            dest(f"{self.__key_sd}: the standard deviation of the{name} "
+                 "values, which is a measure of spread: the larger it "
+                 "is, the farther are the values distributed away from "
+                 f"the arithmetic mean {self.__key_mean_arith}. It can be "
+                 "computed as the ((sum of squares) - (square of the sum)"
+                 f" / {n_name}) / ({n_name} - 1) of all{name} values.")

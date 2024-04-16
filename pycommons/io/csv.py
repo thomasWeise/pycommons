@@ -284,14 +284,14 @@ def csv_read(rows: Iterable[str],
 
 
 def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
-              get_column_titles: Callable[[S, list[str]], Any],
-              get_row: Callable[[S, T, list[str]], Any],
+              get_column_titles: Callable[[S, Callable[[str], None]], Any],
+              get_row: Callable[[S, T, Callable[[str], None]], Any],
               setup: Callable[[Iterable[T]], S] = lambda t: cast(S, t),
               separator: str = CSV_SEPARATOR,
               comment_start: str | None = COMMENT_START,
-              get_header_comments: Callable[[S, list[str]], Any] =
+              get_header_comments: Callable[[S, Callable[[str], None]], Any] =
               lambda _, __: None,
-              get_footer_comments: Callable[[S, list[str]], Any] =
+              get_footer_comments: Callable[[S, Callable[[str], None]], Any] =
               lambda _, __: None) -> None:
     r"""
     Write data in CSV format to a text destination.
@@ -300,23 +300,26 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     function `setup` is invoked and applied to the `data` :class:`Iterable`.
     It can return an object that sort of stores the structure of the data,
     e.g., which columns should be generated and how they should be formatted.
-    This returned object is passed to `get_column_titles`, which should append
-    the titles of the columns to a :class:`list` of :class:`str`. These titles
-    are :meth:`~str.strip`-ped concatenated to use the column `separator`
-    string and the resulting header string is passed to `consumer`. Then, for
-    each element `e` in the `data` :class:`Iterable`, the function `get_row`
-    is invoked. This function receives the setup information object
-    (previously returned by `setup`) and should append one string per column
-    to the :class:`list` it receives as third parameter. These strings are
-    then each :meth:`~str.strip`-ped and concatenated using the column
-    `separator` string. All trailing `separator` are removed, but if all
-    strings are empty, at least a single `separator` is retained. The
-    resulting string (per row) is again passed to `consumer`.
+
+    This returned object is passed to `get_column_titles`, which should pass
+    the titles of the columns to a :class:`Callable`. These titles are
+    :meth:`~str.strip`-ped and concatenated to use the column `separator`
+    string and the resulting header string is passed to `consumer`.
+
+    Then, for each element `e` in the `data` :class:`Iterable`, the function
+    `get_row` is invoked. This function receives the setup information object
+    (previously returned by `setup`) and a :class:`Callable` to which one
+    string per column should be passed. These strings are then each
+    :meth:`~str.strip`-ped and concatenated using the column `separator`
+    string. All trailing `separator` are removed, but if all strings are
+    empty, at least a single `separator` is retained. The resulting string
+    (per row) is again passed to `consumer`.
 
     Additionally, `get_header_comments` and `get_footer_comments` can be
-    provided to generate instances of :class:`Iterable` of :class:`str` to
-    prepend or append as comment rows before or after all of the above,
-    respectively. In that case, `comment_start` is prepended to each line.
+    provided to pass row comments as :class:`str` to a :class:`Callable` which
+    then prepends or appends them as comment rows before or after all of the
+    above, respectively. In that case, `comment_start` is prepended to each
+    line.
 
     :param data: the iterable of data to be written
     :param consumer: the consumer to which it will be written
@@ -340,18 +343,21 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     >>> def __setup(datarows) -> list[str]:
     ...     return sorted({dkey for datarow in datarows for dkey in datarow})
 
-    >>> def __get_column_titles(keyd: list[str], lst: list[str]):
-    ...     lst.extend(keyd)
+    >>> def __get_column_titles(keyd: list[str], app: Callable[[str], None]):
+    ...     for kx in keyd:
+    ...         app(kx)
 
-    >>> def __get_row(keyd: list[str], row: dict[str, int], lst: list[str]):
-    ...     lst.extend(map(str, (row.get(key, "") for key in keyd)))
+    >>> def __get_row(keyd: list[str], row: dict[str, int],
+    ...               app: Callable[[str], None]):
+    ...     for kx in map(str, (row.get(key, "") for key in keyd)):
+    ...         app(kx)
 
-    >>> def __get_header_cmt(keyd: list[str], dst: list[str]):
-    ...     dst.append("This is a header comment.")
-    ...     dst.append(" We have two of it. ")
+    >>> def __get_header_cmt(keyd: list[str], app: Callable[[str], None]):
+    ...     app("This is a header comment.")
+    ...     app(" We have two of it. ")
 
-    >>> def __get_footer_cmt(keyd: list[str], dst: list[str]):
-    ...     dst.append(" This is a footer comment.")
+    >>> def __get_footer_cmt(keyd: list[str], app: Callable[[str], None]):
+    ...     app(" This is a footer comment.")
 
     >>> csv_write(dd, print, __get_column_titles, __get_row, __setup,
     ...           ";", "#", __get_header_cmt, __get_footer_cmt)
@@ -542,8 +548,8 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...     print(te)
     get_footer_comments should be a callable but is int, namely '1'.
 
-    >>> def __err_cmt_1(keyd: list[str], dst: list[str]):
-    ...     dst.append("This is\n a comment with error.")
+    >>> def __err_cmt_1(keyd: list[str], app: Callable[[str], None]):
+    ...     app("This is\n a comment with error.")
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,
@@ -564,12 +570,11 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ;
     Footer comment must not contain newline, but 'This is\n a c
 
-    >>> def __empty_cmt(keyd: list[str], dst: list[str]):
-    ...     dst.append(" ")
+    >>> def __empty_cmt(keyd: list[str], app: Callable[[str], None]):
+    ...     app(" ")
 
     >>> csv_write(dd, print, __get_column_titles, __get_row, __setup,
     ...           ";", "#", __empty_cmt)
-    #
     a;b;c;d
     1;;2
     ;6;8
@@ -583,9 +588,9 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ;6;8
     4;3;;12
     ;
-    #
 
-    >>> def __error_column_titles_1(keyd: list[str], lst: list[str]):
+    >>> def __error_column_titles_1(keyd: list[str],
+    ...                             app: Callable[[str], None]):
     ...     pass
 
     >>> try:
@@ -595,8 +600,9 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...     print(ve)
     Cannot have zero columns.
 
-    >>> def __error_column_titles_2(keyd: list[str], lst: list[str]):
-    ...     lst.append(" ")
+    >>> def __error_column_titles_2(keyd: list[str],
+    ...                             app: Callable[[str], None]):
+    ...     app(" ")
 
     >>> try:
     ...     csv_write(dd, print, __error_column_titles_2, __get_row, __setup,
@@ -605,8 +611,9 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...     print(str(ve)[:50])
     Invalid column title ' ', must neither be empty no
 
-    >>> def __error_column_titles_3(keyd: list[str], lst: list[str]):
-    ...     lst.append("bla\nblugg")
+    >>> def __error_column_titles_3(keyd: list[str],
+    ...                             app: Callable[[str], None]):
+    ...     app("bla\nblugg")
 
     >>> try:
     ...     csv_write(dd, print, __error_column_titles_3, __get_row, __setup,
@@ -615,8 +622,9 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...     print(str(ve)[:50])
     Invalid column title 'bla\nblugg', must neither be
 
-    >>> def __error_column_titles_4(keyd: list[str], lst: list[str]):
-    ...     lst.append(None)
+    >>> def __error_column_titles_4(keyd: list[str],
+    ...                             app: Callable[[str], None]):
+    ...     app(None)
 
     >>> try:
     ...     csv_write(dd, print, __error_column_titles_4, __get_row, __setup,
@@ -625,8 +633,9 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object
 
-    >>> def __error_column_titles_5(keyd: list[str], lst: list[str]):
-    ...     lst.append(1)
+    >>> def __error_column_titles_5(keyd: list[str],
+    ...                             app: Callable[[str], None]):
+    ...     app(1)
 
     >>> try:
     ...     csv_write(dd, print, __error_column_titles_5, __get_row, __setup,
@@ -635,8 +644,10 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...     print(te)
     descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
 
-    >>> def __error_column_titles_6(keyd: list[str], lst: list[str]):
-    ...     lst.extend(("a", "b", "c", "a"))
+    >>> def __error_column_titles_6(keyd: list[str],
+    ...                             app: Callable[[str], None]):
+    ...     for xa in ("a", "b", "c", "a"):
+    ...         app(xa)
 
     >>> try:
     ...     csv_write(dd, print, __error_column_titles_6, __get_row, __setup,
@@ -645,8 +656,10 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...     print(ve)
     Cannot have duplicated columns: ['a', 'b', 'c', 'a'].
 
-    >>> def __error_column_titles_7(keyd: list[str], lst: list[str]):
-    ...     lst.extend(("a", "b", "c;4"))
+    >>> def __error_column_titles_7(keyd: list[str],
+    ...                             app: Callable[[str], None]):
+    ...     for xa in ("a", "b", "c;4"):
+    ...         app(xa)
 
     >>> try:
     ...     csv_write(dd, print, __error_column_titles_7, __get_row, __setup,
@@ -655,8 +668,10 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...     print(str(ve)[:49])
     Invalid column title 'c;4', must neither be empty
 
-    >>> def __error_column_titles_8(keyd: list[str], lst: list[str]):
-    ...     lst.extend(("a", "b#x", "c"))
+    >>> def __error_column_titles_8(keyd: list[str],
+    ...                             app: Callable[[str], None]):
+    ...     for xa in ("a", "b#x", "c"):
+    ...         app(xa)
 
     >>> try:
     ...     csv_write(dd, print, __error_column_titles_8, __get_row, __setup,
@@ -666,8 +681,9 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     Invalid column title 'b#x', must neither be empty
 
     >>> def __error_row_1(keyd: list[str], row: dict[str, int],
-    ...                   lst: list[str]):
-    ...     lst.extend(("bla", None, "blubb"))
+    ...                   app: Callable[[str], None]):
+    ...     for xa in ("bla", None, "blubb"):
+    ...         app(xa)
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __error_row_1,
@@ -678,8 +694,9 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object
 
     >>> def __error_row_2(keyd: list[str], row: dict[str, int],
-    ...                   lst: list[str]):
-    ...     lst.extend(("bla", 2.3, "blubb"))
+    ...                   app: Callable[[str], None]):
+    ...     for xa in ("bla", 2.3, "blubb"):
+    ...         app(xa)
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __error_row_2,
@@ -690,8 +707,9 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     descriptor 'strip' for 'str' objects doesn't apply to a 'float' object
 
     >>> def __error_row_3(keyd: list[str], row: dict[str, int],
-    ...                   lst: list[str]):
-    ...     lst.extend(("bla", "x\ny", "blubb"))
+    ...                   app: Callable[[str], None]):
+    ...     for xa in ("bla", "x\ny", "blubb"):
+    ...         app(xa)
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __error_row_3,
@@ -702,8 +720,9 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     Invalid column value 'x\ny', cannot contain any of
 
     >>> def __error_row_4(keyd: list[str], row: dict[str, int],
-    ...                   lst: list[str]):
-    ...     lst.extend(("bla", "x#", "blubb"))
+    ...                   app: Callable[[str], None]):
+    ...     for xa in ("bla", "x#", "blubb"):
+    ...         app(xa)
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __error_row_4,
@@ -714,8 +733,9 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     Invalid column value 'x#', cannot contain any of [
 
     >>> def __error_row_5(keyd: list[str], row: dict[str, int],
-    ...                   lst: list[str]):
-    ...     lst.extend(("bla", "x;#", "blubb"))
+    ...                   app: Callable[[str], None]):
+    ...     for xa in ("bla", "x;#", "blubb"):
+    ...         app(xa)
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __error_row_5,
@@ -725,12 +745,13 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     a;b;c;d
     Invalid column value 'x;#', cannot contain any of
 
-    >>> def __error_column_titles_9(keyd: list[str], lst: list[str]):
-    ...     lst.extend(("a"))
+    >>> def __error_column_titles_9(keyd: list[str],
+    ...                             app: Callable[[str], None]):
+    ...     app("a")
 
     >>> def __error_row_6(keyd: list[str], row: dict[str, int],
-    ...                   lst: list[str]):
-    ...     lst.extend(("", ))
+    ...                   app: Callable[[str], None]):
+    ...     app("")
 
     >>> try:
     ...     csv_write(dd, print, __error_column_titles_9, __error_row_6,
@@ -741,8 +762,9 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     Cannot have empty row in a single-column format, but got [''].
 
     >>> def __error_row_7(keyd: list[str], row: dict[str, int],
-    ...                   lst: list[str]):
-    ...     lst.extend(("x", "y"))
+    ...                   app: Callable[[str], None]):
+    ...     app("x")
+    ...     app("y")
 
     >>> try:
     ...     csv_write(dd, print, __error_column_titles_9, __error_row_7,
@@ -781,26 +803,30 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     # get the setup data
     setting: Final[S] = setup(data)
     collected: Final[list[str]] = []
+    collected_append: Final[Callable[[str], None]] = collected.append
     forbidden: Final[list[str]] = sorted(forbidden_maker)
 
     # first put header comments
-    get_header_comments(setting, collected)
+    get_header_comments(setting, collected_append)
+    not_first: bool = False
     for cmt in collected:
         xcmt = str.strip(cmt)  # strip and typecheck
         if comment_start is None:
             raise ValueError(f"Cannot place header comment {cmt!r} "
                              f"if comment_start={comment_start!r}.")
         if str.__len__(xcmt) <= 0:
-            consumer(comment_start)
+            if not_first:
+                consumer(comment_start)
             continue
         if any(map(xcmt.__contains__, NEWLINE)):
             raise ValueError(
                 f"Header comment must not contain newline, but {cmt!r} does.")
+        not_first = True
         consumer(f"{comment_start} {xcmt}")
 
     # now process the column titles
     collected.clear()
-    get_column_titles(setting, collected)
+    get_column_titles(setting, collected_append)
     col_count: Final[int] = list.__len__(collected)
     if col_count <= 0:
         raise ValueError("Cannot have zero columns.")
@@ -818,7 +844,7 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
         if element is None:
             raise type_error(element, "data element", object)
         collected.clear()
-        get_row(setting, element, collected)
+        get_row(setting, element, collected_append)
         list_len: int = list.__len__(collected)
         if list_len > col_count:
             raise ValueError(
@@ -844,16 +870,19 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
 
     # finally put footer comments
     collected.clear()
-    get_footer_comments(setting, collected)
+    get_footer_comments(setting, collected_append)
+    not_first = False
     for cmt in collected:
         xcmt = str.strip(cmt)  # strip and typecheck
         if comment_start is None:
             raise ValueError(f"Cannot place footer comment {cmt!r} "
                              f"if comment_start={comment_start!r}.")
         if str.__len__(xcmt) <= 0:
-            consumer(comment_start)
+            if not_first:
+                consumer(comment_start)
             continue
         if any(map(xcmt.__contains__, NEWLINE)):
             raise ValueError(
                 f"Footer comment must not contain newline, but {cmt!r} does.")
+        not_first = True
         consumer(f"{comment_start} {xcmt}")
