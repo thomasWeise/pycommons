@@ -8,7 +8,7 @@ from statistics import mean as stat_mean
 from statistics import stdev as stat_stddev
 from typing import Callable, Final, Iterable, cast
 
-from pycommons.io.csv import CSV_SEPARATOR, SCOPE_SEPARATOR
+from pycommons.io.csv import CSV_SEPARATOR, SCOPE_SEPARATOR, csv_scope
 from pycommons.math.int_math import (
     __DBL_INT_LIMIT_P_I,
     try_float_int_div,
@@ -1827,7 +1827,7 @@ class CsvReader:
         Parse a row of data.
 
         :param data: the data row
-        :return: the sample
+        :return: the sample statistics
         """
         n: Final[int] = 1 if self.__idx_n is None else int(
             data[self.__idx_n])
@@ -1988,30 +1988,21 @@ class CsvWriter:
         self.__has_geo_mean = (not has_no_geom) and (not all_same)
 
         scope: Final[str | None] = self.__scope
-        prefix: Final[str | None] = \
-            None if scope is None else f"{scope}{SCOPE_SEPARATOR}"
 
         # set up the keys
         if self.__has_n:
-            self.__key_n = KEY_N if prefix is None else f"{prefix}{KEY_N}"
+            self.__key_n = csv_scope(scope, KEY_N)
         if self.__single_value:
-            self.__key_all = (KEY_VALUE if prefix is None else (
-                f"{prefix}{KEY_VALUE}" if self.__has_n else (
-                    KEY_VALUE if scope is None else scope)))
+            self.__key_all = KEY_VALUE if scope is None else csv_scope(
+                scope, KEY_VALUE if self.__has_n else None)
         else:
-            self.__key_min = KEY_MINIMUM if prefix is None \
-                else f"{prefix}{KEY_MINIMUM}"
-            self.__key_mean_arith = KEY_MEAN_ARITH if prefix is None \
-                else f"{prefix}{KEY_MEAN_ARITH}"
-            self.__key_med = KEY_MEDIAN if prefix is None \
-                else f"{prefix}{KEY_MEDIAN}"
-            self.__key_max = KEY_MAXIMUM if prefix is None \
-                else f"{prefix}{KEY_MAXIMUM}"
+            self.__key_min = csv_scope(scope, KEY_MINIMUM)
+            self.__key_mean_arith = csv_scope(scope, KEY_MEAN_ARITH)
+            self.__key_med = csv_scope(scope, KEY_MEDIAN)
+            self.__key_max = csv_scope(scope, KEY_MAXIMUM)
             if self.__has_geo_mean:
-                self.__key_mean_geom = KEY_MEAN_GEOM if prefix is None \
-                    else f"{prefix}{KEY_MEAN_GEOM}"
-            self.__key_sd = KEY_STDDEV if prefix is None \
-                else f"{prefix}{KEY_STDDEV}"
+                self.__key_mean_geom = csv_scope(scope, KEY_MEAN_GEOM)
+            self.__key_sd = csv_scope(scope, KEY_STDDEV)
 
         return self
 
@@ -2040,7 +2031,7 @@ class CsvWriter:
         """
         Render a single sample statistics to a CSV row.
 
-        :param data: the data sample
+        :param data: the data sample statistics
         :param dest: the string consumer
         """
         if self.__has_n:

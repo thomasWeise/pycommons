@@ -48,6 +48,77 @@ T = TypeVar("T")
 S = TypeVar("S")
 
 
+def csv_scope(scope: str | None, key: str | None) -> str:
+    """
+    Combine a scope and a key.
+
+    :param scope: the scope, or `None`
+    :param key: the key, or `None`
+    :return: the scope joined with the key
+
+    >>> csv_scope("a", "b")
+    'a.b'
+    >>> csv_scope("a", None)
+    'a'
+    >>> csv_scope(None, "b")
+    'b'
+
+    >>> try:
+    ...     csv_scope(1, "b")
+    ... except TypeError as te:
+    ...     print(str(te))
+    descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> try:
+    ...     csv_scope("a", 1)
+    ... except TypeError as te:
+    ...     print(str(te))
+    descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> try:
+    ...     csv_scope("a ", "b")
+    ... except ValueError as ve:
+    ...     print(str(ve))
+    Invalid csv scope 'a '.
+
+    >>> try:
+    ...     csv_scope("", "b")
+    ... except ValueError as ve:
+    ...     print(ve)
+    Invalid csv scope ''.
+
+    >>> try:
+    ...     csv_scope("a", " b")
+    ... except ValueError as ve:
+    ...     print(str(ve))
+    Invalid csv key ' b'.
+
+    >>> try:
+    ...     csv_scope("a", "")
+    ... except ValueError as ve:
+    ...     print(str(ve))
+    Invalid csv key ''.
+
+    >>> try:
+    ...     csv_scope(None, None)
+    ... except ValueError as ve:
+    ...     print(str(ve))
+    Csv scope and key cannot both be None.
+    """
+    if (key is not None) and ((str.__len__(key) <= 0) or (
+            str.strip(key) != key)):
+        raise ValueError(f"Invalid csv key {key!r}.")
+    if scope is None:
+        if key is None:
+            raise ValueError("Csv scope and key cannot both be None.")
+        return key
+    if (str.__len__(scope) <= 0) or (str.strip(scope) != scope):
+        raise ValueError(f"Invalid csv scope {scope!r}.")
+    if key is None:
+        return scope
+    return f"{scope}{SCOPE_SEPARATOR}{key}"
+
+
 def csv_read(rows: Iterable[str],
              setup: Callable[[dict[str, int]], S],
              parse_row: Callable[[S, list[str]], T],
