@@ -2026,6 +2026,28 @@ class CsvWriter:
             dest(self.__key_max)
             dest(self.__key_sd)
 
+    def empty_row(self, dest: Callable[[str], None]) -> None:
+        """
+        Attach an empty row of the correct shape to the output.
+
+        This function may be needed in cases where the statistics are part of
+        other records that sometimes do not contain the record.
+
+        :param dest: the output destination
+        """
+        if self.__has_n:
+            dest("")
+        if self.__single_value:
+            dest("")
+        else:
+            dest("")
+            dest("")
+            dest("")
+            if self.__has_geo_mean:
+                dest("")
+            dest("")
+            dest("")
+
     def get_row(self, data: SampleStatistics,
                 dest: Callable[[str], None]) -> None:
         """

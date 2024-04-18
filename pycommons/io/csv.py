@@ -888,6 +888,7 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
         if str.__len__(xcmt) <= 0:
             if not_first:
                 consumer(comment_start)
+                not_first = False
             continue
         if any(map(xcmt.__contains__, NEWLINE)):
             raise ValueError(
@@ -951,6 +952,7 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
         if str.__len__(xcmt) <= 0:
             if not_first:
                 consumer(comment_start)
+                not_first = False
             continue
         if any(map(xcmt.__contains__, NEWLINE)):
             raise ValueError(
