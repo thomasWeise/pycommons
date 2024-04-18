@@ -1869,6 +1869,27 @@ class CsvReader:
             maximum=mi if ma is None else ma,
             stddev=(0 if (n > 1) else None) if sd is None else sd)
 
+    def parse_optional_row(self, data: list[str]) -> SampleStatistics | None:
+        """
+        Parse a row of data that may be empty.
+
+        :param data: the row of data that may be empty
+        :return: the sample statistic, if the row contains data, else `None`
+        """
+        # pylint: disable=R0916
+        if (((self.__idx_min is not None) and (
+                str.__len__(data[self.__idx_min]) > 0)) or (
+                (self.__idx_mean_arith is not None) and (
+                str.__len__(data[self.__idx_mean_arith]) > 0)) or (
+                (self.__idx_median is not None) and (
+                str.__len__(data[self.__idx_median]) > 0)) or (
+                (self.__idx_mean_geom is not None) and (
+                str.__len__(data[self.__idx_mean_geom]) > 0)) or (
+                (self.__idx_max is not None) and (
+                str.__len__(data[self.__idx_max]) > 0))):
+            return self.parse_row(data)
+        return None
+
 
 class CsvWriter:
     """A class for CSV writing of :class:`SampleStatistics`."""
@@ -2012,6 +2033,8 @@ class CsvWriter:
 
         :param dest: the destination string consumer
         """
+        if not self.__setup:
+            raise ValueError("CsvWriter has not been set up.")
         if self.__has_n:
             dest(self.__key_n)
 
@@ -2026,27 +2049,35 @@ class CsvWriter:
             dest(self.__key_max)
             dest(self.__key_sd)
 
-    def empty_row(self, dest: Callable[[str], None]) -> None:
+    def get_optional_row(self,
+                         data: int | float | SampleStatistics | None,
+                         dest: Callable[[str], None],
+                         n: int | None = None) -> None:
         """
         Attach an empty row of the correct shape to the output.
 
         This function may be needed in cases where the statistics are part of
         other records that sometimes do not contain the record.
 
+        :param data: the data item
         :param dest: the output destination
+        :param n: the number of samples
         """
-        if self.__has_n:
-            dest("")
-        if self.__single_value:
-            dest("")
-        else:
-            dest("")
-            dest("")
-            dest("")
-            if self.__has_geo_mean:
+        if data is None:
+            # attach an empty row
+            for _ in range((1 if self.__has_n else 0) + (
+                    1 if self.__single_value else (
+                    6 if self.__has_geo_mean else 5))):
                 dest("")
-            dest("")
-            dest("")
+            return
+        if isinstance(data, int | float):  # convert single value
+            data = from_single_value(data, 1 if n is None else n)
+        elif not isinstance(data, SampleStatistics):  # huh?
+            raise type_error(data, "data", (
+                int, float, SampleStatistics, None))
+        elif (n is not None) and (n != data.n):  # sanity check
+            raise ValueError(f"data.n={data.n} but n={n}.")
+        self.get_row(data, dest)
 
     def get_row(self, data: SampleStatistics,
                 dest: Callable[[str], None]) -> None:

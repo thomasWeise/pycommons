@@ -11,6 +11,8 @@ from statistics import stdev as statstddev
 from sys import float_info
 from typing import Callable, Final, Iterable
 
+from pytest import raises
+
 from pycommons.io.csv import csv_read, csv_write
 from pycommons.math.sample_statistics import (
     KEY_N,
@@ -1055,3 +1057,62 @@ def test_multi_csv() -> None:
     """Test writing and reading multiple CSV formats."""
     for i in range(12):
         __do_test_multi_csv((i & 1) == 0)
+
+
+def test_csv_4() -> None:
+    """Test the CSV abilities from hand-made data."""
+    text_1: list[str] = [
+        "n;min;max;mean;med;geom;sd",
+        "5;1;;;;;",
+        "4;;2;;;;",
+        "2;;;3;;;",
+        "7;;;;4;;",
+        "1;;;;;5;",
+        "9;1;1;;;;0",
+        "9;0;0;;;;0",
+    ]
+    data_1: list[SampleStatistics] = []
+    csv_read(rows=text_1,
+             setup=CsvReader,
+             parse_row=CsvReader.parse_row,
+             consumer=data_1.append)
+    assert len(data_1) == 7
+    text_2: list[str] = []
+    writer: CsvWriter = CsvWriter()
+    csv_write(data_1, text_2.append, CsvWriter.get_column_titles,
+              CsvWriter.get_row, writer.setup)
+    data_2: list[SampleStatistics] = []
+    csv_read(rows=text_2,
+             setup=CsvReader,
+             parse_row=CsvReader.parse_row,
+             consumer=data_2.append)
+    assert data_2 == data_1
+
+    reader: CsvReader = CsvReader({
+        s: i for i, s in enumerate(text_2[0].split(";"))})
+    optional: list[str] = []
+    writer.get_optional_row(1, optional.append, n=5)
+    stat = reader.parse_optional_row(optional)
+    assert stat is not None
+    assert stat.n == 5
+    assert stat.minimum == 1
+    assert stat.maximum == 1
+    assert stat.stddev == 0
+    assert stat.mean_geom == 1
+
+    optional.clear()
+    writer.get_optional_row(None, optional.append)
+    assert reader.parse_optional_row(optional) is None
+
+    optional.clear()
+    writer.get_optional_row(data_1[0], optional.append, data_1[0].n)
+    assert reader.parse_optional_row(optional) == data_1[0]
+
+    optional.clear()
+    with raises(ValueError):
+        writer.get_optional_row(
+            data_1[0], optional.append, data_1[0].n + 1)
+
+    optional.clear()
+    writer.get_optional_row(data_1[0], optional.append, None)
+    assert reader.parse_optional_row(optional) == data_1[0]
