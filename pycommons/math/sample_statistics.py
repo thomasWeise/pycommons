@@ -26,7 +26,7 @@ from pycommons.math.int_math import (
 from pycommons.strings.string_conv import (
     num_or_none_to_str,
     num_to_str,
-    str_to_num_or_none,
+    str_to_num,
 )
 from pycommons.types import check_int_range, type_error
 
@@ -709,11 +709,21 @@ __PROPERTIES: Final[Callable[[str, None], Callable[[
     SampleStatistics], int | float | None] | None]] = {
     KEY_N: SampleStatistics.get_n,
     KEY_MINIMUM: SampleStatistics.get_minimum,
+    "minimum": SampleStatistics.get_minimum,
     KEY_MEAN_ARITH: SampleStatistics.get_mean_arith,
+    "mean_arith": SampleStatistics.get_mean_arith,
+    "arithmetic mean": SampleStatistics.get_mean_arith,
+    "average": SampleStatistics.get_mean_arith,
     KEY_MEDIAN: SampleStatistics.get_median,
+    "median": SampleStatistics.get_median,
     KEY_MEAN_GEOM: SampleStatistics.get_mean_geom,
+    "mean_geom": SampleStatistics.get_mean_geom,
+    "geometric mean": SampleStatistics.get_mean_geom,
     KEY_MAXIMUM: SampleStatistics.get_maximum,
+    "maximum": SampleStatistics.get_maximum,
     KEY_STDDEV: SampleStatistics.get_stddev,
+    "stddev": SampleStatistics.get_stddev,
+    "standard deviation": SampleStatistics.get_stddev,
 }.get
 
 
@@ -1837,7 +1847,7 @@ class CsvReader:
         n: Final[int] = 1 if self.__idx_n is None else int(
             data[self.__idx_n])
         mi: int | float | None = csv_val_or_none(
-            data, self.__idx_min, str_to_num_or_none)
+            data, self.__idx_min, str_to_num)
 
         if self.__is_single:
             return SampleStatistics(
@@ -1846,15 +1856,15 @@ class CsvReader:
                 else None, maximum=mi, stddev=None if n <= 1 else 0)
 
         ar: int | float | None = csv_val_or_none(
-            data, self.__idx_mean_arith, str_to_num_or_none)
+            data, self.__idx_mean_arith, str_to_num)
         me: int | float | None = csv_val_or_none(
-            data, self.__idx_median, str_to_num_or_none)
+            data, self.__idx_median, str_to_num)
         ge: int | float | None = csv_val_or_none(
-            data, self.__idx_mean_geom, str_to_num_or_none)
+            data, self.__idx_mean_geom, str_to_num)
         ma: int | float | None = csv_val_or_none(
-            data, self.__idx_max, str_to_num_or_none)
+            data, self.__idx_max, str_to_num)
         sd: int | float | None = csv_val_or_none(
-            data, self.__idx_sd, str_to_num_or_none)
+            data, self.__idx_sd, str_to_num)
 
         if mi is None:
             if ar is not None:
