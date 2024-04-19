@@ -8,7 +8,12 @@ from statistics import mean as stat_mean
 from statistics import stdev as stat_stddev
 from typing import Callable, Final, Iterable, cast
 
-from pycommons.io.csv import CSV_SEPARATOR, SCOPE_SEPARATOR, csv_scope
+from pycommons.io.csv import (
+    CSV_SEPARATOR,
+    SCOPE_SEPARATOR,
+    csv_scope,
+    csv_val_or_none,
+)
 from pycommons.math.int_math import (
     __DBL_INT_LIMIT_P_I,
     try_float_int_div,
@@ -1831,8 +1836,8 @@ class CsvReader:
         """
         n: Final[int] = 1 if self.__idx_n is None else int(
             data[self.__idx_n])
-        mi: int | float | None = None if self.__idx_min is None else (
-            str_to_num_or_none(data[self.__idx_min]))
+        mi: int | float | None = csv_val_or_none(
+            data, self.__idx_min, str_to_num_or_none)
 
         if self.__is_single:
             return SampleStatistics(
@@ -1840,16 +1845,16 @@ class CsvReader:
                 mean_geom=mi if (mi > 0) or (self.__idx_mean_geom is not None)
                 else None, maximum=mi, stddev=None if n <= 1 else 0)
 
-        ar: int | float | None = None if self.__idx_mean_arith is None else (
-            str_to_num_or_none(data[self.__idx_mean_arith]))
-        me: int | float | None = None if self.__idx_median is None else (
-            str_to_num_or_none(data[self.__idx_median]))
-        ge: int | float | None = None if self.__idx_mean_geom is None \
-            else str_to_num_or_none(data[self.__idx_mean_geom])
-        ma: int | float | None = None if self.__idx_max is None else (
-            str_to_num_or_none(data[self.__idx_max]))
-        sd: int | float | None = None if self.__idx_sd is None else (
-            str_to_num_or_none(data[self.__idx_sd]))
+        ar: int | float | None = csv_val_or_none(
+            data, self.__idx_mean_arith, str_to_num_or_none)
+        me: int | float | None = csv_val_or_none(
+            data, self.__idx_median, str_to_num_or_none)
+        ge: int | float | None = csv_val_or_none(
+            data, self.__idx_mean_geom, str_to_num_or_none)
+        ma: int | float | None = csv_val_or_none(
+            data, self.__idx_max, str_to_num_or_none)
+        sd: int | float | None = csv_val_or_none(
+            data, self.__idx_sd, str_to_num_or_none)
 
         if mi is None:
             if ar is not None:
@@ -1869,13 +1874,23 @@ class CsvReader:
             maximum=mi if ma is None else ma,
             stddev=(0 if (n > 1) else None) if sd is None else sd)
 
-    def parse_optional_row(self, data: list[str]) -> SampleStatistics | None:
+    def parse_optional_row(self, data: list[str] | None) \
+            -> SampleStatistics | None:
         """
         Parse a row of data that may be empty.
 
         :param data: the row of data that may be empty
         :return: the sample statistic, if the row contains data, else `None`
+
+        >>> print(CsvReader.parse_optional_row(None, ["1"]))
+        None
+        >>> print(CsvReader.parse_optional_row(CsvReader({"v": 0}), ["1"]))
+        1;1;1;1;1;1;None
+        >>> print(CsvReader.parse_optional_row(CsvReader({"v": 0}), [""]))
+        None
         """
+        if (self is None) or (data is None):
+            return None  # trick to make this method usable pseudo-static
         # pylint: disable=R0916
         if (((self.__idx_min is not None) and (
                 str.__len__(data[self.__idx_min]) > 0)) or (

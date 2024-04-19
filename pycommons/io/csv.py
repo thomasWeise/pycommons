@@ -959,3 +959,86 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
                 f"Footer comment must not contain newline, but {cmt!r} does.")
         not_first = True
         consumer(f"{comment_start} {xcmt}")
+
+
+def csv_str_or_none(data: list[str | None] | None,
+                    index: int | None) -> str | None:
+    """
+    Get a string or `None` from a data row.
+
+    This function is a shortcut for when data elements or columns are
+    optional. If `index` is `None` or outside of the valid index range of the
+    list `data`, then `None` is returned. If `data` itself is `None` or the
+    element at index `index` is the empty string, then `None` is returned.
+    Only if `data` and `index` are both not `None` and `index` is a valid
+    index into `data` and the element at index `index` in `data` is not the
+    empty string, then this element is returned. In other words, this is a
+    very tolerant function to handle optional data and to return `None` if the
+    data is not present. The function :func:`csv_val_or_none` further extends
+    this function by converting the data to another data type if it is
+    present.
+
+    :param data: the data
+    :param index: the index, if any
+    :return: the string or nothing
+
+    >>> ddd = ["a", "b", "", "d"]
+    >>> print(csv_str_or_none(ddd, 0))
+    a
+    >>> print(csv_str_or_none(ddd, 1))
+    b
+    >>> print(csv_str_or_none(ddd, 2))
+    None
+    >>> print(csv_str_or_none(ddd, 3))
+    d
+    >>> print(csv_str_or_none(ddd, None))
+    None
+    >>> print(csv_str_or_none(ddd, 10))
+    None
+    >>> print(csv_str_or_none(ddd, -1))
+    None
+    >>> print(csv_str_or_none(None, 0))
+    None
+    """
+    if (index is None) or (data is None):
+        return None
+    if 0 <= index <= list.__len__(data):
+        d: str = data[index]
+        return None if (d is None) or (str.__len__(d) <= 0) else d
+    return None
+
+
+#: a type variable for :func:`csv_val_or_none`.
+U = TypeVar("U")
+
+
+def csv_val_or_none(data: list[str | None] | None, index: int | None,
+                    conv: Callable[[str], U]) -> U | None:
+    """
+    Get a value or `None`.
+
+    See :func:`csv_str_or_none` allows us to extract an optional data element
+    from a CSV row and get `None` if the element is not present or if the
+    `index` is `None` or outside of the valid range. In case the data is
+    present and not the empty string, then the function `conv` is invoked to
+    convert it to another value. Otherwise, `None` is returned.
+
+    :param data: the data
+    :param index: the index
+    :param conv: the conversation function
+    :return: the object
+
+    >>> ddd = ["11", "22", "", "33"]
+    >>> print(csv_val_or_none(ddd, 0, int))
+    11
+    >>> print(csv_val_or_none(ddd, 1, int))
+    22
+    >>> print(csv_val_or_none(ddd, 2, int))
+    None
+    >>> print(csv_val_or_none(ddd, 3, int))
+    33
+    >>> print(csv_val_or_none(ddd, None, int))
+    None
+    """
+    t: Final[str | None] = csv_str_or_none(data, index)
+    return None if t is None else conv(t)
