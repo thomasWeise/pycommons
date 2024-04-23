@@ -1044,6 +1044,160 @@ def csv_val_or_none(data: list[str | None] | None, index: int | None,
     return None if t is None else conv(t)
 
 
+def csv_column(columns: dict[str, int], key: str,
+               remove_col: bool = False) -> int:
+    """
+    Get the index of a CSV column.
+
+    This function will extract the index of a column from a column description
+    map. The index will be checked whether it is in a valid range and
+    returned. If no column fitting to `key` exists, this function will throw a
+    `KeyError`. If `remove_col` is `True` and a column fitting to `key`
+    exists, then this column will be deleted from `columns`.
+
+    :param columns: the columns set
+    :param key: the key
+    :param remove_col: should we remove the column?
+    :return: the column
+    :raises TypeError: if any of the parameters is not of the prescribed type
+    :raises ValueError: if the column or key are invalid
+    :raises KeyError: if no column of the name `key` eixists
+
+    >>> csv_column({"a": 5}, "a")
+    5
+
+    >>> cols = {"a": 5, "b": 7}
+    >>> csv_column(cols, "a")
+    5
+    >>> cols
+    {'a': 5, 'b': 7}
+    >>> csv_column(cols, "a", True)
+    5
+    >>> cols
+    {'b': 7}
+
+    >>> try:
+    ...     csv_column({"a": 5}, "b")
+    ... except KeyError as ke:
+    ...     print(ke)
+    'b'
+
+    >>> try:
+    ...     csv_column({"a": 5}, "a", "3")
+    ... except TypeError as te:
+    ...     print(te)
+    remove_col should be an instance of bool but is str, namely '3'.
+
+    >>> try:
+    ...     csv_column(None, "b")
+    ... except TypeError as te:
+    ...     print(str(te)[:50])
+    descriptor '__getitem__' for 'dict' objects doesn'
+
+    >>> try:
+    ...     csv_column({"a": 5}, 1)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> try:
+    ...     csv_column({"a": -1}, "a")
+    ... except ValueError as ve:
+    ...     print(ve)
+    a=-1 is invalid, must be in 0..1000000.
+
+    >>> try:
+    ...     csv_column({"a": -1}, "")
+    ... except ValueError as ve:
+    ...     print(ve)
+    Invalid key ''.
+    """
+    if str.__len__(key) <= 0:
+        raise ValueError(f"Invalid key {key!r}.")
+    if not isinstance(remove_col, bool):
+        raise type_error(remove_col, "remove_col", bool)
+    res: Final[int] = check_int_range(dict.__getitem__(
+        columns, key), key, 0, 1_000_000)
+    if remove_col:
+        dict.__delitem__(columns, key)
+    return res
+
+
+def csv_column_or_none(columns: dict[str, int] | None = None,
+                       key: str | None = None,
+                       remove_col: bool = False) -> int | None:
+    """
+    Get an optional CSV column index.
+
+    This function will extract the index of a column from a column description
+    map. The index will be checked whether it is in a valid range and
+    returned. If no column fitting to `key` exists, this function returns
+    `None`. If `remove_col` is `True` and a column fitting to `key` exists,
+    then this column will be deleted from `columns`.
+
+    :param columns: the columns
+    :param key: the key
+    :param remove_col: should we remove the column?
+    :return: the column, or `None` if none was found
+    :raises TypeError: if any of the parameters is not of the prescribed type
+    :raises ValueError: if the column or key are invalid
+
+    >>> csv_column_or_none({"a": 5}, "a")
+    5
+
+    >>> cols = {"a": 5, "b": 7}
+    >>> csv_column_or_none(cols, "a")
+    5
+    >>> cols
+    {'a': 5, 'b': 7}
+    >>> csv_column_or_none(cols, "a", True)
+    5
+    >>> cols
+    {'b': 7}
+
+    >>> try:
+    ...     csv_column_or_none({"a": 5}, "a", "3")
+    ... except TypeError as te:
+    ...     print(te)
+    remove_col should be an instance of bool but is str, namely '3'.
+
+    >>> print(csv_column_or_none({"a": 5}, "b"))
+    None
+
+    >>> print(csv_column_or_none(None, "b"))
+    None
+
+    >>> print(csv_column_or_none({"a": 5}, None))
+    None
+
+    >>> print(csv_column_or_none({"a": 5}, ""))
+    None
+
+    >>> try:
+    ...     csv_column({"a": 5}, 1)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> try:
+    ...     csv_column({"a": -1}, "a")
+    ... except ValueError as ve:
+    ...     print(ve)
+    a=-1 is invalid, must be in 0..1000000.
+    """
+    if not isinstance(remove_col, bool):
+        raise type_error(remove_col, "remove_col", bool)
+    if (key is None) or (columns is None) or (str.__len__(key) <= 0):
+        return None
+    res: Final[int | None] = dict.get(columns, key)
+    if res is None:
+        return None
+    check_int_range(res, key, 0, 1_000_000)
+    if remove_col:
+        dict.__delitem__(columns, key)
+    return res
+
+
 def csv_select_scope(
         conv: Callable[[dict[str, int]], U],
         columns: dict[str, int] | None,
@@ -1052,7 +1206,8 @@ def csv_select_scope(
         skip_orig_key: Callable[[str], bool] = lambda _: False,
         skip_final_key: Callable[[str], bool] = lambda _: False,
         skip_col: Callable[[int], bool] = lambda _: False,
-        include_scope: bool = True) -> U | None:
+        include_scope: bool = True,
+        remove_cols: bool = False) -> U | None:
     """
     Get all the columns of a given scope and pass them to the function `conv`.
 
@@ -1074,6 +1229,7 @@ def csv_select_scope(
         remain after all the transformation and selection
     :param include_scope: if scope appears as a lone column, should we
         include it?
+    :param remove_cols: should we remove all selected columns?
     :returns: `None` if no keys fall into the provided scope does not have any
         keys matching it in `columns`. The result of `conv` otherwise, i.e.,
         if there are matching columns, these are selected (and those in
@@ -1083,6 +1239,20 @@ def csv_select_scope(
     >>> csv_select_scope(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a")
     {'x': 1, 'y': 2, 'a': 3}
+
+    >>> exa1 = {"a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}
+    >>> csv_select_scope(print, exa1, "a")
+    {'x': 1, 'y': 2, 'a': 3}
+    >>> exa1
+    {'a.x': 1, 'a.y': 2, 'a': 3, 'b': 4, 'b.t': 5}
+    >>> csv_select_scope(print, exa1, "a", remove_cols=True)
+    {'x': 1, 'y': 2, 'a': 3}
+    >>> exa1
+    {'b': 4, 'b.t': 5}
+    >>> csv_select_scope(print, exa1, "b", remove_cols=True)
+    {'b': 4, 't': 5}
+    >>> exa1
+    {}
 
     >>> csv_select_scope(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "")
@@ -1099,18 +1269,28 @@ def csv_select_scope(
 
     >>> csv_select_scope(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b")
-    {'t': 5, 'b': 4}
+    {'b': 4, 't': 5}
 
     >>> csv_select_scope(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
     ...     additional=(('z', 23), ('v', 45)))
-    {'t': 5, 'b': 4, 'z': 23, 'v': 45}
+    {'b': 4, 't': 5, 'z': 23, 'v': 45}
+
+    >>> csv_select_scope(print, {
+    ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
+    ...     additional=(('t', 23), ('v', 45)))
+    {'b': 4, 't': 5, 'v': 45}
+
+    >>> csv_select_scope(print, {
+    ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
+    ...     additional=(('x', 44), ('v', 45)))
+    {'x': 1, 'y': 2, 'a': 3, 'v': 45}
 
     >>> csv_select_scope(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
     ...     additional=(('z', 23), ('v', 45)),
     ...     skip_col=lambda c: c == 23)
-    {'t': 5, 'b': 4, 'v': 45}
+    {'b': 4, 't': 5, 'v': 45}
 
     >>> csv_select_scope(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
@@ -1122,7 +1302,7 @@ def csv_select_scope(
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
     ...     additional=(('z', 23), ('v', 45)),
     ...     skip_final_key=lambda fk: fk == "z")
-    {'t': 5, 'b': 4, 'v': 45}
+    {'b': 4, 't': 5, 'v': 45}
 
     >>> print(csv_select_scope(print, {}, "a"))
     None
@@ -1143,6 +1323,14 @@ def csv_select_scope(
     ... except TypeError as te:
     ...     print(te)
     conv should be a callable but is None.
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
+    ...         remove_cols=1)
+    ... except TypeError as te:
+    ...     print(te)
+    remove_cols should be an instance of bool but is int, namely '1'.
 
     >>> try:
     ...     csv_select_scope("x", {
@@ -1206,10 +1394,10 @@ def csv_select_scope(
 
     >>> try:
     ...     csv_select_scope(print, {
-    ...         "a.x": 1, "a.y": 2, "a": 3, "b": -4, "b.t": 5}, "a")
+    ...         "a.x": 1, "a.y": 2, "a": 3, "a.b": -4, "b.t": 5}, "a")
     ... except ValueError as ve:
     ...     print(ve)
-    b=-4 is invalid, must be in 0..1000000.
+    a.b=-4 is invalid, must be in 0..1000000.
 
     >>> try:
     ...     csv_select_scope(print, {
@@ -1270,34 +1458,49 @@ def csv_select_scope(
         raise type_error(skip_orig_key, "skip_orig_key", call=True)
     if not callable(skip_final_key):
         raise type_error(skip_final_key, "skip_final_key", call=True)
-    if (columns is None) or (dict.__len__(columns) <= 0):
-        return None
     if not isinstance(additional, Iterable):
         raise type_error(additional, "additional", Iterable)
     if not isinstance(include_scope, bool):
         raise type_error(include_scope, "include_scope", bool)
     if not callable(skip_col):
         raise type_error(skip_col, "skip_col", call=True)
+    if not isinstance(remove_cols, bool):
+        raise type_error(remove_cols, "remove_cols", bool)
 
-    columns = {
-        k: check_int_range(v, k, 0, 1_000_000) for k, v in columns.items()
-        if not (skip_orig_key(k) or skip_col(v))}
-
-    subset: dict[str, int]
-    if (scope is None) or (str.__len__(scope) <= 0):
-        subset = columns
-    else:
-        use_scope: Final[str] = f"{scope}{SCOPE_SEPARATOR}"
-        sl: Final[int] = str.__len__(use_scope)
-        subset = {k: vv for k, vv in (
-            (kk[sl:], columns[kk]) for kk in columns if str.startswith(
-                kk, use_scope)) if (not skip_final_key(k))}
-        if include_scope and (not skip_final_key(scope)) and (
-                scope in columns):
-            subset[scope] = columns[scope]
-
-    if dict.__len__(subset) <= 0:
+    if (columns is None) or (dict.__len__(columns) <= 0):
         return None
+    selection: Final[list[tuple[str, str, int]]] = [
+        (k, k, v) for k, v in columns.items()
+        if not (skip_orig_key(k) or skip_col(v))]
+    sel_len: Final[int] = list.__len__(selection)
+    if sel_len <= 0:
+        return None
+
+    if (scope is not None) and (str.__len__(scope) > 0):
+        use_scope: Final[str] = f"{scope}{SCOPE_SEPARATOR}"
+        usl: Final[int] = str.__len__(use_scope)
+        for i in range(sel_len - 1, -1, -1):
+            k, _, v = selection[i]
+            if str.startswith(k, use_scope):
+                use_key = k[usl:]
+                if not skip_final_key(use_key):
+                    list.__setitem__(selection, i, (k, use_key, v))
+                    continue
+            elif include_scope and (k == scope):
+                if not skip_final_key(k):
+                    continue
+            list.__delitem__(selection, i)
+
+    if list.__len__(selection) <= 0:
+        return None
+
+    if remove_cols:
+        for kv in selection:
+            dict.__delitem__(columns, kv[0])
+
+    subset: Final[dict[str, int]] = {
+        kv[1]: check_int_range(
+            kv[2], kv[0], 0, 1_000_000) for kv in selection}
 
     for kkk, vvv in additional:
         if str.__len__(kkk) <= 0:

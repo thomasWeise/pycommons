@@ -11,6 +11,8 @@ from typing import Callable, Final, Iterable, cast
 from pycommons.io.csv import (
     CSV_SEPARATOR,
     SCOPE_SEPARATOR,
+    csv_column,
+    csv_column_or_none,
     csv_scope,
     csv_val_or_none,
 )
@@ -1726,112 +1728,90 @@ class CsvReader:
         ...     CsvReader(dict())
         ... except ValueError as ve:
         ...     print(ve)
-        No keys in {}.
+        No useful keys remain in {}.
 
         >>> try:
         ...     CsvReader({"a": 1, "b": 2})
         ... except ValueError as ve:
         ...     print(ve)
-        No useful keys remain in ['a', 'b'] from {'a': 1, 'b': 2}.
+        No useful keys remain in {'a': 1, 'b': 2}.
 
         >>> try:
         ...     CsvReader({KEY_N: 1, "b": 2, "c": 3})
         ... except ValueError as ve:
         ...     print(ve)
-        No useful keys remain in ['b', 'c'] from {'n': 1, 'b': 2, 'c': 3}.
+        No useful keys remain in {'b': 2, 'c': 3}.
 
         >>> try:
         ...     CsvReader({KEY_MINIMUM: 1, "b": 2, "c": 3})
         ... except ValueError as ve:
         ...     print(ve)
-        Found strange keys ['b', 'c'].
+        Found strange keys in {'b': 2, 'c': 3}.
         """
         super().__init__()
-        #: the index for the minimum
-        self.__idx_min: int | None = None
-        #: the index for the arithmetic mean
-        self.__idx_mean_arith: int | None = None
-        #: the index for the median
-        self.__idx_median: int | None = None
-        #: the index for the geometric mean
-        self.__idx_mean_geom: int | None = None
-        #: the index for the maximum
-        self.__idx_max: int | None = None
-        #: the index for the standard deviation
-        self.__idx_sd: int | None = None
-        #: this is a single-value parser
-        self.__is_single: bool = True
 
         if not isinstance(columns, dict):
             raise type_error(columns, "columns", dict)
 
-        keys: Final[set[str]] = set(columns.keys())
-        if set.__len__(keys) <= 0:
-            raise ValueError(f"No keys in {columns}.")
-
-        v: int | None = columns.get(KEY_N)
-        self.idx_n: Final[int | None] = None if v is None else (
-            check_int_range(v, KEY_N, 0, 1_000_000))
-        if v is not None:
-            keys.remove(KEY_N)
+        #: the index of the number of elements
+        self.idx_n: Final[int | None] = csv_column_or_none(
+            columns, KEY_N, True)
 
         has: int = 0
         has_idx: int = -1
-        v = columns.get(KEY_MINIMUM, -1)
-        if v >= 0:
-            keys.remove(KEY_MINIMUM)
-            self.__idx_min = check_int_range(v, KEY_MINIMUM, 0, 100_000)
+
+        #: the index of the minimum
+        self.__idx_min: int | None = csv_column_or_none(
+            columns, KEY_MINIMUM, True)
+        if self.__idx_min is not None:
             has += 1
-            has_idx = v
+            has_idx = self.__idx_min
 
-        v = columns.get(KEY_MEAN_ARITH, -1)
-        if v >= 0:
-            keys.remove(KEY_MEAN_ARITH)
-            self.__idx_mean_arith = check_int_range(
-                v, KEY_MEAN_ARITH, 0, 100_000)
+        #: the index for the arithmetic mean
+        self.__idx_mean_arith: int | None = csv_column_or_none(
+            columns, KEY_MEAN_ARITH, True)
+        if self.__idx_mean_arith is not None:
             has += 1
-            has_idx = v
+            has_idx = self.__idx_mean_arith
 
-        v = columns.get(KEY_MEDIAN, -1)
-        if v >= 0:
-            keys.remove(KEY_MEDIAN)
+        #: the index for the median
+        self.__idx_median: int | None = csv_column_or_none(
+            columns, KEY_MEDIAN, True)
+        if self.__idx_median is not None:
             has += 1
-            self.__idx_median = check_int_range(v, KEY_MEDIAN, 0, 100_000)
-            has_idx = v
+            has_idx = self.__idx_median
 
-        v = columns.get(KEY_MEAN_GEOM, -1)
-        if v >= 0:
-            keys.remove(KEY_MEAN_GEOM)
+        #: the index for the geometric mean
+        self.__idx_mean_geom: int | None = csv_column_or_none(
+            columns, KEY_MEAN_GEOM, True)
+        if self.__idx_mean_geom is not None:
             has += 1
-            self.__idx_mean_geom = check_int_range(
-                v, KEY_MEAN_GEOM, 0, 100_000)
-            has_idx = v
+            has_idx = self.__idx_mean_geom
 
-        v = columns.get(KEY_MAXIMUM, -1)
-        if v >= 0:
-            keys.remove(KEY_MAXIMUM)
+        #: the index for the maximum
+        self.__idx_max: int | None = csv_column_or_none(
+            columns, KEY_MAXIMUM, True)
+        if self.__idx_max is not None:
             has += 1
-            self.__idx_max = check_int_range(v, KEY_MAXIMUM, 0, 100_000)
-            has_idx = v
+            has_idx = self.__idx_max
 
-        v = columns.get(KEY_STDDEV, -1)
-        if v >= 0:
-            keys.remove(KEY_STDDEV)
-            self.__idx_sd = check_int_range(v, KEY_STDDEV, 0, 100_000)
+        #: the index for the standard deviation
+        self.__idx_sd: Final[int | None] = csv_column_or_none(
+            columns, KEY_STDDEV, True)
 
-        remaining_keys: Final[int] = set.__len__(keys)
-        if has > 0:
-            if remaining_keys > 0:
-                raise ValueError(f"Found strange keys {sorted(keys)}.")
-        elif remaining_keys == 1:
-            self.__idx_min = has_idx = check_int_range(
-                columns[next(iter(keys))], "last_key", 0, 100_000)
-            has += 1
-        else:
-            raise ValueError(
-                f"No useful keys remain in {sorted(keys)} from {columns}.")
+        if has <= 0:
+            if dict.__len__(columns) == 1:
+                self.__idx_min = has_idx = csv_column(
+                    columns, next(iter(columns.keys())), True)
+                has = 1
+            else:
+                raise ValueError(f"No useful keys remain in {columns!r}.")
+        if dict.__len__(columns) > 1:
+            raise ValueError(f"Found strange keys in {columns!r}.")
 
-        self.__is_single = (self.__idx_sd is None) and (has == 1)
+        #: is this a parser for single number statistics?
+        self.__is_single: Final[bool] = (self.__idx_sd is None) and (has == 1)
+
         if self.__is_single:
             self.__idx_min = self.__idx_max = self.__idx_median \
                 = self.__idx_mean_arith = has_idx
