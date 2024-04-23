@@ -1045,7 +1045,7 @@ def csv_val_or_none(data: list[str | None] | None, index: int | None,
 
 
 def csv_column(columns: dict[str, int], key: str,
-               remove_col: bool = False) -> int:
+               remove_col: bool = True) -> int:
     """
     Get the index of a CSV column.
 
@@ -1067,7 +1067,7 @@ def csv_column(columns: dict[str, int], key: str,
     5
 
     >>> cols = {"a": 5, "b": 7}
-    >>> csv_column(cols, "a")
+    >>> csv_column(cols, "a", False)
     5
     >>> cols
     {'a': 5, 'b': 7}
@@ -1125,7 +1125,7 @@ def csv_column(columns: dict[str, int], key: str,
 
 def csv_column_or_none(columns: dict[str, int] | None = None,
                        key: str | None = None,
-                       remove_col: bool = False) -> int | None:
+                       remove_col: bool = True) -> int | None:
     """
     Get an optional CSV column index.
 
@@ -1146,7 +1146,7 @@ def csv_column_or_none(columns: dict[str, int] | None = None,
     5
 
     >>> cols = {"a": 5, "b": 7}
-    >>> csv_column_or_none(cols, "a")
+    >>> csv_column_or_none(cols, "a", False)
     5
     >>> cols
     {'a': 5, 'b': 7}
@@ -1200,6 +1200,76 @@ def csv_column_or_none(columns: dict[str, int] | None = None,
 
 def csv_select_scope(
         conv: Callable[[dict[str, int]], U],
+        columns: dict[str, int],
+        scope: str | None = None,
+        additional: Iterable[tuple[str, int]] = (),
+        skip_orig_key: Callable[[str], bool] = lambda _: False,
+        skip_final_key: Callable[[str], bool] = lambda _: False,
+        skip_col: Callable[[int], bool] = lambda _: False,
+        include_scope: bool = True,
+        remove_cols: bool = True) -> U:
+    """
+    Get all the columns of a given scope and pass them to the function `conv`.
+
+    This function is intended for selecting some keys from a column set and
+    pass them as parameters to a constructor of a CSV reader. It can do this
+    selection based on a `scope` prefix which is then removed from the column
+    names before passing them into the constructor. If no column matches, this
+    function throws a :class:`ValueError`.
+    All columns that are passed on to `conv` are deleted from `columns` if
+    `remove_cols == True`, which is the default.
+
+    :param conv: the function to which the selected columns should be passed,
+        and that creates the return value
+    :param columns: the existing columns
+    :param scope: the scope, or `None` or the empty string to select all
+        columns
+    :param skip_orig_key: a function that returns `True` for any original,
+        unchanged key in `columns` that should be ignored and that
+        returns `False` if the key can be processed normally (i.e., if we can
+        check if it starts with the given scope and move on)
+    :param skip_final_key: a function that returns `True` for any key in
+        `columns` that would fall into the right scope but that should still
+        be ignored. This function receives the key without the scope prefix.
+    :param skip_col: any column that should be ignored
+    :param additional: the additional columns to add *if* some keys/columns
+        remain after all the transformation and selection
+    :param include_scope: if scope appears as a lone column, should we
+        include it?
+    :param remove_cols: should we remove all selected columns?
+    :returns: The result of the function `conv` applied to all matching
+        columns (and those in `additional` are appended to them)
+    :raises ValueError: if no columns could be selected
+    :raises TypeError: if any of the elements passed in is of the wrong type
+
+    >>> csv_select_scope(lambda x: x, {
+    ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "")
+    {'a.x': 1, 'a.y': 2, 'a': 3, 'b': 4, 'b.t': 5}
+
+    >>> try:
+    ...     csv_select_scope(print, {"a.x": 1, "a.y": 2}, "v")
+    ... except ValueError as ve:
+    ...     print(ve)
+    Did not find sufficient data of scope 'v' in {'a.x': 1, 'a.y': 2}.
+
+    >>> try:
+    ...     csv_select_scope(print, {}, "v")
+    ... except ValueError as ve:
+    ...     print(ve)
+    Did not find sufficient data of scope 'v' in {}.
+    """
+    res: Final[U | None] = csv_select_scope_or_none(
+        conv, columns, scope, additional, skip_orig_key, skip_final_key,
+        skip_col, include_scope, remove_cols) \
+        if dict.__len__(columns) > 0 else None
+    if res is None:
+        raise ValueError("Did not find sufficient data of "
+                         f"scope {scope!r} in {columns!r}.")
+    return res
+
+
+def csv_select_scope_or_none(
+        conv: Callable[[dict[str, int]], U],
         columns: dict[str, int] | None,
         scope: str | None = None,
         additional: Iterable[tuple[str, int]] = (),
@@ -1207,9 +1277,17 @@ def csv_select_scope(
         skip_final_key: Callable[[str], bool] = lambda _: False,
         skip_col: Callable[[int], bool] = lambda _: False,
         include_scope: bool = True,
-        remove_cols: bool = False) -> U | None:
+        remove_cols: bool = True) -> U | None:
     """
     Get all the columns of a given scope and pass them to the function `conv`.
+
+    This function is intended for selecting some keys from a column set and
+    pass them as parameters to a constructor of a CSV reader. It can do this
+    selection based on a `scope` prefix which is then removed from the column
+    names before passing them into the constructor. If no column matches, this
+    function returns `None`.
+    All columns that are passed on to `conv` are deleted from `columns` if
+    `remove_cols == True`, which is the default.
 
     :param conv: the function to which the selected columns should be passed,
         if any, and that - in this case, returns the return value of this
@@ -1236,96 +1314,96 @@ def csv_select_scope(
         `additional` are appended to them) and these are then passed to `conv`
         and the result of `conv` is returned
 
-    >>> csv_select_scope(print, {
+    >>> csv_select_scope_or_none(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a")
     {'x': 1, 'y': 2, 'a': 3}
 
     >>> exa1 = {"a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}
-    >>> csv_select_scope(print, exa1, "a")
+    >>> csv_select_scope_or_none(print, exa1, "a", remove_cols=False)
     {'x': 1, 'y': 2, 'a': 3}
     >>> exa1
     {'a.x': 1, 'a.y': 2, 'a': 3, 'b': 4, 'b.t': 5}
-    >>> csv_select_scope(print, exa1, "a", remove_cols=True)
+    >>> csv_select_scope_or_none(print, exa1, "a", remove_cols=True)
     {'x': 1, 'y': 2, 'a': 3}
     >>> exa1
     {'b': 4, 'b.t': 5}
-    >>> csv_select_scope(print, exa1, "b", remove_cols=True)
+    >>> csv_select_scope_or_none(print, exa1, "b", remove_cols=True)
     {'b': 4, 't': 5}
     >>> exa1
     {}
 
-    >>> csv_select_scope(print, {
+    >>> csv_select_scope_or_none(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "")
     {'a.x': 1, 'a.y': 2, 'a': 3, 'b': 4, 'b.t': 5}
 
-    >>> csv_select_scope(print, {
+    >>> csv_select_scope_or_none(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, None)
     {'a.x': 1, 'a.y': 2, 'a': 3, 'b': 4, 'b.t': 5}
 
-    >>> csv_select_scope(print, {
+    >>> csv_select_scope_or_none(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
     ...     include_scope=False)
     {'x': 1, 'y': 2}
 
-    >>> csv_select_scope(print, {
+    >>> csv_select_scope_or_none(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b")
     {'b': 4, 't': 5}
 
-    >>> csv_select_scope(print, {
+    >>> csv_select_scope_or_none(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
     ...     additional=(('z', 23), ('v', 45)))
     {'b': 4, 't': 5, 'z': 23, 'v': 45}
 
-    >>> csv_select_scope(print, {
+    >>> csv_select_scope_or_none(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
     ...     additional=(('t', 23), ('v', 45)))
     {'b': 4, 't': 5, 'v': 45}
 
-    >>> csv_select_scope(print, {
+    >>> csv_select_scope_or_none(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
     ...     additional=(('x', 44), ('v', 45)))
     {'x': 1, 'y': 2, 'a': 3, 'v': 45}
 
-    >>> csv_select_scope(print, {
+    >>> csv_select_scope_or_none(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
     ...     additional=(('z', 23), ('v', 45)),
     ...     skip_col=lambda c: c == 23)
     {'b': 4, 't': 5, 'v': 45}
 
-    >>> csv_select_scope(print, {
+    >>> csv_select_scope_or_none(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
     ...     additional=(('z', 23), ('v', 45)),
     ...     skip_orig_key=lambda ok: ok == "b.t")
     {'b': 4, 'z': 23, 'v': 45}
 
-    >>> csv_select_scope(print, {
+    >>> csv_select_scope_or_none(print, {
     ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
     ...     additional=(('z', 23), ('v', 45)),
     ...     skip_final_key=lambda fk: fk == "z")
     {'b': 4, 't': 5, 'v': 45}
 
-    >>> print(csv_select_scope(print, {}, "a"))
+    >>> print(csv_select_scope_or_none(print, {}, "a"))
     None
 
-    >>> print(csv_select_scope(print, {}, None))
+    >>> print(csv_select_scope_or_none(print, {}, None))
     None
 
-    >>> print(csv_select_scope(print, None, None))
+    >>> print(csv_select_scope_or_none(print, None, None))
     None
 
-    >>> print(csv_select_scope(print, {"a.x": 45}, "a",
+    >>> print(csv_select_scope_or_none(print, {"a.x": 45}, "a",
     ...         skip_col=lambda c: c == 45))
     None
 
     >>> try:
-    ...     csv_select_scope(None, {
+    ...     csv_select_scope_or_none(None, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a")
     ... except TypeError as te:
     ...     print(te)
     conv should be a callable but is None.
 
     >>> try:
-    ...     csv_select_scope(print, {
+    ...     csv_select_scope_or_none(print, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
     ...         remove_cols=1)
     ... except TypeError as te:
@@ -1333,27 +1411,27 @@ def csv_select_scope(
     remove_cols should be an instance of bool but is int, namely '1'.
 
     >>> try:
-    ...     csv_select_scope("x", {
+    ...     csv_select_scope_or_none("x", {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a")
     ... except TypeError as te:
     ...     print(te)
     conv should be a callable but is str, namely 'x'.
 
     >>> try:
-    ...     csv_select_scope(print, "x", "a")
+    ...     csv_select_scope_or_none(print, "x", "a")
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'dict' object but received a 'str'
 
     >>> try:
-    ...     csv_select_scope(print, {
+    ...     csv_select_scope_or_none(print, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, int)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'type'
 
     >>> try:
-    ...     csv_select_scope(print, {
+    ...     csv_select_scope_or_none(print, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
     ...         additional=2)
     ... except TypeError as te:
@@ -1361,7 +1439,7 @@ def csv_select_scope(
     additional should be an instance of typing.Iterable but is int, name
 
     >>> try:
-    ...     csv_select_scope(print, {
+    ...     csv_select_scope_or_none(print, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
     ...         additional=((1, 2), ))
     ... except TypeError as te:
@@ -1369,7 +1447,7 @@ def csv_select_scope(
     descriptor '__len__' requires a 'str' object but received a 'int'
 
     >>> try:
-    ...     csv_select_scope(print, {
+    ...     csv_select_scope_or_none(print, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
     ...         additional=(None, ))
     ... except TypeError as te:
@@ -1377,7 +1455,7 @@ def csv_select_scope(
     cannot unpack non-iterable NoneType object
 
     >>> try:
-    ...     csv_select_scope(print, {
+    ...     csv_select_scope_or_none(print, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
     ...         additional=(("yx", "a"), ))
     ... except TypeError as te:
@@ -1385,7 +1463,7 @@ def csv_select_scope(
     yx should be an instance of int but is str, namely 'a'.
 
     >>> try:
-    ...     csv_select_scope(print, {
+    ...     csv_select_scope_or_none(print, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
     ...         additional=(("yx", -2), ))
     ... except ValueError as ve:
@@ -1393,14 +1471,14 @@ def csv_select_scope(
     yx=-2 is invalid, must be in 0..1000000.
 
     >>> try:
-    ...     csv_select_scope(print, {
+    ...     csv_select_scope_or_none(print, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "a.b": -4, "b.t": 5}, "a")
     ... except ValueError as ve:
     ...     print(ve)
     a.b=-4 is invalid, must be in 0..1000000.
 
     >>> try:
-    ...     csv_select_scope(print, {
+    ...     csv_select_scope_or_none(print, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
     ...         skip_col=None)
     ... except TypeError as te:
@@ -1408,7 +1486,7 @@ def csv_select_scope(
     skip_col should be a callable but is None.
 
     >>> try:
-    ...     csv_select_scope(print, {
+    ...     csv_select_scope_or_none(print, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
     ...         skip_orig_key=None)
     ... except TypeError as te:
@@ -1416,7 +1494,7 @@ def csv_select_scope(
     skip_orig_key should be a callable but is None.
 
     >>> try:
-    ...     csv_select_scope(print, {
+    ...     csv_select_scope_or_none(print, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
     ...         skip_final_key=None)
     ... except TypeError as te:
@@ -1432,20 +1510,20 @@ def csv_select_scope(
     include_scope should be an instance of bool but is int, namely '3'.
 
     >>> try:
-    ...     csv_select_scope(print, {
+    ...     csv_select_scope_or_none(print, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, 4)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'str' object but received a 'int'
 
     >>> try:
-    ...     csv_select_scope(print, 11)
+    ...     csv_select_scope_or_none(print, 11)
     ... except TypeError as te:
     ...     print(te)
     descriptor '__len__' requires a 'dict' object but received a 'int'
 
     >>> try:
-    ...     csv_select_scope(print, {
+    ...     csv_select_scope_or_none(print, {
     ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
     ...         additional=(("", 2), ))
     ... except ValueError as ve:

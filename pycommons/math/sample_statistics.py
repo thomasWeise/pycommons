@@ -1755,49 +1755,49 @@ class CsvReader:
 
         #: the index of the number of elements
         self.idx_n: Final[int | None] = csv_column_or_none(
-            columns, KEY_N, True)
+            columns, KEY_N)
 
         has: int = 0
         has_idx: int = -1
 
         #: the index of the minimum
         self.__idx_min: int | None = csv_column_or_none(
-            columns, KEY_MINIMUM, True)
+            columns, KEY_MINIMUM)
         if self.__idx_min is not None:
             has += 1
             has_idx = self.__idx_min
 
         #: the index for the arithmetic mean
         self.__idx_mean_arith: int | None = csv_column_or_none(
-            columns, KEY_MEAN_ARITH, True)
+            columns, KEY_MEAN_ARITH)
         if self.__idx_mean_arith is not None:
             has += 1
             has_idx = self.__idx_mean_arith
 
         #: the index for the median
         self.__idx_median: int | None = csv_column_or_none(
-            columns, KEY_MEDIAN, True)
+            columns, KEY_MEDIAN)
         if self.__idx_median is not None:
             has += 1
             has_idx = self.__idx_median
 
         #: the index for the geometric mean
         self.__idx_mean_geom: int | None = csv_column_or_none(
-            columns, KEY_MEAN_GEOM, True)
+            columns, KEY_MEAN_GEOM)
         if self.__idx_mean_geom is not None:
             has += 1
             has_idx = self.__idx_mean_geom
 
         #: the index for the maximum
         self.__idx_max: int | None = csv_column_or_none(
-            columns, KEY_MAXIMUM, True)
+            columns, KEY_MAXIMUM)
         if self.__idx_max is not None:
             has += 1
             has_idx = self.__idx_max
 
         #: the index for the standard deviation
         self.__idx_sd: Final[int | None] = csv_column_or_none(
-            columns, KEY_STDDEV, True)
+            columns, KEY_STDDEV)
 
         if has <= 0:
             if dict.__len__(columns) == 1:
