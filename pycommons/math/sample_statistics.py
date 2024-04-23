@@ -785,12 +785,12 @@ def getter(dimension: str) -> Callable[
     ...     getter("hello")
     ... except ValueError as ve:
     ...     print(ve)
-    Unknown dimension 'hello'.
+    Unknown SampleStatistics dimension 'hello'.
     """
     result: Callable[[SampleStatistics], int | float | None] | None = \
         __PROPERTIES(str.strip(dimension), None)
     if result is None:
-        raise ValueError(f"Unknown dimension {dimension!r}.")
+        raise ValueError(f"Unknown SampleStatistics dimension {dimension!r}.")
     return result
 
 
@@ -1747,8 +1747,6 @@ class CsvReader:
         Found strange keys ['b', 'c'].
         """
         super().__init__()
-        #: the index for n
-        self.__idx_n: int | None = None
         #: the index for the minimum
         self.__idx_min: int | None = None
         #: the index for the arithmetic mean
@@ -1771,9 +1769,10 @@ class CsvReader:
         if set.__len__(keys) <= 0:
             raise ValueError(f"No keys in {columns}.")
 
-        v: int = columns.get(KEY_N, -1)
-        if v >= 0:
-            self.__idx_n = check_int_range(v, KEY_N, 0, 100_000)
+        v: int | None = columns.get(KEY_N)
+        self.idx_n: Final[int | None] = None if v is None else (
+            check_int_range(v, KEY_N, 0, 1_000_000))
+        if v is not None:
             keys.remove(KEY_N)
 
         has: int = 0
@@ -1844,8 +1843,7 @@ class CsvReader:
         :param data: the data row
         :return: the sample statistics
         """
-        n: Final[int] = 1 if self.__idx_n is None else int(
-            data[self.__idx_n])
+        n: Final[int] = 1 if self.idx_n is None else int(data[self.idx_n])
         mi: int | float | None = csv_val_or_none(
             data, self.__idx_min, str_to_num)
 
@@ -2143,7 +2141,7 @@ class CsvWriter:
         :param dest: the destination
         """
         long_name: str | None = self.__long_name
-        long_name = "" if long_name is None else f" {long_name} "
+        long_name = "" if long_name is None else f" {long_name}"
         short_name: str | None = self.__short_name
         short_name = "" if short_name is None else f" {short_name}"
         name: str = long_name

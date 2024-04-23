@@ -29,7 +29,7 @@ Comments start with a comment start with :const:`COMMENT_START` by default.
 from typing import Any, Callable, Final, Iterable, TypeVar, cast
 
 from pycommons.strings.chars import NEWLINE
-from pycommons.types import type_error
+from pycommons.types import check_int_range, type_error
 
 #: the default CSV separator
 CSV_SEPARATOR: Final[str] = ";"
@@ -1042,3 +1042,268 @@ def csv_val_or_none(data: list[str | None] | None, index: int | None,
     """
     t: Final[str | None] = csv_str_or_none(data, index)
     return None if t is None else conv(t)
+
+
+def csv_select_scope(
+        conv: Callable[[dict[str, int]], U],
+        columns: dict[str, int] | None,
+        scope: str | None = None,
+        additional: Iterable[tuple[str, int]] = (),
+        skip_orig_key: Callable[[str], bool] = lambda _: False,
+        skip_final_key: Callable[[str], bool] = lambda _: False,
+        skip_col: Callable[[int], bool] = lambda _: False,
+        include_scope: bool = True) -> U | None:
+    """
+    Get all the columns of a given scope and pass them to the function `conv`.
+
+    :param conv: the function to which the selected columns should be passed,
+        if any, and that - in this case, returns the return value of this
+        function
+    :param columns: the existing columns
+    :param scope: the scope, or `None` or the empty string to select all
+        columns
+    :param skip_orig_key: a function that returns `True` for any original,
+        unchanged key in `columns` that should be ignored and that
+        returns `False` if the key can be processed normally (i.e., if we can
+        check if it starts with the given scope and move on)
+    :param skip_final_key: a function that returns `True` for any key in
+        `columns` that would fall into the right scope but that should still
+        be ignored. This function receives the key without the scope prefix.
+    :param skip_col: any column that should be ignored
+    :param additional: the additional columns to add *if* some keys/columns
+        remain after all the transformation and selection
+    :param include_scope: if scope appears as a lone column, should we
+        include it?
+    :returns: `None` if no keys fall into the provided scope does not have any
+        keys matching it in `columns`. The result of `conv` otherwise, i.e.,
+        if there are matching columns, these are selected (and those in
+        `additional` are appended to them) and these are then passed to `conv`
+        and the result of `conv` is returned
+
+    >>> csv_select_scope(print, {
+    ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a")
+    {'x': 1, 'y': 2, 'a': 3}
+
+    >>> csv_select_scope(print, {
+    ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "")
+    {'a.x': 1, 'a.y': 2, 'a': 3, 'b': 4, 'b.t': 5}
+
+    >>> csv_select_scope(print, {
+    ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, None)
+    {'a.x': 1, 'a.y': 2, 'a': 3, 'b': 4, 'b.t': 5}
+
+    >>> csv_select_scope(print, {
+    ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
+    ...     include_scope=False)
+    {'x': 1, 'y': 2}
+
+    >>> csv_select_scope(print, {
+    ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b")
+    {'t': 5, 'b': 4}
+
+    >>> csv_select_scope(print, {
+    ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
+    ...     additional=(('z', 23), ('v', 45)))
+    {'t': 5, 'b': 4, 'z': 23, 'v': 45}
+
+    >>> csv_select_scope(print, {
+    ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
+    ...     additional=(('z', 23), ('v', 45)),
+    ...     skip_col=lambda c: c == 23)
+    {'t': 5, 'b': 4, 'v': 45}
+
+    >>> csv_select_scope(print, {
+    ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
+    ...     additional=(('z', 23), ('v', 45)),
+    ...     skip_orig_key=lambda ok: ok == "b.t")
+    {'b': 4, 'z': 23, 'v': 45}
+
+    >>> csv_select_scope(print, {
+    ...     "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "b",
+    ...     additional=(('z', 23), ('v', 45)),
+    ...     skip_final_key=lambda fk: fk == "z")
+    {'t': 5, 'b': 4, 'v': 45}
+
+    >>> print(csv_select_scope(print, {}, "a"))
+    None
+
+    >>> print(csv_select_scope(print, {}, None))
+    None
+
+    >>> print(csv_select_scope(print, None, None))
+    None
+
+    >>> print(csv_select_scope(print, {"a.x": 45}, "a",
+    ...         skip_col=lambda c: c == 45))
+    None
+
+    >>> try:
+    ...     csv_select_scope(None, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a")
+    ... except TypeError as te:
+    ...     print(te)
+    conv should be a callable but is None.
+
+    >>> try:
+    ...     csv_select_scope("x", {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a")
+    ... except TypeError as te:
+    ...     print(te)
+    conv should be a callable but is str, namely 'x'.
+
+    >>> try:
+    ...     csv_select_scope(print, "x", "a")
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'dict' object but received a 'str'
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, int)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'type'
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
+    ...         additional=2)
+    ... except TypeError as te:
+    ...     print(str(te)[:-7])
+    additional should be an instance of typing.Iterable but is int, name
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
+    ...         additional=((1, 2), ))
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
+    ...         additional=(None, ))
+    ... except TypeError as te:
+    ...     print(te)
+    cannot unpack non-iterable NoneType object
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
+    ...         additional=(("yx", "a"), ))
+    ... except TypeError as te:
+    ...     print(te)
+    yx should be an instance of int but is str, namely 'a'.
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
+    ...         additional=(("yx", -2), ))
+    ... except ValueError as ve:
+    ...     print(ve)
+    yx=-2 is invalid, must be in 0..1000000.
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": -4, "b.t": 5}, "a")
+    ... except ValueError as ve:
+    ...     print(ve)
+    b=-4 is invalid, must be in 0..1000000.
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
+    ...         skip_col=None)
+    ... except TypeError as te:
+    ...     print(te)
+    skip_col should be a callable but is None.
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
+    ...         skip_orig_key=None)
+    ... except TypeError as te:
+    ...     print(te)
+    skip_orig_key should be a callable but is None.
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
+    ...         skip_final_key=None)
+    ... except TypeError as te:
+    ...     print(te)
+    skip_final_key should be a callable but is None.
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
+    ...         include_scope=3)
+    ... except TypeError as te:
+    ...     print(te)
+    include_scope should be an instance of bool but is int, namely '3'.
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, 4)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> try:
+    ...     csv_select_scope(print, 11)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'dict' object but received a 'int'
+
+    >>> try:
+    ...     csv_select_scope(print, {
+    ...         "a.x": 1, "a.y": 2, "a": 3, "b": 4, "b.t": 5}, "a",
+    ...         additional=(("", 2), ))
+    ... except ValueError as ve:
+    ...     print(ve)
+    Invalid additional column ''.
+    """
+    if not callable(conv):
+        raise type_error(conv, "conv", call=True)
+    if not callable(skip_orig_key):
+        raise type_error(skip_orig_key, "skip_orig_key", call=True)
+    if not callable(skip_final_key):
+        raise type_error(skip_final_key, "skip_final_key", call=True)
+    if (columns is None) or (dict.__len__(columns) <= 0):
+        return None
+    if not isinstance(additional, Iterable):
+        raise type_error(additional, "additional", Iterable)
+    if not isinstance(include_scope, bool):
+        raise type_error(include_scope, "include_scope", bool)
+    if not callable(skip_col):
+        raise type_error(skip_col, "skip_col", call=True)
+
+    columns = {
+        k: check_int_range(v, k, 0, 1_000_000) for k, v in columns.items()
+        if not (skip_orig_key(k) or skip_col(v))}
+
+    subset: dict[str, int]
+    if (scope is None) or (str.__len__(scope) <= 0):
+        subset = columns
+    else:
+        use_scope: Final[str] = f"{scope}{SCOPE_SEPARATOR}"
+        sl: Final[int] = str.__len__(use_scope)
+        subset = {k: vv for k, vv in (
+            (kk[sl:], columns[kk]) for kk in columns if str.startswith(
+                kk, use_scope)) if (not skip_final_key(k))}
+        if include_scope and (not skip_final_key(scope)) and (
+                scope in columns):
+            subset[scope] = columns[scope]
+
+    if dict.__len__(subset) <= 0:
+        return None
+
+    for kkk, vvv in additional:
+        if str.__len__(kkk) <= 0:
+            raise ValueError(f"Invalid additional column {kkk!r}.")
+        if skip_final_key(kkk) or skip_col(vvv):
+            continue
+        if kkk not in subset:
+            subset[kkk] = check_int_range(vvv, kkk, 0, 1_000_000)
+    return conv(subset)
