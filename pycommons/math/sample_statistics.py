@@ -1854,7 +1854,11 @@ class CsvReader:
             elif ma is not None:
                 mi = ma
             else:
-                raise ValueError(f"No value defined in {data}.")
+                raise ValueError(
+                    f"No value defined for min@{self.__idx_min}={mi}, mean@"
+                    f"{self.__idx_mean_arith}={ar}, med@{self.__idx_median}="
+                    f"{me}, gmean@{self.__idx_mean_geom}={ge}, max@"
+                    f"{self.__idx_max}={ma} defined in {data!r}.")
         return SampleStatistics(
             n=n, minimum=mi, mean_arith=mi if ar is None else ar,
             median=mi if me is None else me, mean_geom=(
