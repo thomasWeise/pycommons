@@ -1971,41 +1971,73 @@ class CsvWriter:
 
         :param data: the data to setup with
         :returns: this writer
+
+        >>> a = CsvWriter()
+        >>> try:
+        ...     a.setup([])
+        ... except ValueError as ve:
+        ...     print(ve)
+        SampleStatistics CsvWriter did not see any data.
+        >>> try:
+        ...     a.setup([])
+        ... except ValueError as ve:
+        ...     print(ve)
+        SampleStatistics CsvWriter has already been set up.
+
+        >>> try:
+        ...     CsvWriter().setup([1])
+        ... except TypeError as te:
+        ...     print(str(te)[:60])
+        data[i] should be an instance of pycommons.math.sample_stati
         """
         if self.__setup:
-            raise ValueError("CSV writer has already been set up.")
+            raise ValueError(
+                "SampleStatistics CsvWriter has already been set up.")
         self.__setup = True
 
-        # If no record has a standard deviation, or the standard deviation is
-        # always 0, then we do not need to add the standard deviation column.
-        # If the `n` column is not needed or if all `n=1`, then we can omit
-        # it as well.
-        # If all minimum, mean, median, maximum (and geometric mean, if
-        # defined) are the same, then we can collapse this column
-        # If no geometric mean is found, then we can also omit this column
-        has_no_geom: bool = True
+        # We need to check at most three conditions to see whether we can
+        # compact the output:
+        # 1. If all minimum, mean, median, maximum (and geometric mean, if
+        # defined) are the same, then we can collapse this column.
         all_same: bool = True
-        # Only need to check if n is not needed if self.n_not_needed is False
-        n_not_needed: bool = not self.n_not_needed
-        needs: int = 3 if n_not_needed else 2
-        for d in data:
-            if n_not_needed and (d.n != 1):
-                n_not_needed = False
-                needs -= 1
-                if needs <= 0:
+        # 2. If no geometric mean is found, then we can also omit this column.
+        has_no_geom: bool = True
+        # 3. If the `n` column is not needed or if all `n=1`, then we can omit
+        # it. We only need to check if n is not needed if self.n_not_needed is
+        # False because otherwise, we rely on self.n_not_needed.
+        # n_really_not_needed will become False if we find one situation where
+        # we actually need n.
+        n_really_not_needed: bool = not self.n_not_needed
+        # So if n_really_not_needed is True, we need to do 3 checks.
+        # Otherwise, we only need two checks.
+        checks_needed: int = 3 if n_really_not_needed else 2
+        # the number of samples seen
+        seen: int = 0
+
+        for d in data:  # Iterate over the data until all checks are done.
+            if not isinstance(d, SampleStatistics):
+                raise type_error(d, "data[i]", SampleStatistics)
+            seen += 1
+            if n_really_not_needed and (d.n != 1):
+                n_really_not_needed = False
+                checks_needed -= 1
+                if checks_needed <= 0:
                     break
             if all_same and (d.minimum < d.maximum):
                 all_same = False
-                needs -= 1
-                if needs <= 0:
+                checks_needed -= 1
+                if checks_needed <= 0:
                     break
             if has_no_geom and (d.mean_geom is not None):
                 has_no_geom = False
-                needs -= 1
-                if needs <= 0:
+                checks_needed -= 1
+                if checks_needed <= 0:
                     break
 
-        n_not_needed = n_not_needed or self.n_not_needed
+        if seen <= 0:
+            raise ValueError(
+                "SampleStatistics CsvWriter did not see any data.")
+        n_not_needed = n_really_not_needed or self.n_not_needed
         # Now we know the columns that need to be generated.
         self.__has_n = not n_not_needed
         self.__single_value = all_same
@@ -2035,9 +2067,15 @@ class CsvWriter:
         Get the column titles.
 
         :param dest: the destination string consumer
+
+        >>> try:
+        ...     CsvWriter().get_column_titles(print)
+        ... except ValueError as ve:
+        ...     print(ve)
+        SampleStatistics CsvWriter has not been set up.
         """
         if not self.__setup:
-            raise ValueError("CsvWriter has not been set up.")
+            raise ValueError("SampleStatistics CsvWriter has not been set up.")
         if self.__has_n:
             dest(self.__key_n)
 
@@ -2065,6 +2103,12 @@ class CsvWriter:
         :param data: the data item
         :param dest: the output destination
         :param n: the number of samples
+
+        >>> try:
+        ...     CsvWriter().get_optional_row("x", print)
+        ... except TypeError as te:
+        ...     print(str(te)[:53])
+        data should be an instance of any in {None, float, in
         """
         if data is None:
             # attach an empty row

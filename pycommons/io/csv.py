@@ -29,7 +29,7 @@ Comments start with a comment start with :const:`COMMENT_START` by default.
 from typing import Any, Callable, Final, Iterable, TypeVar, cast
 
 from pycommons.strings.chars import NEWLINE
-from pycommons.types import check_int_range, type_error
+from pycommons.types import check_int_range, reiterable, type_error
 
 #: the default CSV separator
 CSV_SEPARATOR: Final[str] = ";"
@@ -392,6 +392,17 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     above, respectively. In that case, `comment_start` is prepended to each
     line.
 
+    If you create nested CSV formats, i.e., such where the `setup` function
+    invokes the `setup` function of other data, and the data that you receive
+    could come from a :class:`~typing.Generator` (or some other one-shot
+    :class:`~typing.Iterator`), then you need to make sure to solidify the
+    iterable data with :func:`~pycommons.types.reiterable`. The structure of
+    our CSV output is that `setup` is first invoked and then `get_row`. If
+    `setup` already consumes the data away, then `get_row` may print nothing.
+    Alternatively, if you apply multiple `setup` routines to the same data
+    that extract different information, then the first `setup` run may consume
+    all the data, leaving nothing for the second one.
+
     :param data: the iterable of data to be written
     :param consumer: the consumer to which it will be written
     :param get_column_titles: get the column titles
@@ -456,15 +467,15 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...     csv_write(None, print, __get_column_titles, __get_row, __setup,
     ...           ";", "#", __get_header_cmt, __get_footer_cmt)
     ... except TypeError as te:
-    ...     print(te)
-    data should be an instance of typing.Iterable but is None.
+    ...     print(str(te)[:60])
+    source should be an instance of any in {typing.Iterable, typ
 
     >>> try:
     ...     csv_write(1, print, __get_column_titles, __get_row, __setup,
     ...           ";", "#", __get_header_cmt, __get_footer_cmt)
     ... except TypeError as te:
-    ...     print(te)
-    data should be an instance of typing.Iterable but is int, namely '1'.
+    ...     print(str(te)[:60])
+    source should be an instance of any in {typing.Iterable, typ
 
     >>> try:
     ...     csv_write(dd, None, __get_column_titles, __get_row, __setup,
@@ -845,8 +856,6 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     a
     Too many columns in ['x', 'y'], should be 1.
     """
-    if not isinstance(data, Iterable):
-        raise type_error(data, "data", Iterable)
     if not callable(consumer):
         raise type_error(consumer, "consumer", call=True)
     if not callable(get_column_titles):
@@ -865,13 +874,12 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
                 comment_start in separator):
             raise ValueError(f"Invalid comment start: {comment_start!r}.")
         forbidden_maker.add(comment_start)
-
     if not callable(get_header_comments):
         raise type_error(get_header_comments, "get_header_comments", call=True)
     if not callable(get_footer_comments):
         raise type_error(get_footer_comments, "get_footer_comments", call=True)
 
-    # get the setup data
+    data = reiterable(data)  # make sure we can iterate over the data twice
     setting: Final[S] = setup(data)
     collected: Final[list[str]] = []
     collected_append: Final[Callable[[str], None]] = collected.append

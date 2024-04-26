@@ -665,6 +665,83 @@ dirname(__file__)))
                 f"Error when trying to create directory {self!r}.") from err
         self.enforce_dir()
 
+    def ensure_parent_dir_exists(self) -> None:
+        """
+        Make sure that the parent directory exists, create it otherwise.
+
+        This path may identify a file or directory to be created that does not
+        yet exist. The parent directory of this path is ensured to exist,
+        i.e., if it already exists, nothing happens, but if it does not yet
+        exist, it is created. If the parent directory cannot be created, a
+        :class:`ValueError` is raised.
+
+        :raises ValueError: if the directory did not exist and creation failed
+
+        >>> from os.path import dirname
+        >>> Path(__file__).ensure_parent_dir_exists()  # nothing happens
+
+        >>> try:
+        ...     Path(join(__file__, "a")).ensure_parent_dir_exists()
+        ... except ValueError as ve:
+        ...     print("is not a directory" in str(ve))
+        True
+
+        >>> from tempfile import mkdtemp
+        >>> from os import rmdir as osrmdirx
+        >>> td = mkdtemp()
+        >>> tf = Path(join(td, "xxx"))
+        >>> tf.ensure_parent_dir_exists()
+        >>> osrmdirx(td)
+        >>> isdir(dirname(tf))
+        False
+        >>> tf.ensure_parent_dir_exists()
+        >>> isdir(dirname(tf))
+        True
+        >>> osrmdirx(td)
+
+        >>> td = mkdtemp()
+        >>> isdir(td)
+        True
+        >>> td2 = join(td, "xxx")
+        >>> isdir(td2)
+        False
+        >>> tf = join(td2, "xxx")
+        >>> Path(tf).ensure_parent_dir_exists()
+        >>> isdir(td2)
+        True
+        >>> osrmdirx(td2)
+        >>> osrmdirx(td)
+
+        >>> td = mkdtemp()
+        >>> isdir(td)
+        True
+        >>> td2 = join(td, "xxx")
+        >>> isdir(td2)
+        False
+        >>> td3 = join(td2, "xxx")
+        >>> isdir(td3)
+        False
+        >>> tf = join(td3, "xxx")
+        >>> Path(tf).ensure_parent_dir_exists()
+        >>> isdir(td3)
+        True
+        >>> isdir(td2)
+        True
+        >>> osrmdirx(td3)
+        >>> osrmdirx(td2)
+        >>> osrmdirx(td)
+        """
+        pd: Final[str] = dirname(self)
+        try:
+            makedirs(name=pd, exist_ok=True)
+        except FileExistsError:
+            pass
+        except Exception as err:
+            raise ValueError(f"Error when trying to create directory {pd!r} "
+                             f"to accommodate {self!r}.") from err
+        if not isdir(pd):
+            raise ValueError(f"{pd} is not a directory!")
+
     def open_for_read(self) -> TextIOBase:
         r"""
         Open this file for reading text.
