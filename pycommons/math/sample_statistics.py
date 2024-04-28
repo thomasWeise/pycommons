@@ -15,6 +15,7 @@ from pycommons.io.csv import (
     csv_column_or_none,
     csv_scope,
     csv_val_or_none,
+    pycommons_footer_bottom_comments,
 )
 from pycommons.math.int_math import (
     __DBL_INT_LIMIT_P_I,
@@ -2224,3 +2225,11 @@ class CsvWriter:
                  f"the arithmetic mean {self.__key_mean_arith}. It can be "
                  "computed as the ((sum of squares) - (square of the sum)"
                  f" / {n_name}) / ({n_name} - 1) of all{name} values.")
+
+    def get_footer_bottom_comments(self, dest: Callable[[str], None]) -> None:
+        """
+        Get the bottom footer comments.
+
+        :param dest: the string destination
+        """
+        pycommons_footer_bottom_comments(None, dest)

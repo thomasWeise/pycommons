@@ -30,6 +30,7 @@ from typing import Any, Callable, Final, Iterable, TypeVar, cast
 
 from pycommons.strings.chars import NEWLINE
 from pycommons.types import check_int_range, reiterable, type_error
+from pycommons.version import __version__ as pycommons_version
 
 #: the default CSV separator
 CSV_SEPARATOR: Final[str] = ";"
@@ -354,6 +355,135 @@ def csv_read(rows: Iterable[str],
         consumer(parse_row(info, cols))
 
 
+def pycommons_footer_bottom_comments(
+        _: Any, dest: Callable[[str], None]) -> None:
+    """
+    Print standard footer bottom comments for `pycommons`.
+
+    :param _: ignored
+    :param dest: the destination string recipient
+
+    >>> def __qpt(s: str):
+    ...     print(s[:70])
+    >>> pycommons_footer_bottom_comments("", __qpt)
+    This CSV output has been created using the versatile CSV API of pycomm
+    You can find pycommons at https://thomasweise.github.io/pycommons.
+    """
+    dest("This CSV output has been created using the versatile CSV API of "
+         f"pycommons, version {pycommons_version}.")
+    dest("You can find pycommons at https://thomasweise.github.io/pycommons.")
+
+
+def __print_comments(collected: list[str],
+                     comment_start: str, comment_type: str,
+                     consumer: Callable[[str], Any],
+                     empty_first_row: bool) -> None:
+    r"""
+    Forward comments to a consumer after formatting and checking them.
+
+    :param collected: the list for collecting the comment strings
+    :param comment_start: the comment start string
+    :param comment_type: the comment type
+    :param consumer: the comment consumer
+    :param empty_first_row: should we put an empty first row?
+    :raises TypeError: if an argument is of the wrong type
+    :raises ValueError: if comments cannot be placed or contain newlines
+
+    >>> col = ["", "First comment.", "Second comment.", "", "",
+    ...        " Third comment. "]
+    >>> __print_comments(col, "#", "header", print, False)
+    # First comment.
+    # Second comment.
+    #
+    # Third comment.
+    >>> list.__len__(col)
+    0
+
+    >>> __print_comments(col, "#", "header", print, True)
+
+    >>> col = ["", "First comment.", "Second comment.", "", "",
+    ...        " Third comment. "]
+    >>> __print_comments(col, "#", "header", print, True)
+    #
+    # First comment.
+    # Second comment.
+    #
+    # Third comment.
+    >>> list.__len__(col)
+    0
+
+    >>> col = ["First comment.", "Second comment.", "", "",
+    ...        " Third comment. "]
+    >>> __print_comments(col, "#", "header", print, True)
+    #
+    # First comment.
+    # Second comment.
+    #
+    # Third comment.
+    >>> list.__len__(col)
+    0
+
+    >>> col = ["", "", "First comment.", "Second comment.", "", "",
+    ...        " Third comment. "]
+    >>> __print_comments(col, "#", "header", print, True)
+    #
+    # First comment.
+    # Second comment.
+    #
+    # Third comment.
+    >>> list.__len__(col)
+    0
+
+    >>> __print_comments([], "#", "header", print, False)
+    >>> __print_comments([""], "#", "header", print, False)
+    >>> __print_comments(["", ""], "#", "header", print, False)
+    >>> __print_comments([], "#", "header", print, True)
+    >>> __print_comments([""], "#", "header", print, True)
+    >>> __print_comments(["", ""], "#", "header", print, True)
+
+    >>> try:
+    ...     __print_comments(["", 1, "Second comment."], "x", "header",
+    ...                      print, False)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
+    >>> try:
+    ...     __print_comments(["", None, "Second."], "x", "header",
+    ...                      print, False)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object
+
+    >>> try:
+    ...     __print_comments(["Hello", "x\ny", "z"], "#", "header", print,
+    ...                      False)
+    ... except ValueError as ve:
+    ...     print(ve)
+    # Hello
+    A header comment must not contain a newline character, but 'x\ny' does.
+    """
+    if list.__len__(collected) <= 0:
+        return
+    not_first = False
+    for cmt in collected:
+        xcmt = str.strip(cmt)  # strip and typecheck
+        if str.__len__(xcmt) <= 0:
+            if not_first:
+                consumer(comment_start)
+                empty_first_row = not_first = False
+            continue
+        if any(map(xcmt.__contains__, NEWLINE)):
+            raise ValueError(f"A {comment_type} comment must not contain "
+                             f"a newline character, but {cmt!r} does.")
+        not_first = True
+        if empty_first_row:
+            consumer(comment_start)
+            empty_first_row = False
+        consumer(f"{comment_start} {xcmt}")
+    collected.clear()
+
+
 def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
               get_column_titles: Callable[[S, Callable[[str], None]], Any],
               get_row: Callable[[S, T, Callable[[str], None]], Any],
@@ -363,7 +493,10 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
               get_header_comments: Callable[[S, Callable[[str], None]], Any] =
               lambda _, __: None,
               get_footer_comments: Callable[[S, Callable[[str], None]], Any] =
-              lambda _, __: None) -> None:
+              lambda _, __: None,
+              get_footer_bottom_comments: Callable[[
+                  S, Callable[[str], None]], Any] =
+              pycommons_footer_bottom_comments) -> None:
     r"""
     Write data in CSV format to a text destination.
 
@@ -390,7 +523,9 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     provided to pass row comments as :class:`str` to a :class:`Callable` which
     then prepends or appends them as comment rows before or after all of the
     above, respectively. In that case, `comment_start` is prepended to each
-    line.
+    line. If `comment_start is None`, then these comments are not printed.
+    `get_footer_bottom_comments` provides means to print additional comments
+    after the footer comments `comment_start is not None`.
 
     If you create nested CSV formats, i.e., such where the `setup` function
     invokes the `setup` function of other data, and the data that you receive
@@ -412,9 +547,13 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     :param separator: the string used to separate columns
     :param comment_start: the string starting comments
     :param get_header_comments: get the comments to be placed above the CSV
-        header row
+        header row -- only invoked if `comment_start is not None`.
     :param get_footer_comments: get the comments to be placed after the last
-        row
+        row -- only invoked if `comment_start is not None`.
+    :param get_footer_bottom_comments: get the footer bottom comments, i.e.,
+        comments to be printed after all other footers. These commonts may
+        include something like the version information of the software used.
+        This function is only invoked if `comment_start is not None`.
     :raises TypeError: if any of the parameters has the wrong type
     :raises ValueError: if the separator or comment start character are
         incompatible or if the data has some internal error
@@ -442,7 +581,8 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...     app(" This is a footer comment.")
 
     >>> csv_write(dd, print, __get_column_titles, __get_row, __setup,
-    ...           ";", "#", __get_header_cmt, __get_footer_cmt)
+    ...           ";", "#", __get_header_cmt, __get_footer_cmt,
+    ...           lambda _, __: None)
     # This is a header comment.
     # We have two of it.
     a;b;c;d
@@ -452,8 +592,26 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ;
     # This is a footer comment.
 
+    >>> def __qpt(s: str):
+    ...     print(s[:70])
+
+    >>> csv_write(dd, __qpt, __get_column_titles, __get_row, __setup,
+    ...           ";", "#", __get_header_cmt, __get_footer_cmt)
+    # This is a header comment.
+    # We have two of it.
+    a;b;c;d
+    1;;2
+    ;6;8
+    4;3;;12
+    ;
+    # This is a footer comment.
+    #
+    # This CSV output has been created using the versatile CSV API of pyco
+    # You can find pycommons at https://thomasweise.github.io/pycommons.
+
     >>> csv_write(dd, print, __get_column_titles, __get_row, __setup,
-    ...           ",", "@@", __get_header_cmt, __get_footer_cmt)
+    ...           ",", "@@", __get_header_cmt, __get_footer_cmt,
+    ...           lambda _, __: None)
     @@ This is a header comment.
     @@ We have two of it.
     a,b,c,d
@@ -590,31 +748,29 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     Invalid comment start: '# '.
 
     >>> csv_write(dd, print, __get_column_titles, __get_row, __setup, ";",
-    ...             None)
+    ...           None, lambda _, __: None)
     a;b;c;d
     1;;2
     ;6;8
     4;3;;12
     ;
 
-    >>> try:
-    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,
+    >>> csv_write(dd, print, __get_column_titles, __get_row, __setup,
     ...           ";", None, __get_header_cmt)
-    ... except ValueError as ve:
-    ...     print(str(ve)[:60])
-    Cannot place header comment 'This is a header comment.' if c
-
-    >>> try:
-    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,
-    ...           ";", None, get_footer_comments=__get_footer_cmt)
-    ... except ValueError as ve:
-    ...     print(str(ve)[:59])
     a;b;c;d
     1;;2
     ;6;8
     4;3;;12
     ;
-    Cannot place footer comment ' This is a footer comment.' if
+
+    >>> csv_write(dd, print, __get_column_titles, __get_row, __setup,
+    ...           ";", None, get_footer_comments=__get_footer_cmt,
+    ...           get_footer_bottom_comments=lambda _, __: None)
+    a;b;c;d
+    1;;2
+    ;6;8
+    4;3;;12
+    ;
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,
@@ -637,26 +793,27 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,
     ...           ";", "#", __err_cmt_1)
     ... except ValueError as ve:
-    ...     print(str(ve)[:59])
-    Header comment must not contain newline, but 'This is\n a c
+    ...     print(str(ve)[:58])
+    A header comment must not contain a newline character, but
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,
-    ...           ";", "#", get_footer_comments=__err_cmt_1)
+    ...           ";", "#", get_footer_comments=__err_cmt_1,
+    ...           get_footer_bottom_comments=lambda _, __: None)
     ... except ValueError as ve:
-    ...     print(str(ve)[:59])
+    ...     print(str(ve)[:58])
     a;b;c;d
     1;;2
     ;6;8
     4;3;;12
     ;
-    Footer comment must not contain newline, but 'This is\n a c
+    A footer comment must not contain a newline character, but
 
     >>> def __empty_cmt(keyd: list[str], app: Callable[[str], None]):
     ...     app(" ")
 
     >>> csv_write(dd, print, __get_column_titles, __get_row, __setup,
-    ...           ";", "#", __empty_cmt)
+    ...           ";", "#", __empty_cmt, __empty_cmt, __empty_cmt)
     a;b;c;d
     1;;2
     ;6;8
@@ -664,7 +821,8 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ;
 
     >>> csv_write(dd, print, __get_column_titles, __get_row, __setup,
-    ...           ";", "#", get_footer_comments=__empty_cmt)
+    ...           ";", "#", get_footer_comments=__empty_cmt,
+    ...           get_footer_bottom_comments=lambda _, __: None)
     a;b;c;d
     1;;2
     ;6;8
@@ -769,7 +927,8 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __error_row_1,
-    ...               __setup, ";", "#")
+    ...               __setup, ";", "#",
+    ...               get_footer_bottom_comments=lambda _, __: None)
     ... except TypeError as te:
     ...     print(te)
     a;b;c;d
@@ -782,7 +941,8 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __error_row_2,
-    ...               __setup, ";", "#")
+    ...               __setup, ";", "#",
+    ...               get_footer_bottom_comments=lambda _, __: None)
     ... except TypeError as te:
     ...     print(te)
     a;b;c;d
@@ -795,7 +955,8 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __error_row_3,
-    ...               __setup, ";", "#")
+    ...               __setup, ";", "#",
+    ...               get_footer_bottom_comments=lambda _, __: None)
     ... except ValueError as ve:
     ...     print(str(ve)[:50])
     a;b;c;d
@@ -808,7 +969,8 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __error_row_4,
-    ...               __setup, ";", "#")
+    ...               __setup, ";", "#",
+    ...               get_footer_bottom_comments=lambda _, __: None)
     ... except ValueError as ve:
     ...     print(str(ve)[:50])
     a;b;c;d
@@ -878,6 +1040,9 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
         raise type_error(get_header_comments, "get_header_comments", call=True)
     if not callable(get_footer_comments):
         raise type_error(get_footer_comments, "get_footer_comments", call=True)
+    if not callable(get_footer_bottom_comments):
+        raise type_error(get_footer_bottom_comments,
+                         "get_footer_bottom_comments", call=True)
 
     data = reiterable(data)  # make sure we can iterate over the data twice
     setting: Final[S] = setup(data)
@@ -886,26 +1051,11 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     forbidden: Final[list[str]] = sorted(forbidden_maker)
 
     # first put header comments
-    get_header_comments(setting, collected_append)
-    not_first: bool = False
-    for cmt in collected:
-        xcmt = str.strip(cmt)  # strip and typecheck
-        if comment_start is None:
-            raise ValueError(f"Cannot place header comment {cmt!r} "
-                             f"if comment_start={comment_start!r}.")
-        if str.__len__(xcmt) <= 0:
-            if not_first:
-                consumer(comment_start)
-                not_first = False
-            continue
-        if any(map(xcmt.__contains__, NEWLINE)):
-            raise ValueError(
-                f"Header comment must not contain newline, but {cmt!r} does.")
-        not_first = True
-        consumer(f"{comment_start} {xcmt}")
+    if comment_start is not None:
+        get_header_comments(setting, collected_append)
+        __print_comments(collected, comment_start, "header", consumer, False)
 
     # now process the column titles
-    collected.clear()
     get_column_titles(setting, collected_append)
     col_count: Final[int] = list.__len__(collected)
     if col_count <= 0:
@@ -949,24 +1099,14 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
         consumer(separator.join(collected))
 
     # finally put footer comments
-    collected.clear()
-    get_footer_comments(setting, collected_append)
-    not_first = False
-    for cmt in collected:
-        xcmt = str.strip(cmt)  # strip and typecheck
-        if comment_start is None:
-            raise ValueError(f"Cannot place footer comment {cmt!r} "
-                             f"if comment_start={comment_start!r}.")
-        if str.__len__(xcmt) <= 0:
-            if not_first:
-                consumer(comment_start)
-                not_first = False
-            continue
-        if any(map(xcmt.__contains__, NEWLINE)):
-            raise ValueError(
-                f"Footer comment must not contain newline, but {cmt!r} does.")
-        not_first = True
-        consumer(f"{comment_start} {xcmt}")
+    if comment_start is not None:
+        collected.clear()
+        get_footer_comments(setting, collected_append)
+        __print_comments(collected, comment_start, "footer", consumer,
+                         False)
+        get_footer_bottom_comments(setting, collected_append)
+        __print_comments(collected, comment_start, "footer bottom", consumer,
+                         True)
 
 
 def csv_str_or_none(data: list[str | None] | None,
