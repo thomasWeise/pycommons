@@ -356,21 +356,32 @@ def csv_read(rows: Iterable[str],
 
 
 def pycommons_footer_bottom_comments(
-        _: Any, dest: Callable[[str], None]) -> None:
+        _: Any, dest: Callable[[str], None],
+        additional: str | None = None) -> None:
     """
     Print standard footer bottom comments for `pycommons`.
 
     :param _: ignored
     :param dest: the destination string recipient
+    :param additional: an optional line of additional comments
 
     >>> def __qpt(s: str):
     ...     print(s[:70])
     >>> pycommons_footer_bottom_comments("", __qpt)
     This CSV output has been created using the versatile CSV API of pycomm
     You can find pycommons at https://thomasweise.github.io/pycommons.
+
+    >>> def __qpt(s: str):
+    ...     print(s[:70])
+    >>> pycommons_footer_bottom_comments("", __qpt, "Statistics are cool.")
+    This CSV output has been created using the versatile CSV API of pycomm
+    Statistics are cool.
+    You can find pycommons at https://thomasweise.github.io/pycommons.
     """
     dest("This CSV output has been created using the versatile CSV API of "
-         f"pycommons, version {pycommons_version}.")
+         f"pycommons.io.csv, version {pycommons_version}.")
+    if (additional is not None) and (str.__len__(additional) > 0):
+        dest(additional)
     dest("You can find pycommons at https://thomasweise.github.io/pycommons.")
 
 

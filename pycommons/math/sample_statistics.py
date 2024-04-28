@@ -2231,5 +2231,14 @@ class CsvWriter:
         Get the bottom footer comments.
 
         :param dest: the string destination
+
+        >>> def __qpt(s: str):
+        ...     print(s[:70])
+        >>> CsvWriter.get_footer_bottom_comments(None, __qpt)
+        This CSV output has been created using the versatile CSV API of pycomm
+        Sample statistics were computed using pycommons.math.sample_statistics
+        You can find pycommons at https://thomasweise.github.io/pycommons.
         """
-        pycommons_footer_bottom_comments(None, dest)
+        pycommons_footer_bottom_comments(
+            None, dest, ("Sample statistics were computed "
+                         "using pycommons.math.sample_statistics."))
