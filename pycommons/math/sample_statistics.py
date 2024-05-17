@@ -722,6 +722,7 @@ __PROPERTIES: Final[Callable[[str, None], Callable[[
     KEY_MEAN_GEOM: SampleStatistics.get_mean_geom,
     "mean_geom": SampleStatistics.get_mean_geom,
     "geometric mean": SampleStatistics.get_mean_geom,
+    "gmean": SampleStatistics.get_mean_geom,
     KEY_MAXIMUM: SampleStatistics.get_maximum,
     "maximum": SampleStatistics.get_maximum,
     KEY_STDDEV: SampleStatistics.get_stddev,
@@ -2240,5 +2241,5 @@ class CsvWriter:
         You can find pycommons at https://thomasweise.github.io/pycommons.
         """
         pycommons_footer_bottom_comments(
-            None, dest, ("Sample statistics were computed "
+            self, dest, ("Sample statistics were computed "
                          "using pycommons.math.sample_statistics."))
