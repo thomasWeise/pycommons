@@ -1527,6 +1527,6 @@ def delete_path(path: str) -> None:
     if isfile(p):
         osremove(p)
     elif isdir(p):
-        rmtree(p, ignore_errors=True, onerror=None)
+        rmtree(p, ignore_errors=True)
     else:
         raise ValueError(f"{path!r} is neither file nor directory.")
