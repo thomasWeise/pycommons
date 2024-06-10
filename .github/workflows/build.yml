@@ -6,16 +6,13 @@ on:
       - main
 
 jobs:
-  check_out:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
 
   build_python_3_10:
-    needs: check_out
     runs-on: ubuntu-latest
 
     steps:
+# check out the github repository
+    - uses: actions/checkout@v3
 # set up python
     - name: set up python "3.10"
       uses: actions/setup-python@v4
@@ -39,6 +36,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+# check out the github repository
+    - uses: actions/checkout@v3
 # set up python
     - name: set up python "3.11"
       uses: actions/setup-python@v4
@@ -68,6 +67,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+# check out the github repository
+    - uses: actions/checkout@v3
 # set up python
     - name: set up python "3.12"
       uses: actions/setup-python@v4
@@ -91,11 +92,6 @@ jobs:
       run: |
         pip install git+https://github.com/thomasWeise/pycommons.git
         python -c "import pycommons"
-
-  deploy:
-    needs: build_python_3_12
-    runs-on: ubuntu-latest
-    steps:
 # fix urls in documentation
     - name: fix documentation urls
       run: |
