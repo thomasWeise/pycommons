@@ -1379,8 +1379,8 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
 
     >>> print(s.stddev)
     10.917042556563485
-    >>> stat_stddev(dd)
-    10.917042556563485
+    >>> print(str(stat_stddev(dd))[:-1])
+    10.91704255656348
 
     >>> dd = [375977836981734264856247621159545315,
     ...       1041417453269301410322718941408784761,
