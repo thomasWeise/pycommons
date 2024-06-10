@@ -236,7 +236,7 @@ def log_system_state(interval_seconds: int = 300,
 
     skip_cpu_stats: bool = True
     while not should_stop():
-        logger(system_state(skip_cpu_stats), lock=lock)
+        logger(system_state(skip_cpu_stats), lock=lock, do_print=True)
         skip_cpu_stats = False
         if should_stop():
             return

@@ -118,10 +118,8 @@ def compile_and_run(code: str, source: str) -> None:
     True
 
     >>> from contextlib import redirect_stdout
-    >>> from io import StringIO
-    >>> sio = StringIO()
     >>> try:
-    ...     with redirect_stdout(sio):
+    ...     with redirect_stdout(None):
     ...         compile_and_run("<>-sdf/%'!234", "src")
     ... except ValueError as ve:
     ...     print(ve)
@@ -131,7 +129,7 @@ def compile_and_run(code: str, source: str) -> None:
     True
 
     >>> try:
-    ...     with redirect_stdout(sio):
+    ...     with redirect_stdout(None):
     ...         compile_and_run("1/0", "src")
     ... except ValueError as ve:
     ...     print(ve)
@@ -140,12 +138,8 @@ def compile_and_run(code: str, source: str) -> None:
     >>> wd == getcwd()
     True
 
-    >>> sio = StringIO()
-    >>> with redirect_stdout(sio):
+    >>> with redirect_stdout(None):
     ...     compile_and_run("print(1)", "src")
-    >>> s = sio.getvalue().splitlines()[-1]
-    >>> s[s.index("Success"):]
-    "Successfully finished executing code from 'src'."
 
     >>> wd == getcwd()
     True

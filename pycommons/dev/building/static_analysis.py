@@ -36,7 +36,7 @@ def __exec(arguments: Iterable[str],
 
 #: a list of analysis to be applied to the base directory
 __BASE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
-    ("flake8", ".", "--ignore=,B008,B009,B010,DUO102,TRY003,TRY101,W503"),
+    ("flake8", ".", "--ignore=B008,B009,B010,DUO102,TRY003,TRY101,W503"),
     (PYTHON_INTERPRETER, "-m", "pyflakes", "."),
     ("pyroma", "."),
     ("semgrep", ".", "--error", "--strict", "--use-git-ignore",
@@ -105,15 +105,11 @@ def static_analysis(info: BuildInfo) -> None:
 
     :param info: the build information
 
-    >>> from io import StringIO
     >>> from contextlib import redirect_stdout
-    >>> s = StringIO()
-    >>> with redirect_stdout(s):
+    >>> with redirect_stdout(None):
     ...     static_analysis(BuildInfo(
     ...         Path(__file__).up(4), "pycommons", "tests",
     ...             "examples", "docs/source"))
-    >>> "Successfully completed" in s.getvalue()
-    True
 
     >>> try:
     ...     static_analysis(None)

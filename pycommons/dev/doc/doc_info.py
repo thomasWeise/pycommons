@@ -283,8 +283,7 @@ def extract_md_infos(readme_md_file: str) -> tuple[str, int | None]:
 
     >>> from os.path import join, dirname
     >>> from contextlib import redirect_stdout
-    >>> from io import StringIO
-    >>> with redirect_stdout(StringIO()):
+    >>> with redirect_stdout(None):
     ...     t = extract_md_infos(join(dirname(dirname(dirname(dirname(
     ...                          __file__)))), "README.md"))
     >>> print(t)
@@ -356,8 +355,7 @@ def parse_version_py(version_file: str,
 
     >>> from os.path import join, dirname
     >>> from contextlib import redirect_stdout
-    >>> from io import StringIO
-    >>> with redirect_stdout(StringIO()):
+    >>> with redirect_stdout(None):
     ...     s = parse_version_py(join(dirname(dirname(dirname(__file__))),
     ...         "version.py"))
     >>> print(s[:s.rindex(".")])
@@ -396,7 +394,7 @@ def parse_version_py(version_file: str,
     >>> from contextlib import redirect_stdout
     >>> from io import StringIO
     >>> try:
-    ...     with redirect_stdout(StringIO()):
+    ...     with redirect_stdout(None):
     ...         parse_version_py(__file__, "xyz")
     ... except ValueError as ve:
     ...     print(str(ve)[:36])
@@ -453,8 +451,7 @@ def load_doc_info_from_setup_cfg(setup_cfg_file: str) -> DocInfo:
 
     >>> from os.path import dirname, join
     >>> from contextlib import redirect_stdout
-    >>> from io import StringIO
-    >>> with redirect_stdout(StringIO()):
+    >>> with redirect_stdout(None):
     ...     r = load_doc_info_from_setup_cfg(join(dirname(dirname(dirname(
     ...         dirname(__file__)))), "setup.cfg"))
     >>> r.title

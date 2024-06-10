@@ -23,9 +23,8 @@ def make_index_rst(info: DocInfo, collector: Callable[[str], Any]) -> None:
     >>> di = DocInfo(__file__, "a", "b", "bla", "1.2", 12,
     ...              "https://example.com")
     >>> from contextlib import redirect_stdout
-    >>> from io import StringIO
     >>> l = []
-    >>> with redirect_stdout(StringIO()):
+    >>> with redirect_stdout(None):
     ...     make_index_rst(di, l.append)
     >>> for s in l:
     ...     print(s)

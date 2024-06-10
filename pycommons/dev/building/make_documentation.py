@@ -157,12 +157,10 @@ def __pygmentize(source: Path, info: BuildInfo,
     ...     doc_source_dir=root.resolve_inside("docs/source"),
     ...     doc_dest_dir=root.resolve_inside("docs/build"))
 
-    >>> from io import StringIO
     >>> from contextlib import redirect_stdout
     >>> from pycommons.io.temp import temp_dir
-    >>> sio = StringIO()
     >>> with temp_dir() as td:
-    ...     with redirect_stdout(sio):
+    ...     with redirect_stdout(None):
     ...         __pygmentize(root.resolve_inside("README.md"), bf, td)
     ...         readme = td.resolve_inside("README_md.html").is_file()
     ...         __pygmentize(root.resolve_inside("setup.py"), bf, td)
@@ -263,9 +261,8 @@ def __render_markdown(markdown: Path, info: BuildInfo, dest: Path | None,
     >>> from io import StringIO
     >>> from contextlib import redirect_stdout
     >>> from pycommons.io.temp import temp_dir
-    >>> sio = StringIO()
     >>> with temp_dir() as td:
-    ...     with redirect_stdout(sio):
+    ...     with redirect_stdout(None):
     ...         __render_markdown(root.resolve_inside("README.md"), bf,
     ...             td, None, lambda s: s)
     ...         readme = td.resolve_inside("README_md.html").is_file()
@@ -330,9 +327,8 @@ def __minify(file: Path) -> None:
     >>> from io import StringIO
     >>> from contextlib import redirect_stdout
     >>> from pycommons.io.temp import temp_dir
-    >>> sio = StringIO()
     >>> with temp_dir() as td:
-    ...     with redirect_stdout(sio):
+    ...     with redirect_stdout(None):
     ...         __render_markdown(root.resolve_inside("README.md"), bf,
     ...             td, None, lambda s: s)
     ...         readme = td.resolve_inside("README_md.html")
@@ -372,9 +368,8 @@ def __minify_all(dest: Path, skip: Callable[[str], bool]) -> None:
     >>> from io import StringIO
     >>> from contextlib import redirect_stdout
     >>> from pycommons.io.temp import temp_dir
-    >>> sio = StringIO()
     >>> with temp_dir() as td:
-    ...     with redirect_stdout(sio):
+    ...     with redirect_stdout(None):
     ...         __render_markdown(root.resolve_inside("README.md"), bf,
     ...             td, None, lambda s: s)
     ...         readme = td.resolve_inside("README_md.html")
@@ -442,11 +437,8 @@ def make_documentation(info: BuildInfo) -> None:
     ...     doc_dest_dir=root.resolve_inside("docs/build"))
     >>> from io import StringIO
     >>> from contextlib import redirect_stdout
-    >>> sio = StringIO()
-    >>> with redirect_stdout(sio):
+    >>> with redirect_stdout(None):
     ...     make_documentation(bf)
-    >>> "Finished building documentation" in sio.getvalue()
-    True
     """
     if not isinstance(info, BuildInfo):
         raise type_error(info, "info", BuildInfo)

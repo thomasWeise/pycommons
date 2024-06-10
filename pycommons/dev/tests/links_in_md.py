@@ -332,9 +332,8 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     >>> __check_url("tweise@hfuu.edu.cn", vu)
 
     >>> from contextlib import redirect_stdout
-    >>> from io import StringIO
 
-    >>> with redirect_stdout(StringIO()):
+    >>> with redirect_stdout(None):
     ...     __check_url("https://thomasweise.github.io/pycommons", vu)
     ...     __check_url("http://iao.hfuu.edu.cn", vu)
     ...     __check_url("http://example.com/", vu)
@@ -344,7 +343,7 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     >>> __check_url(
     ...     "https://thomasweise.github.io/pycommons/pycommons.io.html", vu)
 
-    >>> with redirect_stdout(StringIO()):
+    >>> with redirect_stdout(None):
     ...     __check_url("http://iao.hfuu.edu.cn/", vu)
     >>> __check_url("https://thomasweise.github.io/pycommons/pycommons"
     ...             ".io.html#pycommons.io.path.Path", vu)
@@ -356,7 +355,7 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     ...     print(str(ve)[:50])
     Error in url 'bwri435//sdfsdf:-@@': URL part 'bwri
 
-    >>> with redirect_stdout(StringIO()):
+    >>> with redirect_stdout(None):
     ...     try:
     ...         __check_url(
     ...             "https://thomasweise.github.io/sifwrwruS.jpg#34", vu)
@@ -365,7 +364,7 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     >>> print(s[:61])
     Url 'https://thomasweise.github.io/sifwrwruS.jpg#34' does not
 
-    >>> with redirect_stdout(StringIO()):
+    >>> with redirect_stdout(None):
     ...     try:
     ...         __check_url("ssh://u@thomasweise.github.io/sifwrwruSSXFd", vu)
     ...     except ValueError as ve:
@@ -373,7 +372,7 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     >>> print(s)
     Invalid scheme for url 'ssh://u@thomasweise.github.io/sifwrwruSSXFd'.
 
-    >>> with redirect_stdout(StringIO()):
+    >>> with redirect_stdout(None):
     ...     try:
     ...         __check_url(
     ...             "https://thomasweise.github.io/sifwrwruSSXFdfDX", vu)

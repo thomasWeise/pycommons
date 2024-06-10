@@ -75,15 +75,11 @@ def __get_extras(setup_cfg: Path) -> list[str]:
     :return: the set of extras
 
     >>> root = Path(__file__).up(4)
-    >>> from io import StringIO
     >>> from contextlib import redirect_stdout
-    >>> sio = StringIO()
-    >>> with redirect_stdout(sio):
+    >>> with redirect_stdout(None):
     ...     ex = __get_extras(root.resolve_inside("setup.cfg"))
     >>> print(ex)
     ['dev']
-    >>> "Found extras" in sio.getvalue()
-    True
     """
     logger(f"Loading extras from {setup_cfg!r}.")
     cfg: Final[ConfigParser] = ConfigParser()
@@ -112,13 +108,9 @@ def make_dist(info: BuildInfo) -> None:
     ...     dist_dir=root.resolve_inside("dist"),
     ...     doc_source_dir=root.resolve_inside("docs/source"),
     ...     doc_dest_dir=root.resolve_inside("docs/build"))
-    >>> from io import StringIO
     >>> from contextlib import redirect_stdout
-    >>> sio = StringIO()
-    >>> with redirect_stdout(sio):
+    >>> with redirect_stdout(None):
     ...     make_dist(bf)
-    >>> "Finished building distribution" in sio.getvalue()
-    True
 
     >>> try:
     ...     make_dist(None)

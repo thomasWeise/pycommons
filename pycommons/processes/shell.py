@@ -228,12 +228,10 @@ class Command:
         ('123\n', None)
 
         >>> from contextlib import redirect_stdout
-        >>> from io import StringIO
-        >>> s = StringIO()
-        >>> with redirect_stdout(s):
-        ...     Command(("echo", "123"), stdout=STREAM_CAPTURE).execute()
-        >>> print(s.getvalue().strip().split("\n")[1][-30:])
-        0, captured 4 chars of stdout.
+        >>> with redirect_stdout(None):
+        ...     s = Command(("echo", "123"), stdout=STREAM_CAPTURE).execute()
+        >>> print(s)
+        ('123\n', None)
 
         >>> Command("cat", stdin="test", stdout=STREAM_CAPTURE).execute(False)
         ('test', None)
@@ -241,26 +239,20 @@ class Command:
         >>> Command("cat", stdin="test").execute(False)
         (None, None)
 
-        >>> s = StringIO()
         >>> try:
-        ...     with redirect_stdout(s):
+        ...     with redirect_stdout(None):
         ...         Command(("ping", "blabla!")).execute(True)
         ... except ValueError as ve:
         ...     ss = str(ve)
         ...     print(ss[:20] + " ... " + ss[-22:])
         ('ping', 'blabla!')  ...  yields return code 2.
-        >>> "Failed" in s.getvalue()
-        True
 
-        >>> s = StringIO()
         >>> try:
-        ...     with redirect_stdout(s):
+        ...     with redirect_stdout(None):
         ...         Command(("ping", "www.example.com", "-i 20"),
         ...                 timeout=1).execute(True)
         ... except ValueError as ve:
         ...     print("timed out after" in str(ve))
-        True
-        >>> "timed out" in s.getvalue()
         True
 
         >>> try:
@@ -275,12 +267,9 @@ class Command:
         ...     print(te)
         log_call should be an instance of bool but is int, namely '1'.
 
-        >>> s = StringIO()
-        >>> with redirect_stdout(s):
+        >>> with redirect_stdout(None):
         ...     r = Command(("echo", "1"), stderr=STREAM_CAPTURE).execute(
         ...             True)
-        >>> str(s.getvalue())[-43:-1]
-        'return code 0, captured 0 chars of stderr.'
         >>> r
         (None, '')
         """

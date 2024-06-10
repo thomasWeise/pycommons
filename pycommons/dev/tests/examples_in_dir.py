@@ -46,8 +46,7 @@ def check_examples_in_dir(directory: str, recurse: bool = True) -> int:
 
     >>> from pycommons.io.temp import temp_dir
     >>> from contextlib import redirect_stdout
-    >>> from io import StringIO
-    >>> with temp_dir() as td, redirect_stdout(StringIO()) as rd:
+    >>> with temp_dir() as td, redirect_stdout(None) as rd:
     ...     try:
     ...         check_examples_in_dir(td, True)
     ...     except ValueError as ve:
@@ -55,7 +54,7 @@ def check_examples_in_dir(directory: str, recurse: bool = True) -> int:
     >>> print(s[:30])
     No examples found in directory
 
-    >>> with temp_dir() as td, redirect_stdout(StringIO()) as rd:
+    >>> with temp_dir() as td, redirect_stdout(None) as rd:
     ...     pystring = "print('hello world!')"
     ...     td.resolve_inside("1.py").write_all_str(pystring)
     ...     td.resolve_inside("2.py").write_all_str(pystring)
@@ -70,7 +69,7 @@ def check_examples_in_dir(directory: str, recurse: bool = True) -> int:
     >>> print(r2)
     2
 
-    >>> with temp_dir() as td, redirect_stdout(StringIO()) as rd:
+    >>> with temp_dir() as td, redirect_stdout(None) as rd:
     ...     pystring = "print('hello world!')"
     ...     td.resolve_inside("1.py").write_all_str(pystring)
     ...     pyerrstring = "1 / 0"

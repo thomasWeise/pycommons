@@ -16,17 +16,9 @@ def check_examples_in_md(file: str) -> None:
     :raises ValueError: if `file` is empty or otherwise invalid
 
     >>> from contextlib import redirect_stdout
-    >>> from io import StringIO
-    >>> with StringIO() as sio:
-    ...     with redirect_stdout(sio):
-    ...         check_examples_in_md(file_path(file_path(__file__).up(
-    ...             4).resolve_inside("README.md")))
-    ...     res = sio.getvalue()
-    >>> print(res[-12:].strip())
-    README.md'.
-    >>> ix = res.index(" Successfully executed all")
-    >>> print(res[ix:ix + 40].strip())
-    Successfully executed all 2 examples fr
+    >>> with redirect_stdout(None):
+    ...     check_examples_in_md(file_path(file_path(__file__).up(
+    ...         4).resolve_inside("README.md")))
 
     >>> try:
     ...     check_examples_in_md(1)
