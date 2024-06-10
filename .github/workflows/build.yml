@@ -39,7 +39,7 @@ jobs:
         touch /home/runner/work/pycommons/pycommons/docs/build/.nojekyll
 # deploy to github pages
     - name: deploy documentation
-      if: ${{ python.version }} == "3.12"
+      if: ${{ matrix.python-version }} == "3.12"
       uses: JamesIves/github-pages-deploy-action@65b5dfd4f5bcd3a7403bbc2959c144256167464e
       with:
         branch: gh-pages
