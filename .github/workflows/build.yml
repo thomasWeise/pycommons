@@ -6,19 +6,21 @@ on:
       - main
 
 jobs:
-  build:
+  check_out:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
-
     steps:
     - uses: actions/checkout@v3
+
+  build_python_3_10:
+    needs: check_out
+    runs-on: ubuntu-latest
+
+    steps:
 # set up python
-    - name: set up python ${{ matrix.python-version }}
+    - name: set up python "3.10"
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.10"
 # execute the actual make build process
     - name: execute the make build
       run: make
@@ -31,6 +33,69 @@ jobs:
       run: |
         pip install git+https://github.com/thomasWeise/pycommons.git
         python -c "import pycommons"
+
+  build_python_3_11:
+    needs: build_python_3_10
+    runs-on: ubuntu-latest
+
+    steps:
+# set up python
+    - name: set up python "3.11"
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+# clean-up
+    - name: clean up
+      run: |
+        rm -rf /home/runner/work/pycommons/pycommons/docs/build/
+        rm -rf /home/runner/work/pycommons/pycommons/dist
+        rm -rf /home/runner/work/pycommons/pycommons/build
+# execute the actual make build process
+    - name: execute the make build
+      run: make
+# remove pycommons
+    - name: purge local pycommons installation
+      run: |
+        pip uninstall -y pycommons
+# attempt to install it again from github
+    - name: install pycommons from github
+      run: |
+        pip install git+https://github.com/thomasWeise/pycommons.git
+        python -c "import pycommons"
+
+  build_python_3_12:
+    needs: build_python_3_11
+    runs-on: ubuntu-latest
+
+    steps:
+# set up python
+    - name: set up python "3.12"
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+# clean-up
+    - name: clean up
+      run: |
+        rm -rf /home/runner/work/pycommons/pycommons/docs/build/
+        rm -rf /home/runner/work/pycommons/pycommons/dist
+        rm -rf /home/runner/work/pycommons/pycommons/build
+# execute the actual make build process
+    - name: execute the make build
+      run: make
+# remove pycommons
+    - name: purge local pycommons installation
+      run: |
+        pip uninstall -y pycommons
+# attempt to install it again from github
+    - name: install pycommons from github
+      run: |
+        pip install git+https://github.com/thomasWeise/pycommons.git
+        python -c "import pycommons"
+
+  deploy:
+    needs: build_python_3_12
+    runs-on: ubuntu-latest
+    steps:
 # fix urls in documentation
     - name: fix documentation urls
       run: |
@@ -39,7 +104,6 @@ jobs:
         touch /home/runner/work/pycommons/pycommons/docs/build/.nojekyll
 # deploy to github pages
     - name: deploy documentation
-      if: ${{ matrix.python-version }} == "3.12"
       uses: JamesIves/github-pages-deploy-action@65b5dfd4f5bcd3a7403bbc2959c144256167464e
       with:
         branch: gh-pages
