@@ -11,16 +11,20 @@ jobs:
     environment: release
     permissions:
       id-token: write
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
     steps:
-    - uses: actions/checkout@v3
+# check out the github repository
+    - uses: actions/checkout@v4.1.6
 # set up python
-    - name: set up python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+    - name: set up python "3.12"
+      uses: actions/setup-python@v5.1.0
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.12"
+# clean-up
+    - name: clean up
+      run: |
+        rm -rf /home/runner/work/pycommons/pycommons/docs/build/
+        rm -rf /home/runner/work/pycommons/pycommons/dist
+        rm -rf /home/runner/work/pycommons/pycommons/build
 # execute the actual make build process
     - name: execute the make build
       run: |
@@ -29,5 +33,4 @@ jobs:
         rm -rf /home/runner/work/pycommons/pycommons/dist/*.tar.xz
 # deploy to github pages
     - name: Publish package distributions to PyPI
-      if: ${{ matrix.python-version }} == "3.12"
       uses: pypa/gh-action-pypi-publish@release/v1

@@ -9,13 +9,12 @@ jobs:
 
   build_python_3_10:
     runs-on: ubuntu-latest
-
     steps:
 # check out the github repository
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4.1.6
 # set up python
     - name: set up python "3.10"
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5.1.0
       with:
         python-version: "3.10"
 # execute the actual make build process
@@ -34,13 +33,12 @@ jobs:
   build_python_3_11:
     needs: build_python_3_10
     runs-on: ubuntu-latest
-
     steps:
 # check out the github repository
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4.1.6
 # set up python
     - name: set up python "3.11"
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5.1.0
       with:
         python-version: "3.11"
 # clean-up
@@ -65,13 +63,12 @@ jobs:
   build_python_3_12:
     needs: build_python_3_11
     runs-on: ubuntu-latest
-
     steps:
 # check out the github repository
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4.1.6
 # set up python
     - name: set up python "3.12"
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5.1.0
       with:
         python-version: "3.12"
 # clean-up
