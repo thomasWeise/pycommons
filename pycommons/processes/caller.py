@@ -8,9 +8,30 @@ from typing import Final, cast
 from psutil import Process  # type: ignore
 
 
+def is_ci_run() -> bool:
+    """
+    Check if the program runs in a continuous integration environment.
+
+    Right now, only GitHub actions are recognized. Other CI tools are
+    currently not supported.
+
+    :returns: `True` if this process is executed as part of, e.g., a GitHub
+        action, `False` otherwise.
+
+    >>> isinstance(is_ci_run(), bool)
+    True
+    """
+    return any(k in environ for k in (
+        "GITHUB_ACTION", "GITHUB_ACTOR", "GITHUB_ENV", "GITHUB_JOB",
+        "GITHUB_RUN_ID", "GITHUB_WORKFLOW", "GITHUB_WORKSPACE"))
+
+
 def is_build() -> bool:
     """
-    Check if the program was run inside a build, e.g., inside a `make`  build.
+    Check if the program was run inside a build.
+
+    This function is `True` if the process is running inside a `make`  build
+    or if :func:`is_ci_run` is `True`.
 
     :returns: `True` if this process is executed as part of a `make` build
         process, `False` otherwise.
@@ -27,9 +48,7 @@ def is_build() -> bool:
     if hasattr(obj, key):
         return cast(bool, getattr(obj, key))
 
-    ret: bool = any(k in environ for k in (
-        "GITHUB_ACTION", "GITHUB_ACTOR", "GITHUB_ENV", "GITHUB_JOB",
-        "GITHUB_RUN_ID", "GITHUB_WORKFLOW", "GITHUB_WORKSPACE"))
+    ret: bool = is_ci_run()
 
     if not ret:
         with suppress(Exception):
