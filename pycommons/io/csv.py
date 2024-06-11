@@ -290,12 +290,19 @@ def csv_read(rows: Iterable[str],
     Invalid comment start: ';'.
 
     >>> text2 = ["a;b;a;d", "# test", " 1; 2;3;4", " 5 ;6 ", ";8;;9"]
-
     >>> try:
     ...     csv_read(text2, _setup, _parse_row, _consumer)
     ... except ValueError as ve:
     ...     print(ve)
     Invalid column headers: ['a', 'b', 'a', 'd'].
+
+    >>> text2 = ["a;b;c;d", "# test", " 1; 2;3;4", "1;2;3;4;5;6;7", ";8;;9"]
+    >>> try:
+    ...     csv_read(text2, _setup, _parse_row, _consumer)
+    ... except ValueError as ve:
+    ...     print(ve)
+    {'a': '1', 'b': '2', 'c': '3', 'd': '4'}
+    Invalid row '1;2;3;4;5;6;7' contains 7 columns, but should have at most 4.
     """
     if not isinstance(rows, Iterable):
         raise type_error(rows, "rows", Iterable)
@@ -348,7 +355,7 @@ def csv_read(rows: Iterable[str],
         if count > col_count:
             raise ValueError(
                 f"Invalid row {orig_line!r} contains {count} columns, but "
-                f"says we got {col_count}.")
+                f"should have at most {col_count}.")
         if count < col_count:
             for _ in range(count, col_count):
                 cols.append("")
@@ -1028,6 +1035,44 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...     print(ve)
     a
     Too many columns in ['x', 'y'], should be 1.
+
+    >>> try:
+    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,
+    ...           "", "#", get_footer_comments=__err_cmt_1)
+    ... except ValueError as ve:
+    ...     print(ve)
+    Invalid separator ''.
+
+    >>> try:
+    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,
+    ...           "x", "#", get_footer_comments=1)
+    ... except TypeError as te:
+    ...     print(te)
+    get_footer_comments should be a callable but is int, namely '1'.
+
+    >>> try:
+    ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,
+    ...           "x", "#", get_footer_bottom_comments=1)
+    ... except TypeError as te:
+    ...     print(te)
+    get_footer_bottom_comments should be a callable but is int, namely '1'.
+
+    >>> ddx = [{"a": 1, "c": 2}, None,
+    ...        {"a": 4, "d": 12, "b": 3}, {}]
+    >>> def __error_row_9(_, __, app: Callable[[str], None]):
+    ...     for xa in ("1", "2", "3", "4"):
+    ...         app(xa)
+    >>> def __error_row_10(_, app: Callable[[str], None]):
+    ...     __error_row_9(1, 2, app)
+
+    >>> try:
+    ...     csv_write(ddx, print, __error_row_10,
+    ...               __error_row_9, lambda x: x, ";", "#")
+    ... except TypeError as te:
+    ...     print(te)
+    1;2;3;4
+    1;2;3;4
+    data element should be an instance of object but is None.
     """
     if not callable(consumer):
         raise type_error(consumer, "consumer", call=True)

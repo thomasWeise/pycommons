@@ -1,8 +1,9 @@
 """The `logger` routine for writing a log string to stdout."""
 import datetime
 from contextlib import AbstractContextManager, nullcontext
-from traceback import extract_stack
 from typing import Callable, Final
+
+from pycommons.processes.caller import is_doc_test
 
 #: the "now" function
 __DTN: Final[Callable[[], datetime.datetime]] = datetime.datetime.now
@@ -10,9 +11,7 @@ __DTN: Final[Callable[[], datetime.datetime]] = datetime.datetime.now
 
 def logger(message: str, note: str = "",
            lock: AbstractContextManager = nullcontext(),
-           do_print: bool = not any(t.filename.endswith(
-               ("docrunner.py", "doctest.py")) for
-               t in extract_stack())) -> None:
+           do_print: bool = not is_doc_test()) -> None:
     """
     Write a message to the console log.
 
