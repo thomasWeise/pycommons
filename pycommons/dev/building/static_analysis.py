@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser
 from os import chdir, getcwd
+from sys import version_info
 from typing import Any, Callable, Final, Iterable
 
 from pycommons.dev.building.build_info import (
@@ -56,7 +57,8 @@ __PACKAGE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
     ("pycodestyle", "."),
-    ("ruff", "check", "--target-version", "py310", "--select",
+    ("ruff", "check", "--target-version",
+     f"py{version_info.major}{version_info.minor:02}", "--select",
      "A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,INP,ISC,N,NPY,PIE,PLC,"
      "PLE,PLR,PLW,PT,PYI,Q,RET,RSE,RUF,S,SIM,T,T10,T20,TID,TRY,UP,W,YTT",
      "--ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,"
@@ -71,7 +73,8 @@ __TESTS_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
     ("pycodestyle", "."),
-    ("ruff", "check", "--target-version", "py310", "--select",
+    ("ruff", "check", "--target-version",
+     f"py{version_info.major}{version_info.minor:02}", "--select",
      "A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,ISC,N,NPY,PIE,PLC,PLE,"
      "PLR,PLW,PYI,Q,RET,RSE,RUF,T,SIM,T10,T20,TID,TRY,UP,W,YTT",
      "--ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,"
