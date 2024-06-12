@@ -381,7 +381,7 @@ def make_epilog(
             copyright_start, "copyright_start", 1970, 2500)
         if copyright_end is None:
             copyright_end = check_int_range(
-                datetime.now(tz=timezone.utc).year,  # noqa
+                datetime.now(tz=timezone.utc).year,
                 "year", 1970, 2500)
         else:
             copyright_end = check_int_range(

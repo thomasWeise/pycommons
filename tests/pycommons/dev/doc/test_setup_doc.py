@@ -44,7 +44,7 @@ def test_setup_doc() -> None:
     else:
         pytest.fail("There should be an error!")
 
-    current_year: Final[int] = datetime.now(timezone.utc).year  # noqa
+    current_year: Final[int] = datetime.now(timezone.utc).year
 
     with temp_dir() as td:
         setup_doc(td, prj_base, current_year, None, None, None, None)

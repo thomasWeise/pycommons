@@ -73,7 +73,7 @@ def setup_doc(doc_dir: str, root_dir: str,
     global_vars: Final[dict[str, Any]] = stack()[1].frame.f_globals
 
     # create the copyright information
-    current_year: Final[int] = datetime.now(timezone.utc).year  # noqa
+    current_year: Final[int] = datetime.now(timezone.utc).year
     thecopyright: str = str(current_year) \
         if (copyright_start_year is None) or (check_int_range(
             copyright_start_year, "copyright_start_year", 1980,
