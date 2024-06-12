@@ -34,8 +34,8 @@ def logger(message: str, note: str = "",
     >>> with redirect_stdout(sio):
     ...     logger("hello world!", do_print=True)
     >>> line = sio.getvalue().strip()
-    >>> print(line[26:])
-    : hello world!
+    >>> print(line[line.index(" ", line.index(" ") + 1) + 1:])
+    hello world!
     >>> dt2 = datetime.datetime.now()
     >>> dtx = datetime.datetime.strptime(line[:26], "%Y-%m-%d %H:%M:%S.%f")
     >>> dt1 <= dtx <= dt2
@@ -45,7 +45,7 @@ def logger(message: str, note: str = "",
     >>> with redirect_stdout(sio):
     ...     logger("hello world!", "note", do_print=True)
     >>> line = sio.getvalue().strip()
-    >>> print(line[26:])
+    >>> print(line[line.index("n"):])
     note: hello world!
 
     >>> from contextlib import AbstractContextManager
@@ -63,8 +63,9 @@ def logger(message: str, note: str = "",
     >>> lines = sio.readlines()
     >>> print(lines[0].rstrip())
     x
-    >>> print(lines[1][26:].rstrip())
-    : hello world!
+    >>> l = lines[1]
+    >>> print(l[l.index(" ", l.index(" ") + 1) + 1:].rstrip())
+    hello world!
     >>> print(lines[2].rstrip())
     y
 
@@ -76,7 +77,8 @@ def logger(message: str, note: str = "",
     >>> lines = sio.readlines()
     >>> print(lines[0].rstrip())
     x
-    >>> print(lines[1][26:].rstrip())
+    >>> l = lines[1]
+    >>> print(l[l.index("n"):].rstrip())
     note: hello world!
     >>> print(lines[2].rstrip())
     y
