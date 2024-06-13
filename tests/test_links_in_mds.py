@@ -4,6 +4,7 @@ from pycommons.dev.tests.links_in_md import check_links_in_md
 from pycommons.io.path import file_path
 from pycommons.processes.caller import is_ci_run
 
+
 def test_links_in_readme_md() -> None:
     """Test the links in the README.md file."""
     if is_ci_run():
