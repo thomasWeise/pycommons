@@ -1,0 +1,42 @@
+pycommons.strings package
+=========================
+
+.. automodule:: pycommons.strings
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Submodules
+----------
+
+pycommons.strings.chars module
+------------------------------
+
+.. automodule:: pycommons.strings.chars
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycommons.strings.enforce module
+--------------------------------
+
+.. automodule:: pycommons.strings.enforce
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycommons.strings.string\_conv module
+-------------------------------------
+
+.. automodule:: pycommons.strings.string_conv
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycommons.strings.tools module
+------------------------------
+
+.. automodule:: pycommons.strings.tools
+   :members:
+   :undoc-members:
+   :show-inheritance:
