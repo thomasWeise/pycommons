@@ -1,0 +1,42 @@
+pycommons.dev.doc package
+=========================
+
+.. automodule:: pycommons.dev.doc
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Submodules
+----------
+
+pycommons.dev.doc.doc\_info module
+----------------------------------
+
+.. automodule:: pycommons.dev.doc.doc_info
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycommons.dev.doc.index\_rst module
+-----------------------------------
+
+.. automodule:: pycommons.dev.doc.index_rst
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycommons.dev.doc.process\_md module
+------------------------------------
+
+.. automodule:: pycommons.dev.doc.process_md
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycommons.dev.doc.setup\_doc module
+-----------------------------------
+
+.. automodule:: pycommons.dev.doc.setup_doc
+   :members:
+   :undoc-members:
+   :show-inheritance:
