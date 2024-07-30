@@ -23,8 +23,9 @@ from pycommons.types import check_int_range, type_error
 #: When the test is executed in a GitHub workflow, all hosts should be
 #: reachable.
 __SOMETIMES_UNREACHABLE_HOSTS: Final[set[str]] = \
-    {"iao.hfuu.edu.cn"} if "GITHUB_JOB" in environ else \
-    {"iao.hfuu.edu.cn", "img.shields.io", "pypi.org", "docs.python.org"}
+    {"fsf.org", "iao.hfuu.edu.cn"} if "GITHUB_JOB" in environ else \
+    {"fsf.org", "iao.hfuu.edu.cn", "img.shields.io", "pypi.org",
+     "docs.python.org"}
 
 #: URLs that we never need to check because they are OK
 __CORRECT_URLS: Final[set[str]] = {
