@@ -21,30 +21,30 @@
 
 # urllib3 and certifi are used to check the URLs in the [dev] extras variant
 # of our package. They are used to check URL in markdown files.
-urllib3 == 2.2.2
-certifi == 2024.7.4
+urllib3 == 2.2.3
+certifi == 2024.8.30
 
 # these static analysis tools are also needed for the [dev] extras variant
 # only
 autoflake == 2.3.1
 bandit == 1.7.9
-coverage == 7.6.0
-coverage-badge == 1.1.1
+coverage == 7.6.1
+coverage-badge == 1.1.2
 dlint == 0.15.0
 dodgy == 0.2.1
-flake8 == 7.1.0
-flake8-bugbear == 24.4.26
+flake8 == 7.1.1
+flake8-bugbear == 24.8.19
 flake8-eradicate == 1.5.0
 flake8-use-fstring == 1.4
-mypy == 1.11.0
-pycodestyle == 2.12.0
+mypy == 1.11.2
+pycodestyle == 2.12.1
 pydocstyle == 6.3.0
 pyflakes == 3.2.0
-pylint == 3.2.6
+pylint == 3.2.7
 pyroma == 4.2
-ruff == 0.5.5
-semgrep == 1.81.0
-tryceratops == 2.3.3
+ruff == 0.6.5
+semgrep == 1.87.0
+tryceratops == 2.4.0
 unimport == 1.2.1
 vulture == 2.11
 
@@ -52,10 +52,10 @@ vulture == 2.11
 # modules, it parses the documentation root file as well as the code and
 # generates the html files with the documentation. It therefore uses the
 # docstrings and the type hints.
-sphinx == 7.4.7
-sphinx-autodoc-typehints == 2.2.3
+sphinx == 8.0.2
+sphinx-autodoc-typehints == 2.4.1
 # myst-parser is needed for including README.md into the documentation
-myst-parser == 3.0.1
+myst-parser == 4.0.0
 
 # minify_html is needed to minify html output in the [dev] option.
 # Our documentation is fairly large. We apply this tool to try to reduce the
@@ -70,18 +70,18 @@ minify_html == 0.15.0
 # errors. But they can at least check whether our code behaves as it should in
 # some usual or border cases. Also, they can help us find out if changes in
 # the code lead to changes in (tested/expected) behavior.
-pytest == 8.3.2
+pytest == 8.3.3
 
 # for converting the additional markdown files to HTML in the [dev] variant
-markdown == 3.6
+markdown == 3.7
 
 # setuptools, testresources, twine, virtualenv, and wheel are needed for
 # generating the installable pip package in the [dev] variant.
-setuptools == 71.1.0
+setuptools == 74.1.2
 testresources == 2.0.1
 twine == 5.1.1
-virtualenv == 20.26.3
-wheel == 0.43.0
+virtualenv == 20.26.4
+wheel == 0.44.0
 
 # psutil is used for getting information about the system configuration.
 psutil == 6.0.0

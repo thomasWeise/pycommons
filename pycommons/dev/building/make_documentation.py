@@ -167,8 +167,8 @@ def __pygmentize(source: Path, info: BuildInfo,
     ...         setuppy = td.resolve_inside("setup_py.html").is_file()
     ...         __pygmentize(root.resolve_inside("setup.cfg"), bf, td)
     ...         setup_cfg = td.resolve_inside("setup_cfg.html").is_file()
-    ...         __pygmentize(root.resolve_inside("Makefile"), bf, td)
-    ...         makefile = td.resolve_inside("Makefile.html").is_file()
+    ...         __pygmentize(root.resolve_inside("make.sh"), bf, td)
+    ...         makefile = td.resolve_inside("make_sh.html").is_file()
     ...         __pygmentize(root.resolve_inside("LICENSE"), bf, td)
     ...         xlicense = td.resolve_inside("LICENSE.html").is_file()
     ...         __pygmentize(root.resolve_inside("requirements.txt"), bf, td)
@@ -201,6 +201,8 @@ def __pygmentize(source: Path, info: BuildInfo,
         language = "INI"
     elif name.lower() == "makefile":
         language = "make"
+    elif name.endswith(".sh"):
+        language = "bash"
     if dest is None:
         dest = info.doc_dest_dir
     dest_file: Final[Path] = dest.resolve_inside(
@@ -215,7 +217,7 @@ def __pygmentize(source: Path, info: BuildInfo,
 
 #: the default files to pygmentize
 __PYGMENTIZE_DEFAULT: Final[tuple[str, ...]] = (
-    "conftest.py", "LICENSE", "Makefile", "pyproject.toml",
+    "conftest.py", "LICENSE", "make.sh", "Makefile", "pyproject.toml",
     "requirements.txt", "requirements-dev.txt", "setup.cfg", "setup.py",
 )
 

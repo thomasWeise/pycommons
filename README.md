@@ -49,7 +49,7 @@ pip install pycommons
 
 This may sometimes work better if you are having trouble reaching GitHub via `https` or `http`.
 
-You can also clone the repository and then run a [`make` build](https://thomasweise.github.io/pycommons/Makefile.html), which will automatically install all dependencies, run all the tests, and then install the package on your system, too.
+You can also clone the repository and then run a build script, which will automatically install all dependencies, run all the tests, and then install the package on your system, too.
 This will work only on Linux, though.
 If this build completes successful, you can be sure that [`pycommons`](https://thomasweise.github.io/pycommons) will work properly on your machine.
 

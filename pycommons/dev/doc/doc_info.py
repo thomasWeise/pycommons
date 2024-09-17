@@ -240,10 +240,10 @@ class DocInfo:
         if str.__len__(uversion) <= 0:
             raise ValueError(
                 f"Invalid version {version!r}: empty or only white space.")
-        for v in uversion.split("."):
-            try:
+        for v in uversion.split("."):  # noqa: PERF203
+            try:  # noqa: PERF203
                 check_to_int_range(v, "version", 0, 1_000_000_000)
-            except ValueError as ve:
+            except ValueError as ve:  # noqa: PERF203
                 raise ValueError(
                     f"Invalid version {version!r}: "
                     f"{str(ve).removesuffix('.')}.") from ve
@@ -296,7 +296,7 @@ def extract_md_infos(readme_md_file: str) -> tuple[str, int | None]:
     title: str | None = None
     last_idx: int | None = None
     in_code: bool = False
-    with (readme_md.open_for_read() as rd):
+    with (readme_md.open_for_read() as rd):  # noqa: PERF203
         for orig_line in rd:
             line: str = str.strip(orig_line)  # force string
             # skip all code snippets in the file
@@ -319,9 +319,9 @@ def extract_md_infos(readme_md_file: str) -> tuple[str, int | None]:
                         raise ValueError(f"Got {line!r} after having index.")
                 else:
                     idx_str = str.strip(line[3:doti])
-                    try:
+                    try:  # noqa: PERF203
                         index = check_to_int_range(idx_str, "s", 1, 1000)
-                    except ValueError as ve:
+                    except ValueError as ve:  # noqa: PERF203
                         index = None
                         if last_idx is not None:
                             raise ValueError(

@@ -271,7 +271,7 @@ def __make_base_url_replacer(
     if not isinstance(for_markdown, bool):
         raise type_error(for_markdown, "for_markdown", bool)
     url: Final[URL] = URL(base_url_to_replace)
-    if url.scheme not in ("http", "https"):
+    if url.scheme not in {"http", "https"}:
         raise ValueError(
             f"Invalid scheme {url.scheme!r} for url {base_url_to_replace!r}.")
     use_repl: Final[str] = str.strip(replace_base_url_with)
@@ -531,7 +531,7 @@ def __make_full_url_replacer(
     if not isinstance(for_markdown, bool):
         raise type_error(for_markdown, "for_markdown", bool)
     url: Final[URL] = URL(url_to_replace)
-    if url.scheme not in ("http", "https"):
+    if url.scheme not in {"http", "https"}:
         raise ValueError(
             f"Invalid scheme {url.scheme!r} for url {url_to_replace!r}.")
     use_repl: Final[str] = str.strip(replace_url_with)

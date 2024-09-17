@@ -1,7 +1,7 @@
 """Get information about how this process was called."""
 from contextlib import suppress
-from os import environ, getppid
-from os.path import basename
+from os import environ, getpid
+from os.path import basename, isfile
 from traceback import extract_stack
 from typing import Final, cast
 
@@ -30,17 +30,27 @@ def is_build() -> bool:
     """
     Check if the program was run inside a build.
 
-    This function is `True` if the process is running inside a `make`  build
-    or if :func:`is_ci_run` is `True`.
+    This function is `True` if the process is running inside a `make` build
+    or if :func:`is_ci_run` is `True` or if the evironment variable
+    `BUILD_SCRIPT` is set.
 
-    :returns: `True` if this process is executed as part of a `make` build
-        process, `False` otherwise.
+    Since we now need to use virtual environments to install `pip` packages,
+    using `make` scripts has become too cumbersome to me. I simply cannot be
+    bothered to figure out how to set up a virtual environment `make` script
+    wide. Instead, I now use a `bash` script (`make.sh`) in my builds. To
+    properly detect this, this script sets the environment variable
+    `BUILD_SCRIPT`. In all my `pycommons`-based projects, I will do this from
+    now on.
+
+    Basically, if you want to signal that code runs inside a build, you can
+    set an environment variable as `export BUILD_SCRIPT="${BASH_SOURCE[0]}"`
+    inside your `bash` build script. This will be used as signal by this
+    function that we are running inside a build.
+
+    :returns: `True` if this process is executed as part of a build process,
+        `False` otherwise.
 
     >>> isinstance(is_build(), bool)
-    True
-    >>> ns = lambda prc: False if prc is None else (  # noqa: E731
-    ...     "make" in prc.name() or ns(prc.parent()))
-    >>> is_build() == ns(Process(getppid()))
     True
     """
     obj: Final[object] = is_build
@@ -48,21 +58,23 @@ def is_build() -> bool:
     if hasattr(obj, key):
         return cast(bool, getattr(obj, key))
 
-    ret: bool = is_ci_run()
+    ret: bool = ("BUILD_SCRIPT" in environ) or is_ci_run()
 
     if not ret:
         with suppress(Exception):
-            process: Process = Process(getppid())
+            process: Process = Process(getpid())
             while process is not None:
-                name = process.cmdline()[0]
+                process = process.parent()
+                name: str = process.cmdline()[0]
                 if not isinstance(name, str):
-                    break
+                    continue
+                if not isfile(name):
+                    continue
                 name = basename(name)
                 if (str.__eq__(name, "make")) or (
                         str.startswith(name, "make.")):
                     ret = True
                     break
-                process = process.parent()
 
     setattr(obj, key, ret)
     return ret

@@ -1,6 +1,6 @@
 """Test the documentation setup module."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Final
 
 # noinspection PyPackageRequirements
@@ -44,7 +44,7 @@ def test_setup_doc() -> None:
     else:
         pytest.fail("There should be an error!")
 
-    current_year: Final[int] = datetime.now(timezone.utc).year
+    current_year: Final[int] = datetime.now(UTC).year
 
     with temp_dir() as td:
         setup_doc(td, prj_base, current_year, None, None, None, None)

@@ -28,7 +28,7 @@ jobs:
 # execute the actual make build process
     - name: execute the make build
       run: |
-        make
+        ./make.sh
         rm -rf /home/runner/work/pycommons/pycommons/dist/*.txt
         rm -rf /home/runner/work/pycommons/pycommons/dist/*.tar.xz
 # deploy to github pypi

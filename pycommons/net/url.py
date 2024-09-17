@@ -549,8 +549,7 @@ class URL(str):
                 base_url, _FORBIDDEN_IN_FULL_URL), url),
                 _FORBIDDEN_IN_FULL_URL)
 
-        if url.endswith("/"):  # strip trailing '/'
-            url = url[:-1]
+        url = url.removesuffix("/")
 
         # normalize mailto URLs that do not contain //
         is_mailto: bool = url.startswith(_MAILTO_2)

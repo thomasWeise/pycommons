@@ -241,7 +241,7 @@ join(dirname(realpath(getcwd())), "1.txt")
             raise ValueError("Path must not start or end with white space, "
                              f"but {value!r} does.")
         value = normcase(abspath(realpath(expanduser(expandvars(value)))))
-        if (str.__len__(value) <= 0) or (value in [".", ".."]):
+        if (str.__len__(value) <= 0) or (value in {".", ".."}):
             raise ValueError(f"Canonicalization cannot yield {value!r}.")
 
         return super().__new__(cls, value)

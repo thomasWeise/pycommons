@@ -491,7 +491,7 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
                     response.status, int) and (response.status == 200):
                 error = None
                 break
-        except BaseException as be:  # noqa: B036
+        except BaseException as be:  # noqa: B036,BLE001
             logger(f"Attempt sleep={sleep_time}, retries={retries}, "
                    f"timeout={timeout}, error={str(be)!r}, and "
                    f"header={header!r} for {base_url!r} gave {be}.")

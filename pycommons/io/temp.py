@@ -26,7 +26,7 @@ class TempPath(Path):
         :param value: the string value of the path
         """
         ret = super().__new__(cls, value)
-        ret.__is_open = True
+        ret.__is_open = True  # noqa:SLF001
         return ret
 
     def __enter__(self) -> "TempPath":

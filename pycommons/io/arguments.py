@@ -1,7 +1,7 @@
 """The parser for command line arguments."""
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Final
 
 from pycommons.processes.python import python_command
@@ -216,7 +216,7 @@ def make_epilog(
         address information
     :return: the copyright information
 
-    >>> cy = datetime.now(tz=timezone.utc).year
+    >>> cy = datetime.now(tz=UTC).year
     >>> ex = (f"This is a test.\n\nGNU\xa0GENERAL\xa0PUBLIC\xa0LICENSE"
     ...       "\xa0Version\xa03,\xa029\xa0June\xa02007")
     >>> make_epilog("This is a test.") == ex
@@ -381,7 +381,7 @@ def make_epilog(
             copyright_start, "copyright_start", 1970, 2500)
         if copyright_end is None:
             copyright_end = check_int_range(
-                datetime.now(tz=timezone.utc).year,
+                datetime.now(tz=UTC).year,
                 "year", 1970, 2500)
         else:
             copyright_end = check_int_range(

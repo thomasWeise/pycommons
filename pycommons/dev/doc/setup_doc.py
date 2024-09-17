@@ -1,7 +1,7 @@
 """Set up the documentation builder in a unified way."""
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from inspect import stack
 from typing import Any, Final, Iterable, Mapping
 
@@ -73,7 +73,7 @@ def setup_doc(doc_dir: str, root_dir: str,
     global_vars: Final[dict[str, Any]] = stack()[1].frame.f_globals
 
     # create the copyright information
-    current_year: Final[int] = datetime.now(timezone.utc).year
+    current_year: Final[int] = datetime.now(UTC).year
     thecopyright: str = str(current_year) \
         if (copyright_start_year is None) or (check_int_range(
             copyright_start_year, "copyright_start_year", 1980,

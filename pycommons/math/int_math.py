@@ -464,8 +464,8 @@ def float_to_frac(value: int | float) -> tuple[int, int]:
 
     int_numerator *= int_multiplier
     divi: Final[int] = gcd(int_numerator, int_denominator)
-    int_numerator = int_numerator // divi
-    int_denominator = int_denominator // divi
+    int_numerator //= divi
+    int_denominator //= divi
 
     str_size: Final[int] = int_numerator + int_denominator
     if minus:  # pack the minus back into the numerator, if needed
@@ -1011,8 +1011,8 @@ def try_int_div(a: int, b: int) -> int | float:
     # Let's say a = 762 and b = 204.
     # We first compute the GCD to reduce both sides of the equation.
     the_gcd: Final[int] = gcd(a, b)  # == 6 in the example
-    a = a // the_gcd  # == 127 in the example
-    b = b // the_gcd  # == 34 in the example
+    a //= the_gcd  # == 127 in the example
+    b //= the_gcd  # == 34 in the example
 
     # First, let's compute the result of the pure integer division.
     int_res_1: Final[int] = a // b  # == 3 in our example

@@ -55,7 +55,7 @@ def test_temp_dir() -> None:
             assert isfile(path2)
             assert exists(path2)
         inner = join(pathstr, "xx.y")
-        with open(inner, "w") as _:
+        with open(inner, "w", encoding="utf8") as _:
             pass
         assert isfile(inner)
         assert exists(inner)

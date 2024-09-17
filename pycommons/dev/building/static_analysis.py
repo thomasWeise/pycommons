@@ -34,34 +34,49 @@ def __exec(arguments: Iterable[str],
         errors(f"{cmd} failed with {ve!r}.")
 
 
+#: the files to exclude
+__EXCLUDES: Final[str] =\
+    ".svn,CVS,.bzr,.hg,.git,__pycache__,.tox,.nox,.eggs,*.egg,.venv"
+
 #: a list of analysis to be applied to the base directory
 __BASE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
-    ("flake8", ".", "--ignore=B008,B009,B010,DUO102,TRY003,TRY101,W503"),
-    (PYTHON_INTERPRETER, "-m", "pyflakes", "."),
+    ("flake8", ".", "--exclude", __EXCLUDES,
+     "--ignore=B008,B009,B010,DUO102,TRY003,TRY101,W503"),
     ("pyroma", "."),
     ("semgrep", ".", "--error", "--strict", "--use-git-ignore",
      "--skip-unknown-extensions", "--optimizations", "all", "--config=auto"),
     ("pydocstyle", ".", "--convention=pep257"),
-    ("vulture", ".", "--min-confidence", "61"),
+    ("vulture", ".", "--exclude", __EXCLUDES, "--min-confidence", "61"),
     ("dodgy", "."),
 )
 
+#: the rule sets we use for ruff
+__RUFF_RULES: Final[str] =\
+    ("--select=A,AIR,ANN,ASYNC,B,BLE,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,FA,"
+     "FIX,FLY,FURB,G,I,ICN,INP,ISC,INT,LOG,N,NPY,PERF,PIE,PLC,PLE,"
+     "PLR,PLW,PYI,Q,RET,RSE,RUF,S,SIM,T,T10,T20,TD,TID,TRY,UP,W,YTT")
+
+#: the ruff rules that we ignore
+__RUFF_IGNORE: Final[str] =\
+    ("--ignore=A005,ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,"
+     "C901,D203,D208,D212,D401,D407,D413,N801,PLC2801,PLR0904,PLR0911,"
+     "PLR0912,PLR0913,PLR0914,PLR0915,PLR0916,PLR0917,PLR1702,PLR2004,"
+     "PLR6301,PYI041,RUF100,S,TRY003,UP035,W")
+
 #: a list of analysis to be applied to the package directory
 __PACKAGE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
+    (PYTHON_INTERPRETER, "-m", "pyflakes", "."),
     ("pylint", ".", "--disable=C0103,C0302,C0325,R0801,R0901,R0902,R0903,"
                     "R0911,R0912,R0913,R0914,R0915,R1702,R1728,W0212,"
                     "W0238,W0703"),
-    ("mypy", ".", "--no-strict-optional", "--check-untyped-defs"),
+    ("mypy", ".", "--exclude", ".venv$", "--no-strict-optional",
+     "--check-untyped-defs"),
     ("bandit", "-r", ".", "-s", "B311"),
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
     ("pycodestyle", "."),
-    ("ruff", "check", "--target-version", "py310", "--select",
-     "A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,INP,ISC,N,NPY,PIE,PLC,"
-     "PLE,PLR,PLW,PT,PYI,Q,RET,RSE,RUF,S,SIM,T,T10,T20,TID,TRY,UP,W,YTT",
-     "--ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,"
-     "C901,D203,D208,D212,D401,D407,D413,N801,PLR0911,PLR0912,PLR0913,"
-     "PLR0915,PLR2004,PYI041,RUF100,TRY003,UP035", "--line-length", "79",
+    ("ruff", "check", "--target-version", "py312",
+     __RUFF_RULES, __RUFF_IGNORE, "--line-length", "79",
      "."),
 )
 
@@ -71,13 +86,8 @@ __TESTS_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
     ("pycodestyle", "."),
-    ("ruff", "check", "--target-version", "py310", "--select",
-     "A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,ISC,N,NPY,PIE,PLC,PLE,"
-     "PLR,PLW,PYI,Q,RET,RSE,RUF,T,SIM,T10,T20,TID,TRY,UP,W,YTT",
-     "--ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,"
-     "C901,D203,D208,D212,D401,D407,D413,N801,PLR0911,PLR0912,PLR0913,"
-     "PLR0915,PLR2004,PYI041,RUF100,TRY003,UP035", "--line-length", "79",
-     "."),
+    ("ruff", "check", "--target-version", "py312",
+     __RUFF_RULES, f"{__RUFF_IGNORE},INP001", "."),
 )
 
 #: a list of analysis to be applied to the examples directory
@@ -86,13 +96,9 @@ __EXAMPLES_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
     ("pycodestyle", "--ignore=E731,W503", "."),
-    ("ruff", "check", "--target-version", "py310", "--select",
-     "A,ANN,B,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,G,I,ICN,ISC,N,NPY,PIE,PLC,"
-     "PLE,PLR,PLW,PT,PYI,Q,RET,RSE,RUF,S,SIM,T10,TID,TRY,UP,W,YTT",
-     "--ignore=ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,"
-     "B010,C901,D203,D208,D212,D401,D407,D413,N801,PLR0911,PLR0912,"
-     "PLR0913,PLR0915,PLR2004,PYI041,RUF100,TRY003,UP035", "--line-length",
-     "79", "."),
+    ("ruff", "check", "--target-version", "py310",
+     __RUFF_RULES.replace(",T20", ""), f"{__RUFF_IGNORE},INP001,T201",
+     "--line-length", "79", "."),
 )
 
 #: a list of analysis to be applied to the examples directory
