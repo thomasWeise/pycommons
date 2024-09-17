@@ -7,7 +7,6 @@ on:
 
 jobs:
   build_python_3_12:
-    needs: build_python_3_11
     runs-on: ubuntu-latest
     steps:
 # check out the github repository
