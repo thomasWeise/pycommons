@@ -12,7 +12,6 @@ from pycommons.dev.building.build_info import (
 from pycommons.io.arguments import pycommons_argparser
 from pycommons.io.console import logger
 from pycommons.io.path import Path, directory_path
-from pycommons.processes.python import PYTHON_INTERPRETER
 from pycommons.processes.shell import Command
 from pycommons.types import type_error
 
@@ -65,7 +64,7 @@ __RUFF_IGNORE: Final[str] =\
 
 #: a list of analysis to be applied to the package directory
 __PACKAGE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
-    (PYTHON_INTERPRETER, "-m", "pyflakes", "."),
+    ("pyflakes", "."),
     ("pylint", ".", "--disable=C0103,C0302,C0325,R0801,R0901,R0902,R0903,"
                     "R0911,R0912,R0913,R0914,R0915,R1702,R1728,W0212,"
                     "W0238,W0703"),

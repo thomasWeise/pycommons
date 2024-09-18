@@ -18,7 +18,6 @@ from pycommons.dev.url_replacer import make_url_replacer
 from pycommons.io.arguments import pycommons_argparser
 from pycommons.io.console import logger
 from pycommons.io.path import Path, delete_path
-from pycommons.processes.python import PYTHON_INTERPRETER
 from pycommons.processes.shell import STREAM_CAPTURE, STREAM_FORWARD, Command
 from pycommons.types import type_error
 
