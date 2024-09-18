@@ -71,19 +71,19 @@ pip freeze
 
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Now performing unit tests."
 #export PYTHONPATH="$currentDir:${PYTHONPATH}"
-python3 -m pycommons.dev.building.run_tests --package pycommons
+"$PYTHON_INTERPRETER" -m pycommons.dev.building.run_tests --package pycommons
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Finished running unit tests."
 
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Now performing static analysis."
-python3 -m pycommons.dev.building.static_analysis --package pycommons
+"$PYTHON_INTERPRETER" -m pycommons.dev.building.static_analysis --package pycommons
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Done: All static checks passed."
 
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Now building documentation."
-python3 -m pycommons.dev.building.make_documentation --root "$currentDir" --package pycommons
+"$PYTHON_INTERPRETER" -m pycommons.dev.building.make_documentation --root "$currentDir" --package pycommons
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Done building documentation."
 
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Now building source distribution file."
-python3 -m pycommons.dev.building.make_dist --root "$currentDir" --package pycommons
+"$PYTHON_INTERPRETER" -m pycommons.dev.building.make_dist --root "$currentDir" --package pycommons
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Successfully finished building source distribution."
 
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Now trying to install pycommons."
