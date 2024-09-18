@@ -26,7 +26,7 @@ __PRE_PREFIX: Final[tuple[str, ...]] = (
 #: the prefix commands
 __PREFIX: Final[tuple[str, ...]] = (
     'echo "Creating virtual environment."',
-    'python3 -m venv "{VENV}"', 'echo "Activating virtual environment."',
+    'python3 -m venv --copies "{VENV}"', 'echo "Activating virtual environment."',
     'source "{VENV}/bin/activate"',
 )
 
