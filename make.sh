@@ -15,13 +15,6 @@ echo "$(date +'%0Y-%0m-%0d %0R:%0S'): We set the environment variable BUILD_SCRI
 
 currentDir="$(pwd)"
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): We are working in directory: '$currentDir'."
-oldPythonPath="${PYTHONPATH:-}"
-
-if [ -n "oldPythonPath" ]; then
-  export PYTHONPATH="$currentDir:$oldPythonPath"
-else
-  export PYTHONPATH="$currentDir"
-fi
 
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Cleaning up old files."
 rm -rf *.whl
@@ -40,11 +33,22 @@ echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Done cleaning up old files."
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): We setup a virtual environment in a temp directory."
 venvDir="$(mktemp -d)"
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Got temp dir '$venvDir', now creating environment in it."
-python3 -m venv --system-site-packages "$venvDir"
+python3 -m venv "$venvDir"
+
+activateScript="$venvDir/bin/activate"
+echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Updating activate script '$activateScript' to make pycommons available."
+
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Activating virtual environment in '$venvDir'."
-. "$venvDir/bin/activate"
+source "$activateScript"
+
 export PYTHON_INTERPRETER="$venvDir/bin/python3"
-echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Setting python interpreter to '$PYTHON_INTERPRETER'."
+oldPythonPath="${PYTHONPATH:-}"
+if [ -n "$oldPythonPath" ]; then
+  export PYTHONPATH="$currentDir:$oldPythonPath"
+else
+  export PYTHONPATH="$currentDir"
+fi
+echo "$(date +'%0Y-%0m-%0d %0R:%0S'): PYTHONPATH='$PYTHONPATH', PYTHON_INTERPRETER='$PYTHON_INTERPRETER'."
 
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Installing requirements."
 cycle=1
