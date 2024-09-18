@@ -35,11 +35,8 @@ venvDir="$(mktemp -d)"
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Got temp dir '$venvDir', now creating environment in it."
 python3 -m venv --upgrade-deps --copies "$venvDir"
 
-activateScript="$venvDir/bin/activate"
-echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Updating activate script '$activateScript' to make pycommons available."
-
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Activating virtual environment in '$venvDir'."
-source "$activateScript"
+source "$venvDir/bin/activate"
 
 pythonInterpreter="$venvDir/bin/python3"
 oldPythonPath="${PYTHONPATH:-}"
@@ -65,7 +62,6 @@ echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Printing the list of installed packages."
 pip freeze
 
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Now performing unit tests."
-#export PYTHONPATH="$currentDir:${PYTHONPATH}"
 "$pythonInterpreter" -m pycommons.dev.building.run_tests --package pycommons
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Finished running unit tests."
 
@@ -86,4 +82,4 @@ echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Now trying to install pycommons."
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Successfully installed pycommons."
 
 
-echo "$(date +'%0Y-%0m-%0d %0R:%0S'): We have finished the building process."
+echo "$(date +'%0Y-%0m-%0d %0R:%0S'): We have finished the build process."
