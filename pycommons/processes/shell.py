@@ -3,7 +3,7 @@
 import subprocess  # nosec
 from dataclasses import dataclass
 from os import getcwd
-from typing import Callable, Final, Iterable
+from typing import Callable, Final, Iterable, Mapping
 
 from pycommons.io.console import logger
 from pycommons.io.path import UTF8, Path, directory_path
@@ -137,6 +137,25 @@ class Command:
     ... except TypeError as te:
     ...     print(str(te)[:49])
     stdin should be an instance of any in {None, str}
+
+    >>> sxx = str(Command("x", env={"A": "B", "C": "D"}))
+    >>> sxx[sxx.index("with "):sxx.index("with ") + 30]
+    "with environment (('A', 'B'), "
+
+    >>> try:
+    ...     Command("x", env={"A": "B", "C": 1})
+    ... except TypeError as te:
+    ...     print(str(te))
+    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
+    >>> try:
+    ...     Command("x", env=1)
+    ... except TypeError as te:
+    ...     print(str(te))
+    env should be an instance of typing.Mapping but is int, namely '1'.
+
+    >>> str(Command("x", env=dict()))[0:10]
+    "('x',) in "
     """
 
     #: the command line.
@@ -151,13 +170,16 @@ class Command:
     stdout: int
     #: how to handle the standard error stream
     stderr: int
+    #: the environment variables to pass to the new process, if any
+    env: tuple[tuple[str, str], ...] | None
 
     def __init__(self, command: str | Iterable[str],
                  working_dir: str | None = None,
                  timeout: int | None = 3600,
                  stdin: str | None = None,
                  stdout: int = STREAM_IGNORE,
-                 stderr: int = STREAM_IGNORE) -> None:
+                 stderr: int = STREAM_IGNORE,
+                 env: Mapping[str, str] | None = None) -> None:
         """
         Create the command.
 
@@ -192,6 +214,15 @@ class Command:
         object.__setattr__(self, "stderr", check_int_range(
             stderr, "stderr", 0, 2))
 
+        the_env: tuple[tuple[str, str], ...] | None = None
+        if env is not None:
+            if not isinstance(env, Mapping):
+                raise type_error(env, "env", Mapping)
+            if len(env) > 0:
+                the_env = tuple(sorted((str.strip(k), str.strip(v))
+                                       for k, v in env.items()))
+        object.__setattr__(self, "env", the_env)
+
     def __str__(self) -> str:
         """
         Get the string representation of this command.
@@ -207,8 +238,10 @@ class Command:
         """
         si: str = "no" if self.stdin is None \
             else f"{str.__len__(self.stdin)} chars of"
+        ev: str = "" if self.env is None else \
+            f"environment {self.env!r}, "
         return (f"{self.command!r} in {self.working_dir!r} for {self.timeout}"
-                f"s with {si} stdin, stdout{_SM(self.stdout)}, and "
+                f"s with {ev}{si} stdin, stdout{_SM(self.stdout)}, and "
                 f"stderr{_SM(self.stderr)}")
 
     def execute(self, log_call: bool = True) -> tuple[str | None, str | None]:
@@ -272,6 +305,13 @@ class Command:
         ...             True)
         >>> r
         (None, '')
+
+        >>> with redirect_stdout(None):
+        ...     r = Command(("printenv", ),
+        ...                 stdout=STREAM_CAPTURE,
+        ...                 env={"BLA": "XX"}).execute(True)
+        >>> r
+        ('BLA=XX\n', None)
         """
         if not isinstance(log_call, bool):
             raise type_error(log_call, "log_call", bool)
@@ -298,6 +338,9 @@ class Command:
         arguments["stderr"] = 2 if self.stderr == STREAM_FORWARD else (
             subprocess.PIPE if self.stderr == STREAM_CAPTURE
             else subprocess.DEVNULL)
+
+        if self.env is not None:
+            arguments["env"] = {t[0]: t[1] for t in self.env}
 
         try:
             # noqa # nosemgrep # pylint: disable=W1510 # type: ignore

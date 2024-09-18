@@ -16,11 +16,14 @@ True
 True
 """
 
+
 import os.path
 import subprocess  # nosec
 import sys
-from typing import Callable, Final, cast
+from os import environ
+from typing import Callable, Final, Mapping, cast
 
+from pycommons.ds.immutable_map import immutable_mapping
 from pycommons.io.path import Path, file_path
 
 #: the Python interpreter used to launch this program
@@ -87,6 +90,42 @@ __BASE_PATHS: Final[tuple[Path, ...]] = tuple(sorted((p for p in {
     key=cast(Callable[[Path], int], str.__len__), reverse=True))
 
 
+def __get_python_env() -> Mapping[str, str] | None:
+    """
+    Get the Python-related environment variables in the current environment.
+
+    :return: A mapping of variable names to values, or `None` if none were
+        specified.
+    """
+    selected: dict[str, str] = {k: v for k, v in environ.items() if k in {
+        "PATH", "PYTHON_INTERPRETER", "PYTHONASYNCIODEBUG",
+        "PYTHONBREAKPOINT", "PYTHONCASEOK", "PYTHONCOERCECLOCALE",
+        "PYTHONDEBUG", "PYTHONDEVMODE", "PYTHONDONTWRITEBYTECODE",
+        "PYTHONDUMPREFS", "PYTHONDUMPREFSFILE", "PYTHONEXECUTABLE",
+        "PYTHONFAULTHANDLER", "PYTHONHASHSEED", "PYTHONHOME", "PYTHONINSPECT",
+        "PYTHONINTMAXSTRDIGITS", "PYTHONIOENCODING",
+        "PYTHONLEGACYWINDOWSFSENCODING", "PYTHONLEGACYWINDOWSSTDIO",
+        "PYTHONMALLOC", "PYTHONMALLOCSTATS", "PYTHONNODEBUGRANGES",
+        "PYTHONNOUSERSITE", "PYTHONOPTIMIZE", "PYTHONPATH",
+        "PYTHONPERFSUPPORT", "PYTHONPLATLIBDIR", "PYTHONPROFILEIMPORTTIME",
+        "PYTHONPYCACHEPREFIX", "PYTHONSAFEPATH", "PYTHONSTARTUP",
+        "PYTHONTRACEMALLOC", "PYTHONUNBUFFERED", "PYTHONUSERBASE",
+        "PYTHONUTF8", "PYTHONVERBOSE", "PYTHONWARNDEFAULTENCODING",
+        "PYTHONWARNINGS", "VIRTUAL_ENV"}}
+    if dict.__len__(selected) <= 0:
+        return None
+    return immutable_mapping(selected)
+
+#: The environment variables related to Python that were set in the current
+#: process. It makes sense to pass these on with any :func:`python_command`
+#: invocation or other calls to the Python interpreter.
+#: This collection includes information about the Python interpreter,
+#: executable, `PATH`, and the virtual environment, if any, as well as any
+#: Python-related environment variables passed to this process.
+PYTHON_ENV: Final[Mapping[str, str] | None] = __get_python_env()
+del __get_python_env
+
+
 def python_command(
         file: str, use_short_interpreter: bool = True) -> list[str]:
     """
@@ -96,6 +135,10 @@ def python_command(
     of an installed package, in which case it will issue a `-m` flag in the
     resulting command, or whether it is some other script, in which it will
     just return a normal interpreter invocation.
+
+    Notice that you should forward :const:`PYTHON_ENV` as environment to the
+    new Python process if it uses any packages. If we are currently running
+    in a virtual environment, we want to tell this command about that.
 
     :param file: the python script
     :param use_short_interpreter: use the short interpreter path, for

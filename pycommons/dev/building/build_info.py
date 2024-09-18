@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Final, Iterable
 
 from pycommons.io.path import Path, directory_path
+from pycommons.processes.python import PYTHON_ENV
 from pycommons.processes.shell import STREAM_FORWARD, Command
 from pycommons.types import check_int_range, type_error
 
@@ -285,7 +286,14 @@ class BuildInfo:
         """
         Create a typical build step command.
 
+        This command will receive an environment with all the Python-related
+        environment variables that were also passed to the current process.
+        This includes the Path, the Python interpreter's name, as well as
+        information about the virtual environment, if any. This is necessary
+        if we use build tools that were installed in this virtual environment.
+
         :param args: the arguments of the command
+        :param env: the environment to be used with this command
 
         >>> b = BuildInfo(Path(__file__).up(4), "pycommons")
         >>> cmd = b.command(("cat", "README.txt"))
@@ -303,7 +311,8 @@ class BuildInfo:
         3600
         """
         return Command(args, working_dir=self.base_dir, timeout=self.timeout,
-                       stderr=STREAM_FORWARD, stdout=STREAM_FORWARD)
+                       stderr=STREAM_FORWARD, stdout=STREAM_FORWARD,
+                       env=PYTHON_ENV)
 
 
 def parse_project_arguments(parser: ArgumentParser,
