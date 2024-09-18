@@ -33,7 +33,7 @@ echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Done cleaning up old files."
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): We setup a virtual environment in a temp directory."
 venvDir="$(mktemp -d)"
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Got temp dir '$venvDir', now creating environment in it."
-python3 -m venv "$venvDir"
+python3 -m venv --upgrade-deps "$venvDir"
 
 activateScript="$venvDir/bin/activate"
 echo "$(date +'%0Y-%0m-%0d %0R:%0S'): Updating activate script '$activateScript' to make pycommons available."

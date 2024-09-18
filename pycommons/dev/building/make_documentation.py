@@ -306,7 +306,7 @@ def __render_markdown(markdown: Path, info: BuildInfo, dest: Path | None,
         body_2 = __HTML_BODY_STYLE_2
 
     text: Final[str] = url_fixer(str.strip(Command((
-        PYTHON_INTERPRETER, "-m", "markdown", "-o", "html", markdown),
+        "markdown_py", "-o", "html", markdown),
         stderr=STREAM_FORWARD, stdout=STREAM_CAPTURE, timeout=info.timeout,
         working_dir=info.base_dir).execute()[0]))
     dest_path.write_all_str(f"{__HTML_HEADER}{title}{body_1}{text}{body_2}")
