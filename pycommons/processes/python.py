@@ -116,6 +116,7 @@ def __get_python_env() -> Mapping[str, str] | None:
         return None
     return immutable_mapping(selected)
 
+
 #: The environment variables related to Python that were set in the current
 #: process. It makes sense to pass these on with any :func:`python_command`
 #: invocation or other calls to the Python interpreter.
