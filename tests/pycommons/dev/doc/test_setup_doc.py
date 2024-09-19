@@ -21,28 +21,19 @@ def test_setup_doc() -> None:
         td.resolve_inside("README.md").enforce_file()
         td.resolve_inside("index.rst").enforce_file()
 
-    try:
+    with pytest.raises(
+            TypeError, match="descriptor '__len__' requires a 'str'.*"):
         setup_doc(None, prj_base, 2023, None, None, None, None)
-    except TypeError as te:
-        assert str(te).startswith("descriptor '__len__' requires a 'str'")
-    else:
-        pytest.fail("There should be an error!")
 
-    try:
-        with temp_dir() as td:
-            setup_doc(td, None, 2023, None, None, None, None)
-    except TypeError as te:
-        assert str(te).startswith("descriptor '__len__' requires a 'str'")
-    else:
-        pytest.fail("There should be an error!")
+    with (pytest.raises(
+            TypeError, match="descriptor '__len__' requires a 'str'.*"),
+            temp_dir() as td):
+        setup_doc(td, None, 2023, None, None, None, None)
 
-    try:
-        with temp_dir() as td:
-            setup_doc(td, prj_base, -1, None, None, None, None)
-    except ValueError as ve:
-        assert str(ve).startswith("copyright_start_year=-1 is invalid, must")
-    else:
-        pytest.fail("There should be an error!")
+    with (pytest.raises(
+            ValueError, match="copyright_start_year=-1 is invalid, must.*"),
+            temp_dir() as td):
+        setup_doc(td, prj_base, -1, None, None, None, None)
 
     current_year: Final[int] = datetime.now(UTC).year
 
@@ -79,52 +70,34 @@ def test_setup_doc() -> None:
         td.resolve_inside("README.md").enforce_file()
         td.resolve_inside("index.rst").enforce_file()
 
-    try:
-        with temp_dir() as td:
-            setup_doc(td, prj_base, current_year + 1, None, None, None, None)
-    except ValueError as ve:
-        assert str(ve).startswith(f"copyright_start_year={current_year + 1}")
-    else:
-        pytest.fail("There should be an error!")
+    with (pytest.raises(
+            ValueError, match=f"copyright_start_year={current_year + 1}.*"),
+            temp_dir() as td):
+        setup_doc(td, prj_base, current_year + 1, None, None, None, None)
 
-    try:
-        with temp_dir() as td:
-            setup_doc(td, prj_base, 2023, 1, None, None, None)
-    except TypeError as te:
-        assert str(te).startswith("dependencies should be an instance of")
-    else:
-        pytest.fail("There should be an error!")
+    with (pytest.raises(
+            TypeError, match="dependencies should be an instance of.*"),
+            temp_dir() as td):
+        setup_doc(td, prj_base, 2023, 1, None, None, None)
 
-    try:
-        with temp_dir() as td:
-            setup_doc(td, prj_base, 2023, (1, ), None, None, None)
-    except TypeError as te:
-        assert str(te).startswith("descriptor 'strip' for 'str' objects doe")
-    else:
-        pytest.fail("There should be an error!")
+    with (pytest.raises(
+            TypeError, match="descriptor 'strip' for 'str' objects doe.*"),
+            temp_dir() as td):
+        setup_doc(td, prj_base, 2023, (1, ), None, None, None)
 
-    try:
-        with temp_dir() as td:
-            setup_doc(td, prj_base, 2023, (
-                "pycommons", ("x", 1)), None, None, None)
-    except TypeError as te:
-        assert str(te).startswith("descriptor 'strip' for 'str' objects doe")
-    else:
-        pytest.fail("There should be an error!")
+    with (pytest.raises(
+            TypeError, match="descriptor 'strip' for 'str' objects doe.*"),
+            temp_dir() as td):
+        setup_doc(td, prj_base, 2023, (
+            "pycommons", ("x", 1)), None, None, None)
 
-    try:
-        with temp_dir() as td:
-            setup_doc(td, prj_base, 2023, (
-                "pycommons", (1, "x")), None, None, None)
-    except TypeError as te:
-        assert str(te).startswith("descriptor 'strip' for 'str' objects doe")
-    else:
-        pytest.fail("There should be an error!")
+    with (pytest.raises(
+            TypeError, match="descriptor 'strip' for 'str' objects doe.*"),
+            temp_dir() as td):
+        setup_doc(td, prj_base, 2023, (
+            "pycommons", (1, "x")), None, None, None)
 
-    try:
-        with temp_dir() as td:
-            setup_doc(td, prj_base, 2023, ("yyyx-b", ), None, None, None)
-    except ValueError as ve:
-        assert str(ve).startswith("'yyyx-b' is not among the known")
-    else:
-        pytest.fail("There should be an error!")
+    with (pytest.raises(
+            ValueError, match="'yyyx-b' is not among the known.*"),
+            temp_dir() as td):
+        setup_doc(td, prj_base, 2023, ("yyyx-b", ), None, None, None)

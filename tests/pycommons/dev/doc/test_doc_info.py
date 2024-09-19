@@ -20,104 +20,62 @@ def test_extract_md_infos() -> None:
     """Test parsing of readme.md files."""
     base: Final[Path] = file_path(__file__).up()
 
-    try:
+    with pytest.raises(ValueError, match="Already have title.*"):
         extract_md_infos(base.resolve_inside("md_2_titles.md"))
-    except ValueError as ve:
-        assert str(ve).startswith("Already have title")
-    else:
-        pytest.fail("There should be an error!")
 
-    try:
+    with pytest.raises(
+            ValueError, match="Got '## x. blubb' and finding index 1.*"):
         extract_md_infos(base.resolve_inside(
             "md_error_2nd_level_heading_1.md"))
-    except ValueError as ve:
-        assert str(ve).startswith("Got '## x. blubb' and finding index 1")
-    else:
-        pytest.fail("There should be an error!")
 
-    try:
+    with pytest.raises(
+            ValueError, match="Got '## blubb' after having index.*"):
         extract_md_infos(base.resolve_inside(
             "md_error_2nd_level_heading_2.md"))
-    except ValueError as ve:
-        assert str(ve).startswith("Got '## blubb' after having index.")
-    else:
-        pytest.fail("There should be an error!")
 
-    try:
+    with pytest.raises(
+            ValueError, match="Found index 1 in line '## 1. blubb'.*"):
         extract_md_infos(base.resolve_inside(
             "md_error_2nd_level_heading_3.md"))
-    except ValueError as ve:
-        assert str(ve).startswith("Found index 1 in line '## 1. blubb'")
-    else:
-        pytest.fail("There should be an error!")
-    try:
+
+    with pytest.raises(
+            ValueError, match="Got '## a. blubb' and finding index.*"):
         extract_md_infos(base.resolve_inside(
             "md_error_2nd_level_heading_4.md"))
-    except ValueError as ve:
-        assert str(ve).startswith("Got '## a. blubb' and finding index")
-    else:
-        pytest.fail("There should be an error!")
 
-    try:
+    with pytest.raises(ValueError, match="No title in '.*"):
         extract_md_infos(base.resolve_inside(
             "md_error_no_title.md"))
-    except ValueError as ve:
-        assert str(ve).startswith("No title in '")
-    else:
-        pytest.fail("There should be an error!")
 
 
 def test_parse_version() -> None:
     """Test parsing of version.py files."""
     base: Final[Path] = file_path(__file__).up()
 
-    try:
+    with pytest.raises(
+            ValueError, match="Incorrect string limits for.*"):
         parse_version_py(base.resolve_inside(
             "version_error_1.txt"))
-    except ValueError as ve:
-        assert str(ve).startswith("Incorrect string limits for")
-    else:
-        pytest.fail("There should be an error!")
 
-    try:
+    with pytest.raises(ValueError, match="Strange version string.*"):
         parse_version_py(base.resolve_inside(
             "version_error_2.txt"))
-    except ValueError as ve:
-        assert str(ve).startswith("Strange version string")
-    else:
-        pytest.fail("There should be an error!")
 
-    try:
+    with pytest.raises(ValueError, match="Strange version string.*"):
         parse_version_py(base.resolve_inside(
             "version_error_2.txt"))
-    except ValueError as ve:
-        assert str(ve).startswith("Strange version string")
-    else:
-        pytest.fail("There should be an error!")
 
-    try:
+    with pytest.raises(ValueError, match="Version defined as.*"):
         parse_version_py(base.resolve_inside(
             "version_error_3.txt"))
-    except ValueError as ve:
-        assert str(ve).startswith("Version defined as")
-    else:
-        pytest.fail("There should be an error!")
 
-    try:
+    with pytest.raises(ValueError, match="Undelimited string in.*"):
         parse_version_py(base.resolve_inside(
             "version_error_4.txt"))
-    except ValueError as ve:
-        assert str(ve).startswith("Undelimited string in")
-    else:
-        pytest.fail("There should be an error!")
 
-    try:
+    with pytest.raises(ValueError, match="Did not find version attr.*"):
         parse_version_py(base.resolve_inside(
             "version_error_5.txt"))
-    except ValueError as ve:
-        assert str(ve).startswith("Did not find version attr")
-    else:
-        pytest.fail("There should be an error!")
 
 
 def test_load_doc_info_from_setup_cfg() -> None:
@@ -218,12 +176,9 @@ def test_load_doc_info_from_setup_cfg() -> None:
             write_lines(rd.readlines(), wd)
 
         try:
-            load_doc_info_from_setup_cfg(f)
-        except ValueError as ve:
-            assert str(ve).startswith("Invalid version attribute")
-        else:
-            pytest.fail("There should be an error!")
-
+            with pytest.raises(
+                    ValueError, match="Invalid version attribute.*"):
+                load_doc_info_from_setup_cfg(f)
         finally:
             chdir(cd)
 
@@ -240,12 +195,9 @@ def test_load_doc_info_from_setup_cfg() -> None:
             write_lines(rd.readlines(), wd)
 
         try:
-            load_doc_info_from_setup_cfg(f)
-        except ValueError as ve:
-            assert str(ve).startswith("Invalid version attribute")
-        else:
-            pytest.fail("There should be an error!")
-
+            with pytest.raises(
+                    ValueError, match="Invalid version attribute.*"):
+                load_doc_info_from_setup_cfg(f)
         finally:
             chdir(cd)
     with temp_dir() as td:
@@ -261,12 +213,9 @@ def test_load_doc_info_from_setup_cfg() -> None:
             write_lines(rd.readlines(), wd)
 
         try:
-            load_doc_info_from_setup_cfg(f)
-        except ValueError as ve:
-            assert str(ve).startswith("Invalid long_description attribute")
-        else:
-            pytest.fail("There should be an error!")
-
+            with pytest.raises(
+                    ValueError, match="Invalid long_description attribute.*"):
+                load_doc_info_from_setup_cfg(f)
         finally:
             chdir(cd)
 
@@ -283,12 +232,10 @@ def test_load_doc_info_from_setup_cfg() -> None:
             write_lines(rd.readlines(), wd)
 
         try:
-            load_doc_info_from_setup_cfg(f)
-        except ValueError as ve:
-            assert str(ve).startswith("long_description 'bla' does not point")
-        else:
-            pytest.fail("There should be an error!")
-
+            with pytest.raises(
+                    ValueError,
+                    match="long_description 'bla' does not point.*"):
+                load_doc_info_from_setup_cfg(f)
         finally:
             chdir(cd)
 
@@ -305,12 +252,8 @@ def test_load_doc_info_from_setup_cfg() -> None:
             write_lines(rd.readlines(), wd)
 
         try:
-            load_doc_info_from_setup_cfg(f)
-        except ValueError as ve:
-            assert str(ve).startswith("Two docu URLs found?")
-        else:
-            pytest.fail("There should be an error!")
-
+            with pytest.raises(ValueError, match="Two docu URLs found?.*"):
+                load_doc_info_from_setup_cfg(f)
         finally:
             chdir(cd)
 
@@ -327,11 +270,7 @@ def test_load_doc_info_from_setup_cfg() -> None:
             write_lines(rd.readlines(), wd)
 
         try:
-            load_doc_info_from_setup_cfg(f)
-        except ValueError as ve:
-            assert str(ve).startswith("Strange URL line")
-        else:
-            pytest.fail("There should be an error!")
-
+            with pytest.raises(ValueError, match="Strange URL line.*"):
+                load_doc_info_from_setup_cfg(f)
         finally:
             chdir(cd)

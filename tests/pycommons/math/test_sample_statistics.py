@@ -11,7 +11,7 @@ from statistics import stdev as statstddev
 from sys import float_info
 from typing import Callable, Final, Iterable
 
-from pytest import raises
+import pytest
 
 from pycommons.io.csv import csv_read, csv_write
 from pycommons.math.sample_statistics import (
@@ -1109,7 +1109,7 @@ def test_csv_4() -> None:
     assert reader.parse_optional_row(optional) == data_1[0]
 
     optional.clear()
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         writer.get_optional_row(
             data_1[0], optional.append, data_1[0].n + 1)
 

@@ -90,15 +90,16 @@ __BASE_PATHS: Final[tuple[Path, ...]] = tuple(sorted((p for p in {
     key=cast(Callable[[Path], int], str.__len__), reverse=True))
 
 
-def __get_python_env() -> Mapping[str, str] | None:
+def __get_python_env() -> Mapping[str, str]:
     """
     Get the Python-related environment variables in the current environment.
 
     :return: A mapping of variable names to values, or `None` if none were
         specified.
     """
+    pienv: Final[str] = "PYTHON_INTERPRETER"
     selected: dict[str, str] = {k: v for k, v in environ.items() if k in {
-        "PATH", "PYTHONCASEOK", "PYTHONCOERCECLOCALE",
+        "PATH", pienv, "PYTHONCASEOK", "PYTHONCOERCECLOCALE",
         "PYTHONDONTWRITEBYTECODE", "PYTHONEXECUTABLE", "PYTHONFAULTHANDLER",
         "PYTHONHASHSEED", "PYTHONHOME", "PYTHONINTMAXSTRDIGITS",
         "PYTHONIOENCODING", "PYTHONLEGACYWINDOWSFSENCODING",
@@ -106,8 +107,8 @@ def __get_python_env() -> Mapping[str, str] | None:
         "PYTHONPATH", "PYTHONPLATLIBDIR", "PYTHONPYCACHEPREFIX",
         "PYTHONSAFEPATH", "PYTHONUNBUFFERED", "PYTHONUSERBASE", "PYTHONUTF8",
         "PYTHONWARNDEFAULTENCODING", "PYTHONWARNINGS", "VIRTUAL_ENV"}}
-    if dict.__len__(selected) <= 0:
-        return None
+    if pienv not in selected:
+        selected[pienv] = PYTHON_INTERPRETER
     return immutable_mapping(selected)
 
 
@@ -117,7 +118,12 @@ def __get_python_env() -> Mapping[str, str] | None:
 #: This collection includes information about the Python interpreter,
 #: executable, `PATH`, and the virtual environment, if any, as well as any
 #: Python-related environment variables passed to this process.
-PYTHON_ENV: Final[Mapping[str, str] | None] = __get_python_env()
+#: The special variable `PYTHON_INTERPRETER` will be passed into this
+#: environment. If it already exists in this process' environment, it will be
+#: passed along as-is. If it does not exist in the current environment, it is
+#: created and made to point to the Python executable that was used to
+#: launch this process.
+PYTHON_ENV: Final[Mapping[str, str]] = __get_python_env()
 del __get_python_env
 
 

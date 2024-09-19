@@ -53,14 +53,14 @@ __BASE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
 __RUFF_RULES: Final[str] =\
     ("--select=A,AIR,ANN,ASYNC,B,BLE,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,FA,"
      "FIX,FLY,FURB,G,I,ICN,INP,ISC,INT,LOG,N,NPY,PERF,PIE,PLC,PLE,"
-     "PLR,PLW,PYI,Q,RET,RSE,RUF,S,SIM,T,T10,T20,TD,TID,TRY,UP,W,YTT")
+     "PLR,PLW,PT,PYI,Q,RET,RSE,RUF,S,SIM,T,T10,T20,TD,TID,TRY,UP,W,YTT")
 
 #: the ruff rules that we ignore
 __RUFF_IGNORE: Final[str] =\
     ("--ignore=A005,ANN001,ANN002,ANN003,ANN101,ANN204,ANN401,B008,B009,B010,"
      "C901,D203,D208,D212,D401,D407,D413,N801,PLC2801,PLR0904,PLR0911,"
      "PLR0912,PLR0913,PLR0914,PLR0915,PLR0916,PLR0917,PLR1702,PLR2004,"
-     "PLR6301,PYI041,RUF100,S,TRY003,UP035,W")
+     "PLR6301,PT011,PT012,PT013,PYI041,RUF100,S,TRY003,UP035,W")
 
 #: a list of analysis to be applied to the package directory
 __PACKAGE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
@@ -157,7 +157,7 @@ def static_analysis(info: BuildInfo) -> None:
     for error in errors:
         logger(error)
 
-    raise ValueError(f"Failed to do {text}: {'; '.join(errors)}.")
+    raise ValueError(f"Failed to do {text}: {'; '.join(errors)}")
 
 
 # Run static analysis program if executed as script
