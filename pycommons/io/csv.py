@@ -357,8 +357,7 @@ def csv_read(rows: Iterable[str],
                 f"Invalid row {orig_line!r} contains {count} columns, but "
                 f"should have at most {col_count}.")
         if count < col_count:
-            for _ in range(count, col_count):
-                cols.append("")  # noqa: PERF401
+            cols.extend("" for _ in range(count, col_count))
         consumer(parse_row(info, cols))
 
 
