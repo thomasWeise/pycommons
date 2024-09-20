@@ -62,14 +62,16 @@ __RUFF_IGNORE: Final[str] =\
      "PLR0912,PLR0913,PLR0914,PLR0915,PLR0916,PLR0917,PLR1702,PLR2004,"
      "PLR6301,PT011,PT012,PT013,PYI041,RUF100,S,TRY003,UP035,W")
 
+#: the pylint rules that we ignore
+__PYLINT_IGNORE: Final[str] =\
+    ("--disable=C0103,C0302,C0325,R0801,R0901,R0902,R0903,R0911,R0912,R0913,"
+     "R0914,R0915,R0916,R0917,R1702,R1728,W0212,W0238,W0703")
+
 #: a list of analysis to be applied to the package directory
 __PACKAGE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("pyflakes", "."),
-    ("pylint", ".", "--disable=C0103,C0302,C0325,R0801,R0901,R0902,R0903,"
-                    "R0911,R0912,R0913,R0914,R0915,R1702,R1728,W0212,"
-                    "W0238,W0703"),
-    ("mypy", ".", "--exclude", ".venv$", "--no-strict-optional",
-     "--check-untyped-defs"),
+    ("pylint", ".", __PYLINT_IGNORE),
+    ("mypy", ".", "--no-strict-optional", "--check-untyped-defs"),
     ("bandit", "-r", ".", "-s", "B311"),
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
@@ -81,6 +83,8 @@ __PACKAGE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
 
 #: a list of analysis to be applied to the test directory
 __TESTS_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
+    ("pylint", ".", __PYLINT_IGNORE),
+    ("mypy", ".", "--no-strict-optional", "--check-untyped-defs"),
     ("bandit", "-r", ".", "-s", "B311,B101"),
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
@@ -91,6 +95,7 @@ __TESTS_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
 
 #: a list of analysis to be applied to the examples directory
 __EXAMPLES_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
+    ("pylint", ".", __PYLINT_IGNORE),
     ("bandit", "-r", ".", "-s", "B311"),
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
@@ -144,8 +149,27 @@ def static_analysis(info: BuildInfo) -> None:
                                (__DOC_SOURCE, info.doc_source_dir)):
             if path is None:
                 continue
+
+            # If we only have a single Python file in the directory, then
+            # we will only check this single file.
+            use_path: Path = path
+            single_file: Path | None = None
+            for thepath in path.list_dir(True, True):
+                if thepath.is_file():
+                    if thepath.endswith(".py"):
+                        if single_file is None:
+                            single_file = thepath
+                        else:
+                            single_file = None
+                            break
+                else:
+                    single_file = None
+                    break
+            if single_file is not None:
+                use_path = single_file
+
             for a in analysis:
-                __exec(replace_in_cmd(a, path), info, errors.append)
+                __exec(replace_in_cmd(a, use_path), info, errors.append)
     finally:
         chdir(current)
 

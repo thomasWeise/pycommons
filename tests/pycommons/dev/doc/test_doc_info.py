@@ -122,7 +122,7 @@ def test_load_doc_info_from_setup_cfg() -> None:
             assert str.__len__(di2.title) > 10
             assert di2.doc_url == \
                 "https://thomasweise.github.io/pycommons"
-            v: list[str] = di2.version.split(".")
+            v = di2.version.split(".")
             assert isinstance(v, list)
             assert list.__len__(v) == 3
             for vs in v:
@@ -133,7 +133,7 @@ def test_load_doc_info_from_setup_cfg() -> None:
             chdir(cd)
 
     with temp_dir() as td:
-        rdme: Path = td.resolve_inside("README.md")
+        rdme = td.resolve_inside("README.md")
         with rdme.open_for_write() as wd, \
                 di.readme_md_file.open_for_read() as rd:
             write_lines(rd.readlines(), wd)
@@ -153,7 +153,7 @@ def test_load_doc_info_from_setup_cfg() -> None:
             assert str.__len__(di2.title) > 10
             assert di2.doc_url == \
                 "https://thomasweise.github.io/pycommons"
-            v: list[str] = di2.version.split(".")
+            v = di2.version.split(".")
             assert isinstance(v, list)
             assert list.__len__(v) == 3
             for vs in v:
@@ -164,7 +164,7 @@ def test_load_doc_info_from_setup_cfg() -> None:
             chdir(cd)
 
     with temp_dir() as td:
-        rdme: Path = td.resolve_inside("README.md")
+        rdme = td.resolve_inside("README.md")
         with rdme.open_for_write() as wd, \
                 di.readme_md_file.open_for_read() as rd:
             write_lines(rd.readlines(), wd)
@@ -183,7 +183,7 @@ def test_load_doc_info_from_setup_cfg() -> None:
             chdir(cd)
 
     with temp_dir() as td:
-        rdme: Path = td.resolve_inside("README.md")
+        rdme = td.resolve_inside("README.md")
         with rdme.open_for_write() as wd, \
                 di.readme_md_file.open_for_read() as rd:
             write_lines(rd.readlines(), wd)
@@ -201,7 +201,7 @@ def test_load_doc_info_from_setup_cfg() -> None:
         finally:
             chdir(cd)
     with temp_dir() as td:
-        rdme: Path = td.resolve_inside("README.md")
+        rdme = td.resolve_inside("README.md")
         with rdme.open_for_write() as wd, \
                 di.readme_md_file.open_for_read() as rd:
             write_lines(rd.readlines(), wd)
@@ -220,7 +220,7 @@ def test_load_doc_info_from_setup_cfg() -> None:
             chdir(cd)
 
     with temp_dir() as td:
-        rdme: Path = td.resolve_inside("README.md")
+        rdme = td.resolve_inside("README.md")
         with rdme.open_for_write() as wd, \
                 di.readme_md_file.open_for_read() as rd:
             write_lines(rd.readlines(), wd)
@@ -240,7 +240,7 @@ def test_load_doc_info_from_setup_cfg() -> None:
             chdir(cd)
 
     with temp_dir() as td:
-        rdme: Path = td.resolve_inside("README.md")
+        rdme = td.resolve_inside("README.md")
         with rdme.open_for_write() as wd, \
                 di.readme_md_file.open_for_read() as rd:
             write_lines(rd.readlines(), wd)
@@ -258,7 +258,7 @@ def test_load_doc_info_from_setup_cfg() -> None:
             chdir(cd)
 
     with temp_dir() as td:
-        rdme: Path = td.resolve_inside("README.md")
+        rdme = td.resolve_inside("README.md")
         with rdme.open_for_write() as wd, \
                 di.readme_md_file.open_for_read() as rd:
             write_lines(rd.readlines(), wd)

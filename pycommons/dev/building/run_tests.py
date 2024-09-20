@@ -64,7 +64,7 @@ def run_tests(info: BuildInfo) -> None:
     if info.tests_dir is None:
         logger("No unit tests found.")
     else:
-        logger("Now unit tests.")
+        logger("Now running unit tests.")
         if info.examples_dir is not None:
             del ignores[-1]
         if info.examples_dir is not None:

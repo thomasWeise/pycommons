@@ -462,7 +462,7 @@ def test_csv_3() -> None:
     w = CsvWriter()
     w.setup(data_2)
     try:
-        w.get_row(data[0], [].append)
+        w.get_row(data[0], [].append)  # type: ignore
         error = True
     except ValueError:
         pass
@@ -1045,7 +1045,7 @@ def __do_test_multi_csv(same_n: bool) -> None:
         get_footer_comments=_TCW.get_footer_comments,
         get_header_comments=_TCW.get_header_comments)
     output: list[SampleStatistics] = []
-    csv_read(rows=text,
+    csv_read(rows=text,  # type: ignore
              setup=_TCR,
              parse_row=_TCR.parse_row,
              consumer=output.append)

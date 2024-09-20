@@ -78,24 +78,24 @@ def test_setup_doc() -> None:
     with (pytest.raises(
             TypeError, match="dependencies should be an instance of.*"),
             temp_dir() as td):
-        setup_doc(td, prj_base, 2023, 1, None, None, None)
+        setup_doc(td, prj_base, 2023, 1, None, None, None)  # type: ignore
 
     with (pytest.raises(
             TypeError, match="descriptor 'strip' for 'str' objects doe.*"),
             temp_dir() as td):
-        setup_doc(td, prj_base, 2023, (1, ), None, None, None)
-
-    with (pytest.raises(
-            TypeError, match="descriptor 'strip' for 'str' objects doe.*"),
-            temp_dir() as td):
-        setup_doc(td, prj_base, 2023, (
-            "pycommons", ("x", 1)), None, None, None)
+        setup_doc(td, prj_base, 2023, (1, ), None, None, None)  # type: ignore
 
     with (pytest.raises(
             TypeError, match="descriptor 'strip' for 'str' objects doe.*"),
             temp_dir() as td):
         setup_doc(td, prj_base, 2023, (
-            "pycommons", (1, "x")), None, None, None)
+            "pycommons", ("x", 1)), None, None, None)  # type: ignore
+
+    with (pytest.raises(
+            TypeError, match="descriptor 'strip' for 'str' objects doe.*"),
+            temp_dir() as td):
+        setup_doc(td, prj_base, 2023, (
+            "pycommons", (1, "x")), None, None, None)  # type: ignore
 
     with (pytest.raises(
             ValueError, match="'yyyx-b' is not among the known.*"),
