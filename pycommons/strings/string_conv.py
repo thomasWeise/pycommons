@@ -168,7 +168,7 @@ def str_to_bool(value: str) -> bool:
 
 def num_to_str(value: int | float) -> str:
     """
-    Transform a numerical type (`int`, `float`, or `bool`) to a string.
+    Transform a numerical value which is either `int` or`float` to a string.
 
     If `value` is an instance of `int`, the result of its conversion via `str`
     will be returned.
