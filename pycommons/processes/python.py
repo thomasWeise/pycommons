@@ -84,9 +84,9 @@ PYTHON_INTERPRETER_SHORT: Final[str] = __get_python_interpreter_short()
 del __get_python_interpreter_short
 
 
-#: the base paths in which
+#: the base paths in which we would search for python modules
 __BASE_PATHS: Final[tuple[Path, ...]] = tuple(sorted((p for p in {
-    Path(d) for d in sys.path} if p.is_dir()),
+    Path(d) for d in sys.path if str.__len__(d) > 0} if p.is_dir()),
     key=cast(Callable[[Path], int], str.__len__), reverse=True))
 
 
