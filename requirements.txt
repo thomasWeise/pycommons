@@ -27,8 +27,8 @@ certifi == 2024.8.30
 # these static analysis tools are also needed for the [dev] extras variant
 # only
 autoflake == 2.3.1
-bandit == 1.7.9
-coverage == 7.6.1
+bandit == 1.7.10
+coverage == 7.6.2
 coverage-badge == 1.1.2
 dlint == 0.15.0
 dodgy == 0.2.1
@@ -40,20 +40,20 @@ mypy == 1.11.2
 pycodestyle == 2.12.1
 pydocstyle == 6.3.0
 pyflakes == 3.2.0
-pylint == 3.3.0
+pylint == 3.3.1
 pyroma == 4.2
-ruff == 0.6.5
-semgrep == 1.87.0
+ruff == 0.6.9
+semgrep == 1.91.0
 tryceratops == 2.4.0
 unimport == 1.2.1
-vulture == 2.11
+vulture == 2.13
 
 # sphinx is needed for generating the documentation. Together with its
 # modules, it parses the documentation root file as well as the code and
 # generates the html files with the documentation. It therefore uses the
 # docstrings and the type hints.
-sphinx == 8.0.2
-sphinx-autodoc-typehints == 2.4.1
+sphinx == 8.1.1
+sphinx-autodoc-typehints == 2.5.0
 # myst-parser is needed for including README.md into the documentation
 myst-parser == 4.0.0
 
@@ -71,16 +71,17 @@ minify_html == 0.15.0
 # some usual or border cases. Also, they can help us find out if changes in
 # the code lead to changes in (tested/expected) behavior.
 pytest == 8.3.3
+pytest-timeout == 2.3.1
 
 # for converting the additional markdown files to HTML in the [dev] variant
 markdown == 3.7
 
 # setuptools, testresources, twine, virtualenv, and wheel are needed for
 # generating the installable pip package in the [dev] variant.
-setuptools == 74.1.2
+setuptools == 75.1.0
 testresources == 2.0.1
 twine == 5.1.1
-virtualenv == 20.26.4
+virtualenv == 20.26.6
 wheel == 0.44.0
 
 # psutil is used for getting information about the system configuration.

@@ -174,7 +174,7 @@ class BuildInfo:
         :param doc_source_dir: the documentation source directory, if any
         :param doc_dest_dir: the documentation destination directory, if any
         :param dist_dir: the distribution directory, if any
-        :param timeout: the standard timeout
+        :param timeout: the standard timeout in seconds
         """
         object.__setattr__(self, "base_dir", directory_path(base_dir))
         object.__setattr__(self, "package_name", str.strip(package_name))

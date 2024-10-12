@@ -56,9 +56,11 @@ def run_tests(info: BuildInfo) -> None:
         ignores.append(f"--ignore={info.dist_dir}")
     if info.tests_dir is not None:
         ignores.append(f"--ignore={info.tests_dir}")
+
+    timeout: Final[str] = f"--timeout={max(10, int(0.95 * info.timeout) - 1)}"
     info.command(chain((
         "coverage", "run", "-a", f"--include={info.package_name}/*",
-        "-m", "pytest", "--strict-config",
+        "-m", "pytest", timeout, "--strict-config",
         "--doctest-modules"), ignores)).execute()
 
     if info.tests_dir is None:
@@ -71,7 +73,7 @@ def run_tests(info: BuildInfo) -> None:
             ignores.append(f"--ignore={info.examples_dir}")
         info.command(chain((
             "coverage", "run", "-a", f"--include={info.package_name}/*",
-            "-m", "pytest", "--strict-config",
+            "-m", "pytest", timeout, "--strict-config",
             info.tests_dir), ignores)).execute()
 
     logger(f"Finished doing unit tests for {info}.")

@@ -1913,3 +1913,107 @@ def try_int_mul(a: int, b: int | float) -> int | float:
     num, denom = float_to_frac(b)
     result = try_int_div(a * num, denom)
     return -result if minus else result
+
+
+def ceil_div(a: int, b: int) -> int:
+    """
+    Compute a ceiling division of two integers.
+
+    :param a: the number to be divided by `b`
+    :param b: the number dividing `a`
+    :return: the rounded-up result of the division
+
+    >>> ceil_div(1, 1)
+    1
+    >>> ceil_div(-1, 1)
+    -1
+    >>> ceil_div(-1, -1)
+    1
+    >>> ceil_div(1, -1)
+    -1
+    >>> ceil_div(98, 98)
+    1
+    >>> ceil_div(98, 99)
+    1
+    >>> ceil_div(98, 97)
+    2
+    >>> ceil_div(98, -97)
+    -1
+    >>> ceil_div(-98, -97)
+    2
+    >>> ceil_div(-98, 97)
+    -1
+    >>> ceil_div(3, 1)
+    3
+    >>> ceil_div(3, -1)
+    -3
+    >>> ceil_div(-3, 1)
+    -3
+    >>> ceil_div(-3, -1)
+    3
+    >>> ceil_div(3, 2)
+    2
+    >>> ceil_div(3, -2)
+    -1
+    >>> ceil_div(-3, 2)
+    -1
+    >>> ceil_div(-3, -2)
+    2
+    >>> ceil_div(3, 3)
+    1
+    >>> ceil_div(3, 4)
+    1
+    >>> ceil_div(3, -4)
+    0
+    >>> ceil_div(-3, 4)
+    0
+    >>> ceil_div(-3, -4)
+    1
+    >>> ceil_div(4, 1)
+    4
+    >>> ceil_div(4, 2)
+    2
+    >>> ceil_div(4, 3)
+    2
+    >>> ceil_div(4, 4)
+    1
+    >>> ceil_div(4, 5)
+    1
+    >>> ceil_div(4, 23242398)
+    1
+    >>> ceil_div(4, -23242398)
+    0
+    >>> ceil_div(-4, 23242398)
+    0
+    >>> ceil_div(-4, -23242398)
+    1
+    >>> ceil_div(0, 1)
+    0
+    >>> ceil_div(0, -1)
+    0
+    >>> ceil_div(-0, 1)
+    0
+    >>> ceil_div(-0, -1)
+    0
+    >>> try:
+    ...     ceil_div(1, 0)
+    ... except ZeroDivisionError as ze:
+    ...     print(ze)
+    integer division or modulo by zero
+    >>> try:
+    ...     ceil_div(-1, 0)
+    ... except ZeroDivisionError as ze:
+    ...     print(ze)
+    integer division or modulo by zero
+    >>> try:
+    ...     ceil_div(1, -0)
+    ... except ZeroDivisionError as ze:
+    ...     print(ze)
+    integer division or modulo by zero
+    >>> try:
+    ...     ceil_div(-1, -0)
+    ... except ZeroDivisionError as ze:
+    ...     print(ze)
+    integer division or modulo by zero
+    """
+    return -((-a) // b)
