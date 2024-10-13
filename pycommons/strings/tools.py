@@ -2,7 +2,7 @@
 
 from re import Match, subn
 from re import compile as _compile
-from typing import Callable, Final, Iterable, Pattern, cast
+from typing import Callable, Final, Generator, Iterable, Pattern, cast
 
 from pycommons.types import type_error
 
@@ -308,3 +308,66 @@ def get_prefix_str(strings: str | Iterable[str]) -> str:
         if prefix_len == 0:
             return ""
     return "" if prefix is None else prefix[0:prefix_len]
+
+
+def split_str(source: str, split_by: str) -> Generator[str, None, None]:
+    """
+    Split a string by the given other string.
+
+    The goal is to provide a less memory intense variant of the method
+    :meth:`str.split`. This routine should iteratively divide a given string
+    based on a splitting character or string. This function may be useful if
+    we are dealing with a very big `source` string and want to iteratively
+    split it into smaller strings. Instead of creating a list with many small
+    strings, what :meth:`str.split` does, it creates these strings
+    iteratively
+
+
+    :param source: the source string
+    :param split_by: the split string
+    :return: each split element
+
+    >>> list(split_str("", ""))
+    ['']
+
+    >>> list(split_str("", "x"))
+    ['']
+
+    >>> list(split_str("a", ""))
+    ['a']
+
+    >>> list(split_str("abc", ""))
+    ['a', 'b', 'c']
+
+    >>> list(split_str("a;b;c", ";"))
+    ['a', 'b', 'c']
+
+    >>> list(split_str("a;b;c;", ";"))
+    ['a', 'b', 'c', '']
+
+    >>> list(split_str(";a;b;;c;", ";"))
+    ['', 'a', 'b', '', 'c', '']
+
+    >>> list(split_str("a;aaa;aba;aa;aca;a", "a;a"))
+    ['', 'a', 'b', '', 'c', '']
+    """
+    src_len: Final[int] = str.__len__(source)
+    if src_len <= 0:  # handle empty input strings
+        yield ""  # the source is empty, so the split is empty, too
+        return  # quit after returning the empty string
+
+    split_len: Final[int] = str.__len__(split_by)
+    if split_len <= 0:  # handle empty split patterns
+        yield from source  # if the split is empty, we return each character
+        return  # and quit
+
+    start: int = 0  # now we work for non-empty split patterns
+    finder: Final[Callable[[str, int], int]] = source.find  # fast call
+    while start < src_len:
+        end = finder(split_by, start)
+        if end < 0:
+            yield source[start:] if start > 0 else source
+            return  # pattern not found anymore, so we quit
+        yield source[start:end]
+        start = end + split_len
+    yield ""  # pattern found at the end of the string

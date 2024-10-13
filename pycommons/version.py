@@ -2,4 +2,4 @@
 from typing import Final
 
 #: the version string of `pycommons`
-__version__: Final[str] = "0.8.50"
+__version__: Final[str] = "0.8.51"
