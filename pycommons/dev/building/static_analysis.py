@@ -28,7 +28,7 @@ def __exec(arguments: Iterable[str],
     """
     cmd: Final[Command] = info.command(arguments)
     try:
-        cmd.execute(True)
+        cmd.execute(False)
     except ValueError as ve:
         errors(f"{cmd} failed with {ve!r}.")
 
@@ -142,11 +142,12 @@ def static_analysis(info: BuildInfo) -> None:
     current: Final[Path] = directory_path(getcwd())
     try:
         errors: list[str] = []
-        for analysis, path in ((__BASE_ANALYSES, info.base_dir),
-                               (__PACKAGE_ANALYSES, info.sources_dir),
-                               (__TESTS_ANALYSES, info.tests_dir),
-                               (__EXAMPLES_ANALYSES, info.examples_dir),
-                               (__DOC_SOURCE, info.doc_source_dir)):
+        for what, analysis, path in (
+                ("base", __BASE_ANALYSES, info.base_dir),
+                ("package", __PACKAGE_ANALYSES, info.sources_dir),
+                ("tests", __TESTS_ANALYSES, info.tests_dir),
+                ("examples", __EXAMPLES_ANALYSES, info.examples_dir),
+                ("doc", __DOC_SOURCE, info.doc_source_dir)):
             if path is None:
                 continue
 
@@ -169,6 +170,7 @@ def static_analysis(info: BuildInfo) -> None:
                 use_path = single_file
 
             for a in analysis:
+                logger(f"Applying {a[0]} to {what}.")
                 __exec(replace_in_cmd(a, use_path), info, errors.append)
     finally:
         chdir(current)
@@ -179,9 +181,9 @@ def static_analysis(info: BuildInfo) -> None:
 
     logger(f"The {text} encountered the following errors:")
     for error in errors:
-        logger(error)
+        logger(error + "\n")
 
-    raise ValueError(f"Failed to do {text}: {'; '.join(errors)}")
+    raise ValueError(f"Failed to do {text}:\n{'\n'.join(errors)}")
 
 
 # Run static analysis program if executed as script
