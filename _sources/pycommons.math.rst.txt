@@ -1,0 +1,34 @@
+pycommons.math package
+======================
+
+.. automodule:: pycommons.math
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Submodules
+----------
+
+pycommons.math.int\_math module
+-------------------------------
+
+.. automodule:: pycommons.math.int_math
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycommons.math.rank module
+--------------------------
+
+.. automodule:: pycommons.math.rank
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycommons.math.sample\_statistics module
+----------------------------------------
+
+.. automodule:: pycommons.math.sample_statistics
+   :members:
+   :undoc-members:
+   :show-inheritance:
