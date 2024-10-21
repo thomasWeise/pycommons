@@ -58,7 +58,7 @@ def immutable_mapping(a: Mapping[K, V]) -> Mapping[K, V]:
     ...     immutable_mapping(5)
     ... except TypeError as e:
     ...     print(e)
-    a should be an instance of typing.Mapping but is int, namely '5'.
+    a should be an instance of typing.Mapping but is int, namely 5.
     """
     if not isinstance(a, Mapping):
         raise type_error(a, "a", Mapping)

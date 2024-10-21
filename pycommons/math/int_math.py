@@ -988,13 +988,13 @@ def try_int_div(a: int, b: int) -> int | float:
     ...     try_int_div(1.0, 2)
     ... except TypeError as te:
     ...     print(te)
-    a should be an instance of int but is float, namely '1.0'.
+    a should be an instance of int but is float, namely 1.0.
 
     >>> try:
     ...     try_int_div(1, 2.0)
     ... except TypeError as te:
     ...     print(te)
-    b should be an instance of int but is float, namely '2.0'.
+    b should be an instance of int but is float, namely 2.0.
     """
     if not isinstance(a, int):
         raise type_error(a, "a", int)
@@ -1088,7 +1088,7 @@ def try_float_int_div(a: int | float, b: int) -> int | float:
     ...     try_float_int_div(10, 0.5)
     ... except TypeError as te:
     ...     print(te)
-    b should be an instance of int but is float, namely '0.5'.
+    b should be an instance of int but is float, namely 0.5.
 
     >>> from math import inf, nan
     >>> try:
@@ -1119,7 +1119,7 @@ def try_float_int_div(a: int | float, b: int) -> int | float:
     ...     try_float_int_div(1, inf)
     ... except TypeError as te:
     ...     print(te)
-    b should be an instance of int but is float, namely 'inf'.
+    b should be an instance of int but is float, namely inf.
 
     >>> try:
     ...     try_float_int_div("y", 1)
@@ -1360,7 +1360,7 @@ def try_int_sqrt(value: int) -> int | float:
     ...     try_int_sqrt(1.0)
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of int but is float, namely '1.0'.
+    value should be an instance of int but is float, namely 1.0.
     """
     if not isinstance(value, int):
         raise type_error(value, "value", int)
@@ -1503,7 +1503,7 @@ def try_int_add(a: int, b: int | float) -> int | float:
     ...     try_int_add(2.0, 1)
     ... except TypeError as te:
     ...     print(te)
-    a should be an instance of int but is float, namely '2.0'.
+    a should be an instance of int but is float, namely 2.0.
 
     >>> try:
     ...     try_int_add(2, "1")

@@ -112,7 +112,7 @@ class Command:
     ...     Command("x", timeout=1.2)
     ... except TypeError as te:
     ...     print(te)
-    timeout should be an instance of int but is float, namely '1.2'.
+    timeout should be an instance of int but is float, namely 1.2.
 
     >>> try:
     ...     Command("x", timeout=None)
@@ -152,7 +152,7 @@ class Command:
     ...     Command("x", env=1)
     ... except TypeError as te:
     ...     print(str(te))
-    env should be an instance of typing.Mapping but is int, namely '1'.
+    env should be an instance of typing.Mapping but is int, namely 1.
 
     >>> str(Command("x", env=dict()))[0:10]
     "('x',) in "
@@ -298,7 +298,7 @@ class Command:
         ...     Command("x").execute(1)
         ... except TypeError as te:
         ...     print(te)
-        log_call should be an instance of bool but is int, namely '1'.
+        log_call should be an instance of bool but is int, namely 1.
 
         >>> with redirect_stdout(None):
         ...     r = Command(("echo", "1"), stderr=STREAM_CAPTURE).execute(

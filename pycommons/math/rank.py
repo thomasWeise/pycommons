@@ -113,25 +113,25 @@ def rank(source: Iterable[T],
     ...     rank(1)
     ... except TypeError as te:
     ...     print(te)
-    source should be an instance of typing.Iterable but is int, namely '1'.
+    source should be an instance of typing.Iterable but is int, namely 1.
 
     >>> try:
     ...     rank([], key=1)
     ... except TypeError as te:
     ...     print(te)
-    key should be a callable but is int, namely '1'.
+    key should be a callable but is int, namely 1.
 
     >>> try:
     ...     rank([], output=1)
     ... except TypeError as te:
     ...     print(te)
-    output should be a callable but is int, namely '1'.
+    output should be a callable but is int, namely 1.
 
     >>> try:
     ...     rank([], rank_join=1)
     ... except TypeError as te:
     ...     print(te)
-    rank_join should be a callable but is int, namely '1'.
+    rank_join should be a callable but is int, namely 1.
 
     >>> try:
     ...     rank([], rank_offset="x")

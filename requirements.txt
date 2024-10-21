@@ -42,7 +42,7 @@ pydocstyle == 6.3.0
 pyflakes == 3.2.0
 pylint == 3.3.1
 pyroma == 4.2
-ruff == 0.6.9
+ruff == 0.7.0
 semgrep == 1.91.0
 tryceratops == 2.4.0
 unimport == 1.2.1

@@ -42,7 +42,7 @@ def check_examples_in_dir(directory: str, recurse: bool = True) -> int:
     ...     check_examples_in_dir("y", 1)
     ... except TypeError as te:
     ...     print(te)
-    recurse should be an instance of bool but is int, namely '1'.
+    recurse should be an instance of bool but is int, namely 1.
 
     >>> from pycommons.io.temp import temp_dir
     >>> from contextlib import redirect_stdout

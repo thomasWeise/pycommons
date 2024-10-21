@@ -74,6 +74,18 @@ def _check_url_part(part: Any, forbidden: Pattern) -> str:
 
     >>> isinstance(_check_url_part("123", _FORBIDDEN_IN_RELATIVE_URL), str)
     True
+
+    >>> try:
+    ...     _check_url_part(3, _FORBIDDEN_IN_RELATIVE_URL)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> try:
+    ...     _check_url_part("3", 5)
+    ... except TypeError as te:
+    ...     print(te)
+    first argument must be string or compiled pattern
     """
     if not (0 < str.__len__(part) < 255):
         raise ValueError(f"URL part {part!r} has invalid length {len(part)}.")

@@ -265,7 +265,7 @@ def __find_fragment_html(body: str, fragment: str, url: URL) -> None:
     ...     __find_fragment_html("<p id='1'>bla</p>", "1", 1)
     ... except TypeError as te:
     ...     print(te)
-    url should be an instance of pycommons.net.url.URL but is int, namely '1'.
+    url should be an instance of pycommons.net.url.URL but is int, namely 1.
 
     >>> try:
     ...     __find_fragment_html("", "1",
@@ -404,7 +404,7 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     ...     __check_url("http://example.com", 1)
     ... except TypeError as te:
     ...     print(te)
-    valid_urls should be an instance of dict but is int, namely '1'.
+    valid_urls should be an instance of dict but is int, namely 1.
 
     >>> try:
     ...     __check_url("http://example.com", dict(), None)

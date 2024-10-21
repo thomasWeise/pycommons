@@ -219,7 +219,7 @@ def __make_base_url_replacer(
     ...     __make_base_url_replacer(1, "https://example.com/x", "bb")
     ... except TypeError as te:
     ...     print(te)
-    collector should be a callable but is int, namely '1'.
+    collector should be a callable but is int, namely 1.
 
     >>> try:
     ...     __make_base_url_replacer(coll.append, None, "bb")
@@ -264,7 +264,7 @@ def __make_base_url_replacer(
     ...         "./", 1)
     ... except TypeError as te:
     ...     print(te)
-    for_markdown should be an instance of bool but is int, namely '1'.
+    for_markdown should be an instance of bool but is int, namely 1.
     """
     if not callable(collector):
         raise type_error(collector, "collector", call=True)
@@ -474,7 +474,7 @@ def __make_full_url_replacer(
     ...     __make_full_url_replacer(1, "https://example.com", "bb")
     ... except TypeError as te:
     ...     print(te)
-    collector should be a callable but is int, namely '1'.
+    collector should be a callable but is int, namely 1.
 
     >>> try:
     ...     __make_full_url_replacer(coll.append, None, "bb")
@@ -524,7 +524,7 @@ def __make_full_url_replacer(
     ...         ".", 1)
     ... except TypeError as te:
     ...     print(te)
-    for_markdown should be an instance of bool but is int, namely '1'.
+    for_markdown should be an instance of bool but is int, namely 1.
     """
     if not callable(collector):
         raise type_error(collector, "collector", call=True)
@@ -592,7 +592,7 @@ def __make_replacer(replacers: Iterable[tuple[
     ...     __make_replacer(coll)
     ... except TypeError as te:
     ...     print(te)
-    pattern should be an instance of re.Pattern but is int, namely '1'.
+    pattern should be an instance of re.Pattern but is int, namely 1.
 
     >>> coll[-1] = (coll[0][0], None)
     >>> try:
@@ -606,7 +606,7 @@ def __make_replacer(replacers: Iterable[tuple[
     ...     __make_replacer(coll)
     ... except TypeError as te:
     ...     print(te)
-    replacer should be an instance of str or a callable but is int, namely '1'.
+    replacer should be an instance of str or a callable but is int, namely 1.
 
     >>> try:
     ...     __make_replacer(None)
@@ -618,7 +618,7 @@ def __make_replacer(replacers: Iterable[tuple[
     ...     __make_replacer(1)
     ... except TypeError as te:
     ...     print(te)
-    replacers should be an instance of typing.Iterable but is int, namely '1'.
+    replacers should be an instance of typing.Iterable but is int, namely 1.
 
     >>> coll = list()
     >>> __make_full_url_replacer(coll.append, "https://example.com",
@@ -701,13 +701,13 @@ def make_url_replacer(base_urls: Mapping[str, str] | None = None,
     ...     make_url_replacer(1, None)
     ... except TypeError as te:
     ...     print(te)
-    base_urls should be an instance of typing.Mapping but is int, namely '1'.
+    base_urls should be an instance of typing.Mapping but is int, namely 1.
 
     >>> try:
     ...     make_url_replacer(None, 1)
     ... except TypeError as te:
     ...     print(te)
-    full_urls should be an instance of typing.Mapping but is int, namely '1'.
+    full_urls should be an instance of typing.Mapping but is int, namely 1.
 
     >>> try:
     ...     make_url_replacer(None, None, None)
@@ -719,7 +719,7 @@ def make_url_replacer(base_urls: Mapping[str, str] | None = None,
     ...     make_url_replacer(None, None, 1)
     ... except TypeError as te:
     ...     print(te)
-    for_markdown should be an instance of bool but is int, namely '1'.
+    for_markdown should be an instance of bool but is int, namely 1.
     """
     if not isinstance(for_markdown, bool):
         raise type_error(for_markdown, "for_markdown", bool)

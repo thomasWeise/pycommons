@@ -165,7 +165,7 @@ def replace_regex(search: str | Pattern,
     ...    replace_regex("x", 2, "2")
     ... except TypeError as te:
     ...    print(te)
-    replace should be an instance of str or a callable but is int, namely '2'.
+    replace should be an instance of str or a callable but is int, namely 2.
 
     >>> try:
     ...    replace_regex("x", None, "2")
@@ -183,7 +183,7 @@ def replace_regex(search: str | Pattern,
     ...    replace_regex("yy", "1", 3)
     ... except TypeError as te:
     ...    print(te)
-    inside should be an instance of str but is int, namely '3'.
+    inside should be an instance of str but is int, namely 3.
 
     >>> try:
     ...    replace_regex("adad", "1", None)
@@ -321,7 +321,6 @@ def split_str(source: str, split_by: str) -> Generator[str, None, None]:
     split it into smaller strings. Instead of creating a list with many small
     strings, what :meth:`str.split` does, it creates these strings
     iteratively
-
 
     :param source: the source string
     :param split_by: the split string

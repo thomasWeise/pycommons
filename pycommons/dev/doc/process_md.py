@@ -78,7 +78,7 @@ def __process_markdown(
     ...     __process_markdown(1, print, lambda x: x, "bla")
     ... except TypeError as te:
     ...     print(te)
-    source should be an instance of typing.Iterable but is int, namely '1'.
+    source should be an instance of typing.Iterable but is int, namely 1.
 
     >>> try:
     ...     __process_markdown([None], print, lambda x: x, "bla")
@@ -102,7 +102,7 @@ def __process_markdown(
     ...     __process_markdown([""], 1, lambda x: x, "bla")
     ... except TypeError as te:
     ...     print(te)
-    dest should be a callable but is int, namely '1'.
+    dest should be a callable but is int, namely 1.
 
     >>> try:
     ...     __process_markdown([""], print, None, "bla")
@@ -114,7 +114,7 @@ def __process_markdown(
     ...     __process_markdown([""], print, 1, "bla")
     ... except TypeError as te:
     ...     print(te)
-    line_processor should be a callable but is int, namely '1'.
+    line_processor should be a callable but is int, namely 1.
 
     >>> try:
     ...     __process_markdown([""], print, lambda x: x, 1)
@@ -249,7 +249,7 @@ def process_markdown_for_sphinx(
     ...     process_markdown_for_sphinx(1, print)
     ... except TypeError as te:
     ...     print(te)
-    source should be an instance of typing.Iterable but is int, namely '1'.
+    source should be an instance of typing.Iterable but is int, namely 1.
 
     >>> try:
     ...     process_markdown_for_sphinx([None], print)
@@ -273,19 +273,19 @@ def process_markdown_for_sphinx(
     ...     process_markdown_for_sphinx([""], 1)
     ... except TypeError as te:
     ...     print(te)
-    dest should be a callable but is int, namely '1'.
+    dest should be a callable but is int, namely 1.
 
     >>> try:
     ...     process_markdown_for_sphinx([""], print, 1, None, "bla")
     ... except TypeError as te:
     ...     print(te)
-    base_urls should be an instance of typing.Mapping but is int, namely '1'.
+    base_urls should be an instance of typing.Mapping but is int, namely 1.
 
     >>> try:
     ...     process_markdown_for_sphinx([""], print, None, 1, "bla")
     ... except TypeError as te:
     ...     print(te)
-    full_urls should be an instance of typing.Mapping but is int, namely '1'.
+    full_urls should be an instance of typing.Mapping but is int, namely 1.
 
     >>> try:
     ...     process_markdown_for_sphinx([""], print, None, None, 1)

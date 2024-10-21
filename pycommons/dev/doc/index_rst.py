@@ -68,7 +68,7 @@ def make_index_rst(info: DocInfo, collector: Callable[[str], Any]) -> None:
     ...     make_index_rst(di, 1)
     ... except TypeError as te:
     ...     print(str(te))
-    collector should be a callable but is int, namely '1'.
+    collector should be a callable but is int, namely 1.
     """
     if not isinstance(info, DocInfo):
         raise type_error(info, "info", DocInfo)

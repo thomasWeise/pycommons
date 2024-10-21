@@ -34,7 +34,7 @@ def float_to_str(value: float) -> str:
     ...     float_to_str(1)
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of float but is int, namely '1'.
+    value should be an instance of float but is int, namely 1.
 
     >>> try:
     ...     float_to_str(None)
@@ -194,14 +194,14 @@ def num_to_str(value: int | float) -> str:
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of any in {float, int} but is bool, \
-namely 'True'.
+namely True.
 
     >>> try:
     ...     num_to_str(False)
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of any in {float, int} but is bool, \
-namely 'False'.
+namely False.
 
     >>> try:
     ...     num_to_str("x")
@@ -261,14 +261,14 @@ def num_or_none_to_str(value: int | float | None) -> str:
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of any in {float, int} but is bool, \
-namely 'True'.
+namely True.
 
     >>> try:
     ...     num_or_none_to_str(False)
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of any in {float, int} but is bool, \
-namely 'False'.
+namely False.
 
     >>> from math import nan
     >>> try:
@@ -305,13 +305,13 @@ def int_or_none_to_str(value: int | None) -> str:
     ...     int_or_none_to_str(True)
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of int but is bool, namely 'True'.
+    value should be an instance of int but is bool, namely True.
 
     >>> try:
     ...     int_or_none_to_str(False)
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of int but is bool, namely 'False'.
+    value should be an instance of int but is bool, namely False.
 
     >>> print(int_or_none_to_str(-10))
     -10
@@ -320,7 +320,7 @@ def int_or_none_to_str(value: int | None) -> str:
     ...     int_or_none_to_str(1.0)
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of int but is float, namely '1.0'.
+    value should be an instance of int but is float, namely 1.0.
     """
     if value is None:
         return ""
@@ -632,7 +632,7 @@ def str_to_int_or_none(value: str | None) -> int | None:
     ...     print(str_to_int_or_none(1.3))
     ... except TypeError as te:
     ...     print(te)
-    value should be an instance of str but is float, namely '1.3'.
+    value should be an instance of str but is float, namely 1.3.
     >>> try:
     ...     print(str_to_int_or_none("1.3"))
     ... except ValueError as ve:
@@ -677,7 +677,7 @@ def datetime_to_date_str(date: datetime) -> str:
     ...     datetime_to_date_str(1)
     ... except TypeError as te:
     ...     print(te)
-    date should be an instance of datetime.datetime but is int, namely '1'.
+    date should be an instance of datetime.datetime but is int, namely 1.
     """
     if not isinstance(date, datetime):
         raise type_error(date, "date", datetime)

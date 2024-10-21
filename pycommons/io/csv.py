@@ -218,7 +218,7 @@ def csv_read(rows: Iterable[str],
     ...     csv_read(1, _setup, _parse_row, _consumer)
     ... except TypeError as te:
     ...     print(te)
-    rows should be an instance of typing.Iterable but is int, namely '1'.
+    rows should be an instance of typing.Iterable but is int, namely 1.
 
     >>> try:
     ...     csv_read(text, None, _parse_row, _consumer)
@@ -230,7 +230,7 @@ def csv_read(rows: Iterable[str],
     ...     csv_read(text, 1, _parse_row, _consumer)
     ... except TypeError as te:
     ...     print(te)
-    setup should be a callable but is int, namely '1'.
+    setup should be a callable but is int, namely 1.
 
     >>> try:
     ...     csv_read(text, _setup, None, _consumer)
@@ -242,7 +242,7 @@ def csv_read(rows: Iterable[str],
     ...     csv_read(text, _setup, 1, _consumer)
     ... except TypeError as te:
     ...     print(te)
-    parse_row should be a callable but is int, namely '1'.
+    parse_row should be a callable but is int, namely 1.
 
     >>> try:
     ...     csv_read(text, _setup, _parse_row, None)
@@ -254,7 +254,7 @@ def csv_read(rows: Iterable[str],
     ...     csv_read(text, _setup, _parse_row, 1)
     ... except TypeError as te:
     ...     print(te)
-    consumer should be a callable but is int, namely '1'.
+    consumer should be a callable but is int, namely 1.
 
     >>> try:
     ...     csv_read(text, _setup, _parse_row, _consumer, None)
@@ -682,7 +682,7 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...           ";", "#", __get_header_cmt, __get_footer_cmt)
     ... except TypeError as te:
     ...     print(te)
-    consumer should be a callable but is int, namely '1'.
+    consumer should be a callable but is int, namely 1.
 
     >>> try:
     ...     csv_write(dd, print, None, __get_row, __setup,
@@ -696,7 +696,7 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...           ";", "#", __get_header_cmt, __get_footer_cmt)
     ... except TypeError as te:
     ...     print(te)
-    get_column_titles should be a callable but is int, namely '1'.
+    get_column_titles should be a callable but is int, namely 1.
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, None, __setup,
@@ -710,7 +710,7 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...           ";", "#", __get_header_cmt, __get_footer_cmt)
     ... except TypeError as te:
     ...     print(te)
-    get_row should be a callable but is int, namely '1'.
+    get_row should be a callable but is int, namely 1.
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __get_row, None,
@@ -724,7 +724,7 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...           ";", "#", __get_header_cmt, __get_footer_cmt)
     ... except TypeError as te:
     ...     print(te)
-    setup should be a callable but is int, namely '1'.
+    setup should be a callable but is int, namely 1.
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,
@@ -759,7 +759,7 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...           ";", "#", 1, __get_footer_cmt)
     ... except TypeError as te:
     ...     print(te)
-    get_header_comments should be a callable but is int, namely '1'.
+    get_header_comments should be a callable but is int, namely 1.
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,
@@ -819,7 +819,7 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...           ";", "#", __get_header_cmt, 1)
     ... except TypeError as te:
     ...     print(te)
-    get_footer_comments should be a callable but is int, namely '1'.
+    get_footer_comments should be a callable but is int, namely 1.
 
     >>> def __err_cmt_1(keyd: list[str], app: Callable[[str], None]):
     ...     app("This is\n a comment with error.")
@@ -1065,14 +1065,14 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     ...           "x", "#", get_footer_comments=1)
     ... except TypeError as te:
     ...     print(te)
-    get_footer_comments should be a callable but is int, namely '1'.
+    get_footer_comments should be a callable but is int, namely 1.
 
     >>> try:
     ...     csv_write(dd, print, __get_column_titles, __get_row, __setup,
     ...           "x", "#", get_footer_bottom_comments=1)
     ... except TypeError as te:
     ...     print(te)
-    get_footer_bottom_comments should be a callable but is int, namely '1'.
+    get_footer_bottom_comments should be a callable but is int, namely 1.
 
     >>> ddx = [{"a": 1, "c": 2}, None,
     ...        {"a": 4, "d": 12, "b": 3}, {}]
@@ -1629,7 +1629,7 @@ def csv_select_scope_or_none(
     ...         remove_cols=1)
     ... except TypeError as te:
     ...     print(te)
-    remove_cols should be an instance of bool but is int, namely '1'.
+    remove_cols should be an instance of bool but is int, namely 1.
 
     >>> try:
     ...     csv_select_scope_or_none("x", {
@@ -1657,7 +1657,7 @@ def csv_select_scope_or_none(
     ...         additional=2)
     ... except TypeError as te:
     ...     print(str(te)[:-7])
-    additional should be an instance of typing.Iterable but is int, name
+    additional should be an instance of typing.Iterable but is int, na
 
     >>> try:
     ...     csv_select_scope_or_none(print, {
@@ -1728,7 +1728,7 @@ def csv_select_scope_or_none(
     ...         include_scope=3)
     ... except TypeError as te:
     ...     print(te)
-    include_scope should be an instance of bool but is int, namely '3'.
+    include_scope should be an instance of bool but is int, namely 3.
 
     >>> try:
     ...     csv_select_scope_or_none(print, {

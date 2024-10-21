@@ -418,7 +418,7 @@ class SampleStatistics:
         ...     s.compact(1)
         ... except TypeError as te:
         ...     print(te)
-        needs_n should be an instance of bool but is int, namely '1'.
+        needs_n should be an instance of bool but is int, namely 1.
 
         >>> try:
         ...     s.compact(None)
@@ -1518,7 +1518,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     ...     from_samples(1)
     ... except TypeError as te:
     ...     print(te)
-    source should be an instance of typing.Iterable but is int, namely '1'.
+    source should be an instance of typing.Iterable but is int, namely 1.
 
     >>> try:
     ...     from_samples([])
@@ -1724,7 +1724,7 @@ class CsvReader:
         ...     CsvReader(1)
         ... except TypeError as te:
         ...     print(te)
-        columns should be an instance of dict but is int, namely '1'.
+        columns should be an instance of dict but is int, namely 1.
 
         >>> try:
         ...     CsvReader(dict())

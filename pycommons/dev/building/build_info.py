@@ -454,7 +454,7 @@ def replace_in_cmd(orig: Iterable[str], replace_with: str,
     ...     replace_in_cmd(1, 'a', '.')
     ... except TypeError as te:
     ...     print(te)
-    orig should be an instance of typing.Iterable but is int, namely '1'.
+    orig should be an instance of typing.Iterable but is int, namely 1.
 
     >>> try:
     ...     replace_in_cmd([], 'a', '.')

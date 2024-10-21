@@ -1067,7 +1067,7 @@ dirname(__file__)))
         ...     dir1.list_dir(1)
         ... except TypeError as te:
         ...     print(te)
-        files should be an instance of bool but is int, namely '1'.
+        files should be an instance of bool but is int, namely 1.
 
         >>> try:
         ...     dir1.list_dir(True, None)
@@ -1079,7 +1079,7 @@ dirname(__file__)))
         ...     dir1.list_dir(True, 1)
         ... except TypeError as te:
         ...     print(te)
-        directories should be an instance of bool but is int, namely '1'.
+        directories should be an instance of bool but is int, namely 1.
 
         >>> try:
         ...     dir1.list_dir(False, False)
@@ -1270,7 +1270,7 @@ def line_writer(output: TextIO | TextIOBase) -> Callable[[str], None]:
     ...     line_writer(1)
     ... except TypeError as te:
     ...     print(te)
-    output should be an instance of io.TextIOBase but is int, namely '1'.
+    output should be an instance of io.TextIOBase but is int, namely 1.
 
     >>> try:
     ...     line_writer(None)
@@ -1425,7 +1425,7 @@ def write_lines(lines: Iterable[str], output: TextIO | TextIOBase) -> None:
     ...     write_lines(123, sio)
     ... except TypeError as te:
     ...     print(te)
-    lines should be an instance of typing.Iterable but is int, namely '123'.
+    lines should be an instance of typing.Iterable but is int, namely 123.
 
     >>> sio = StringIO()
     >>> try:
@@ -1453,13 +1453,13 @@ def write_lines(lines: Iterable[str], output: TextIO | TextIOBase) -> None:
     ...     write_lines("x", 1)
     ... except TypeError as te:
     ...     print(te)
-    output should be an instance of io.TextIOBase but is int, namely '1'.
+    output should be an instance of io.TextIOBase but is int, namely 1.
 
     >>> try:
     ...     write_lines(2, 1)
     ... except TypeError as te:
     ...     print(te)
-    lines should be an instance of typing.Iterable but is int, namely '2'.
+    lines should be an instance of typing.Iterable but is int, namely 2.
     """
     if not isinstance(lines, Iterable):
         raise type_error(lines, "lines", Iterable)

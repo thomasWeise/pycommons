@@ -1,5 +1,5 @@
 """Some basic type handling routines."""
-from typing import Any, Final, Iterable, Iterator, TypeVar
+from typing import Any, Iterable, Iterator, TypeVar
 
 
 def type_name(tpe: type | None) -> str:
@@ -90,6 +90,25 @@ def type_error(obj: Any, name: str,
     """
     Create an error to raise if a type did not fit.
 
+    This eror contains information about the object name, the expected type,
+    the actual type, and, in some cases, the actual value of the object. This
+    should help tracing down what went wrong.
+
+    We *sometimes* include the actual value of the object. This happens if
+    the object is an `int`, `float`, or `bool`. If the object is a `str`, then
+    we include at most the first 32 characters. If the ojbect is a `list`,
+    `tuple`, `set`, `dict`, or `frozenset`, then we include its length.
+
+    In previous versions of this function, we always included the full
+    representation of the object. However, this might lead to very lengthy
+    output and could even cause an out-of-memory exception. So we now focus on
+    the above classes only.
+
+    Since one might still try to cause some mischief by overriding the
+    `__str__` or `__len__` methods of these objects, we force that the methods
+    of the base classes are used, which looks a bit odd in the code but should
+    at least somewhat help preventing issues.
+
     :param obj: the object that is of the wrong type
     :param name: the name of the object
     :param expected: the expected types (or `None`)
@@ -97,7 +116,7 @@ def type_error(obj: Any, name: str,
     :returns: a :class:`TypeError` with a descriptive information
 
     >>> type_error(1.3, "var", int)
-    TypeError("var should be an instance of int but is float, namely '1.3'.")
+    TypeError('var should be an instance of int but is float, namely 1.3.')
     >>> type_error("x", "z", (int, float)).args[0]
     "z should be an instance of any in {float, int} but is str, namely 'x'."
     >>> type_error("x", "z", (int, float, None)).args[0]
@@ -112,6 +131,36 @@ def type_error(obj: Any, name: str,
     "2 should be an instance of bool or a callable but is str, namely '1'."
     >>> type_error(None, "x", str)
     TypeError('x should be an instance of str but is None.')
+    >>> type_error("123456789012345678901234567890123456789", "var", int)
+    TypeError("var should be an instance of int but is str, namely \
+'123456789012345678901234567890...'.")
+    >>> type_error("12345678901234567890123456789012", "var", int)
+    TypeError("var should be an instance of int but is str, namely \
+'12345678901234567890123456789012'.")
+    >>> type_error("123456789012345678901234567890123", "var", int)
+    TypeError("var should be an instance of int but is str, namely \
+'12345678901234567890123456789...'.")
+    >>> type_error([1], "var", int)
+    TypeError('var should be an instance of int but is list of length 1.')
+    >>> type_error({2, 3}, "var", int)
+    TypeError('var should be an instance of int but is set of length 2.')
+    >>> type_error((1, 2, 3), "var", int)
+    TypeError('var should be an instance of int but is tuple of length 3.')
+    >>> type_error({}, "var", int)
+    TypeError('var should be an instance of int but is dict of length 0.')
+    >>> type_error(frozenset((23, )), "var", int)
+    TypeError('var should be an instance of int but is frozenset of \
+length 1.')
+    >>> type_error(1, "var", list)
+    TypeError('var should be an instance of list but is int, namely 1.')
+    >>> type_error(1.3, "var", list)
+    TypeError('var should be an instance of list but is float, namely 1.3.')
+    >>> type_error(True, "var", list)
+    TypeError('var should be an instance of list but is bool, namely True.')
+    >>> type_error(ValueError("x"), "var", list)
+    TypeError('var should be an instance of list but is ValueError.')
+    >>> type_error(None, "var", list)
+    TypeError('var should be an instance of list but is None.')
     """
     exp: str = ""
     if isinstance(expected, Iterable):
@@ -122,10 +171,33 @@ def type_error(obj: Any, name: str,
     if call:
         exp = f"{exp} or a callable" if exp else "a callable"
 
-    message: Final[str] = f"{name} should be {exp} but is None." \
-        if obj is None else \
-        (f"{name} should be {exp} but is {type_name_of(obj)}, "
-         f"namely {str(obj)!r}.")
+    message: str
+    if obj is None:
+        message = "None"
+    else:
+        message = type_name_of(obj)
+        if isinstance(obj, int):
+            message = f"{message}, namely {int.__str__(obj)}"
+        elif isinstance(obj, float):
+            message = f"{message}, namely {float.__str__(obj)}"
+        elif isinstance(obj, bool):
+            message = f"{message}, namely {bool.__str__(obj)}"
+        elif isinstance(obj, str):
+            strlen: int = str.__len__(obj)
+            if strlen > 32:
+                obj = str.__getitem__(obj, slice(0, 30, 1)) + "..."
+            message = f"{message}, namely {str.__str__(obj)!r}"
+        elif isinstance(obj, list):
+            message = f"{message} of length {list.__len__(obj)}"
+        elif isinstance(obj, tuple):
+            message = f"{message} of length {tuple.__len__(obj)}"
+        elif isinstance(obj, set):
+            message = f"{message} of length {set.__len__(obj)}"
+        elif isinstance(obj, dict):
+            message = f"{message} of length {dict.__len__(obj)}"
+        elif isinstance(obj, frozenset):
+            message = f"{message} of length {frozenset.__len__(obj)}"
+    message = f"{name} should be {exp} but is {message}."
 
     return TypeError(message)
 
@@ -183,7 +255,7 @@ def check_int_range(val: Any, name: str | None = None,
     ... except (ValueError, TypeError) as err:
     ...   print(err)
     ...   print(err.__class__)
-    ThisIsFloat should be an instance of int but is float, namely '5.0'.
+    ThisIsFloat should be an instance of int but is float, namely 5.0.
     <class 'TypeError'>
 
     The behavior in the border case of `bool` instances actually also being
