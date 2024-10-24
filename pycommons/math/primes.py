@@ -1,8 +1,7 @@
-"""Tools for working with integer sequences."""
+"""Tools for working with prime numbers."""
 
 from collections import deque
-from heapq import merge
-from typing import Final, Generator, Iterable
+from typing import Final, Generator
 
 from pycommons.types import type_error
 
@@ -158,46 +157,3 @@ def primes(maximum: int = 2 ** 32) -> Generator[int, None, None]:
             yield current
             next_primes.append(current)
         current += 2
-
-
-def merge_unique_ints(*seqs: Iterable[int]) -> Generator[int, None, None]:
-    """
-    Merge sorted sequences of integers and return only unique values.
-
-    You can provide multiple sequences of integers, which must be sorted.
-    This function then merges them into a single sorted sequence which
-    contains each elemenet at most once.
-    A typical use case would be to combine the result of :func:`primes` with
-    some pre-defined values into a sorted sequence.
-
-    :param seqs: the sequences
-    :return: a merged sequence of integers
-
-    >>> list(merge_unique_ints([1, 2, 3,], [2, 2]))
-    [1, 2, 3]
-
-    >>> list(merge_unique_ints(primes(14), [1, 10]))
-    [1, 2, 3, 5, 7, 10, 11, 13]
-
-    >>> list(merge_unique_ints(primes(14), primes(17), [1, 2, 10, 100]))
-    [1, 2, 3, 5, 7, 10, 11, 13, 17, 100]
-
-    >>> try:
-    ...     for _ in merge_unique_ints(1):
-    ...         pass
-    ... except TypeError as te:
-    ...     print(te)
-    'int' object is not iterable
-
-    >>> try:
-    ...     for j in merge_unique_ints([3], 1):
-    ...         print(j)
-    ... except TypeError as te:
-    ...     print(te)
-    'int' object is not iterable
-    """
-    last: int | None = None
-    for i in merge(*seqs):
-        if i != last:  # noqa
-            yield i
-        last = i

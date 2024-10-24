@@ -28,8 +28,9 @@ Comments start with a comment start with :const:`COMMENT_START` by default.
 
 from typing import Any, Callable, Final, Iterable, TypeVar, cast
 
+from pycommons.ds.sequences import reiterable
 from pycommons.strings.chars import NEWLINE
-from pycommons.types import check_int_range, reiterable, type_error
+from pycommons.types import check_int_range, type_error
 from pycommons.version import __version__ as pycommons_version
 
 #: the default CSV separator
@@ -566,12 +567,12 @@ def csv_write(data: Iterable[T], consumer: Callable[[str], Any],
     invokes the `setup` function of other data, and the data that you receive
     could come from a :class:`~typing.Generator` (or some other one-shot
     :class:`~typing.Iterator`), then you need to make sure to solidify the
-    iterable data with :func:`~pycommons.types.reiterable`. The structure of
-    our CSV output is that `setup` is first invoked and then `get_row`. If
-    `setup` already consumes the data away, then `get_row` may print nothing.
-    Alternatively, if you apply multiple `setup` routines to the same data
-    that extract different information, then the first `setup` run may consume
-    all the data, leaving nothing for the second one.
+    iterable data with :func:`~pycommons.ds.sequences.reiterable`. The
+    structure of our CSV output is that `setup` is first invoked and then
+    `get_row`. If `setup` already consumes the data away, then `get_row` may
+    print nothing. Alternatively, if you apply multiple `setup` routines to
+    the same data that extract different information, then the first `setup`
+    run may consume all the data, leaving nothing for the second one.
 
     :param data: the iterable of data to be written
     :param consumer: the consumer to which it will be written

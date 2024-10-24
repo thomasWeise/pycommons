@@ -1,5 +1,5 @@
 """Some basic type handling routines."""
-from typing import Any, Iterable, Iterator, TypeVar
+from typing import Any, Iterable
 
 
 def type_name(tpe: type | None) -> str:
@@ -176,12 +176,12 @@ length 1.')
         message = "None"
     else:
         message = type_name_of(obj)
-        if isinstance(obj, int):
+        if isinstance(obj, bool):
+            message = f"{message}, namely {bool.__str__(obj)}"
+        elif isinstance(obj, int):
             message = f"{message}, namely {int.__str__(obj)}"
         elif isinstance(obj, float):
             message = f"{message}, namely {float.__str__(obj)}"
-        elif isinstance(obj, bool):
-            message = f"{message}, namely {bool.__str__(obj)}"
         elif isinstance(obj, str):
             strlen: int = str.__len__(obj)
             if strlen > 32:
@@ -339,71 +339,3 @@ def check_to_int_range(val: Any, name: str | None = None,
             f"Cannot convert {'value' if name is None else name}={val!r} "
             f"to int, let alone in range {min_value}..{max_value}.") from errx
     return check_int_range(conv, name, min_value, max_value)
-
-
-#: the type variable for the data elements in an iterator
-T = TypeVar("T")
-
-
-def reiterable(source: Iterable[T] | Iterator[T]) -> Iterable[T]:
-    """
-    Ensure that an :class:`Iterable` can be iterated over multiple times.
-
-    This function will solidify an :class:`Iterator` into an
-    :class:`Iterable`. In Python, :class:`Iterator` is a sub-class of
-    :class:`Iterable`. This means that if your function accepts instances of
-    :class:`Iterable` as input, it may expect to be able to iterate over them
-    multiple times. However, if an :class:`Iterator` is passed in, which also
-    is an instance of :class:`Iterable` and thus fulfills the function's type
-    requirement, this is not the case. A typical example of this would be if
-    a :class:`Generator` is passed in. A :class:`Generator` is an instance of
-    :class:`Iterator`, which, in turn, is an instance of :class:`Iterable`.
-    However, you can iterate over a :class:`Generator` only once.
-
-    :param source: the data source
-    :return: the resulting re-iterable iterator
-
-    >>> a = [1, 2, 3]
-    >>> reiterable(a) is a
-    True
-
-    >>> a = (1, 2, 3)
-    >>> reiterable(a) is a
-    True
-
-    >>> a = {1, 2, 3}
-    >>> reiterable(a) is a
-    True
-
-    >>> a = {1: 1, 2: 2, 3: 3}
-    >>> reiterable(a) is a
-    True
-
-    >>> k = a.keys()
-    >>> reiterable(k) is k
-    True
-
-    >>> k = a.values()
-    >>> reiterable(k) is k
-    True
-
-    >>> reiterable((x for x in range(5)))
-    (0, 1, 2, 3, 4)
-
-    >>> try:
-    ...     reiterable(None)
-    ... except TypeError as te:
-    ...     print(str(te)[:60])
-    source should be an instance of any in {typing.Iterable, typ
-
-    >>> try:
-    ...     reiterable(1)
-    ... except TypeError as te:
-    ...     print(str(te)[:60])
-    source should be an instance of any in {typing.Iterable, typ
-    """
-    if isinstance(source, Iterator):
-        return tuple(source)  # solidify iterators into tuples
-    if not isinstance(source, Iterable):
-        raise type_error(source, "source", (Iterable, Iterator))
-    return source  # iterables can be returned as-is

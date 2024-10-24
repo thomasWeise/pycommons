@@ -241,7 +241,7 @@ join(dirname(realpath(getcwd())), "1.txt")
             raise ValueError("Path must not start or end with white space, "
                              f"but {value!r} does.")
         value = normcase(abspath(realpath(expanduser(expandvars(value)))))
-        if (str.__len__(value) <= 0) or (value in {".", ".."}):
+        if (str.__len__(value) <= 0) or (value in {".", ".."}):  # impossible!
             raise ValueError(f"Canonicalization cannot yield {value!r}.")
 
         return super().__new__(cls, value)
@@ -947,7 +947,7 @@ dirname(__file__)))
         opath.enforce_contains(self)
         rv: Final[str] = relpath(self, opath)
         if (str.__len__(rv) == 0) or (str.strip(rv) is not rv):
-            raise ValueError(
+            raise ValueError(  # close to impossible
                 f"Invalid relative path {rv!r} resulting from relativizing "
                 f"{self!r} to {base_path!r}={opath!r}.")
         return rv
