@@ -8,6 +8,7 @@ problems.
 """
 
 
+import datetime
 from argparse import ArgumentParser
 from contextlib import AbstractContextManager, nullcontext, suppress
 from time import sleep
@@ -24,53 +25,119 @@ from psutil import (  # type: ignore
 )
 
 from pycommons.io.arguments import pycommons_argparser
-from pycommons.io.console import logger
+from pycommons.io.csv import CSV_SEPARATOR, SCOPE_SEPARATOR
+from pycommons.math.int_math import try_int
+from pycommons.strings.chars import WHITESPACE_OR_NEWLINE
+from pycommons.strings.tools import replace_str
 from pycommons.types import check_int_range, type_error
 
+#: the "now" function
+__DTN: Final[Callable[[], datetime.datetime]] = datetime.datetime.now
 
-def __attrs_to_str(prefix: str, data: Any, fields: Iterable[str],
-                   collector: Callable[[str], Any]) -> None:
+#: the characters to replace with the `SCOPE_SEPARATOR`
+__REPL: Final[tuple[str, ...]] = tuple(
+    f"/\\{{}}{WHITESPACE_OR_NEWLINE}{CSV_SEPARATOR}")
+
+#: the double scope
+__DOUBLE_SCOPE: Final[str] = f"{SCOPE_SEPARATOR}{SCOPE_SEPARATOR}"
+
+
+def __fix_key(key: Any) -> str | None:
     """
-    Convert the fields of a named tuple to a string.
+    Fix a key for usage.
 
-    :param prefix: the line prefix
+    :param key: the key
+    :return: the key string
+
+    >>> print(__fix_key(None))
+    None
+    >>> print(__fix_key(1))
+    None
+    >>> print(__fix_key(""))
+    None
+    >>> print(__fix_key(" "))
+    None
+    >>> print(__fix_key("."))
+    None
+    >>> print(__fix_key(". ."))
+    None
+    >>> print(__fix_key("...."))
+    None
+    >>> __fix_key(".d x")
+    'd.x'
+    >>> __fix_key(".d ..x")
+    'd.x'
+    >>> __fix_key(".v yd ..x yxc .")
+    'v.yd.x.yxc'
+    """
+    if not isinstance(key, str):
+        return None
+    key = str.strip(key)
+    if str.__len__(key) <= 0:
+        return None
+    for ch in __REPL:
+        key = str.replace(key, ch, SCOPE_SEPARATOR)
+    key = str.strip(replace_str(__DOUBLE_SCOPE, SCOPE_SEPARATOR, key))
+    while str.startswith(key, SCOPE_SEPARATOR):
+        key = str.strip(key[1:])
+    while str.endswith(key, SCOPE_SEPARATOR):
+        key = str.strip(key[:-1])
+    return None if str.__len__(key) <= 0 else key
+
+
+def __collect_attrs(prefix: str, data: Any, fields: Iterable[str],
+                    collector: Callable[[str, str], Any]) -> None:
+    """
+    Pass the attributes to a collector.
+
+    :param prefix: the attribute prefix
     :param data: the named tuple
     :param fields: the fields
-    :param collector: the collector receiving the final string, if any
+    :param collector: the collector receiving the attributes
 
-    >>> __attrs_to_str("", None, (), print)
+    >>> def __ptr(a: str, b: str) -> None:
+    ...     print(f"{a}: {b}")
 
-    >>> __attrs_to_str("", "a", ("__class__", ), print)
-    __class__=<class 'str'>
+    >>> __collect_attrs("", None, (), __ptr)
 
-    >>> __attrs_to_str("prefix", "a", ("__class__", ), print)
-    prefix: __class__=<class 'str'>
+    >>> __collect_attrs("", "a", ("__class__", ), __ptr)
+    __class__: <class 'str'>
+
+    >>> __collect_attrs("prefix.", "a", ("__class__", ), __ptr)
+    prefix.__class__: <class 'str'>
+
+    >>> __collect_attrs("prefix.", "a", ("__class__", ), __ptr)
+    prefix.__class__: <class 'str'>
+
+    >>> __collect_attrs("prefix.", "a", ("__class__", "__class__"), __ptr)
+    prefix.__class__: <class 'str'>
+    prefix.__class__: <class 'str'>
     """
-    if data is not None:
-        text: str = str.strip(prefix)
-        min_len: Final[int] = str.__len__(text)
-        for attr in fields:
-            if hasattr(data, attr):
-                val: Any = getattr(data, attr)
-                if val is not None:
-                    sep: str = ", " if str.__len__(text) > min_len else (
-                        "" if min_len <= 0 else ": ")
-                    text = f"{text}{sep}{attr}={val!r}"
-        if str.__len__(text) > min_len:
-            collector(text)
+    if data is None:
+        return
+    for attr in fields:
+        if hasattr(data, attr):
+            val: Any = getattr(data, attr)
+            if val is not None:
+                k: str | None = __fix_key(f"{prefix}{attr}")
+                if k is not None:
+                    collector(k, repr(val))
 
 
-def __struct_to_str(prefix: str, data: Any, fields: Iterable[str],
-                    collector: Callable[[str], Any]) -> None:
+def __collect_struct(prefix: str, data: Any, fields: Iterable[str],
+                     collector: Callable[[str, str], Any]) -> None:
     """
-    Convert a structured system info record to strings.
+    Pass a structured info system to a collector.
 
     :param prefix: the prefix to use
     :param data: the data record
     :param fields: the fields on the per-row basis
     :param collector: the collector to receive the strings
 
-    >>> __struct_to_str("", None, (), print)
+    >>> def __ptr(a: str, b: str) -> None:
+    ...     print(f"{a}: {b}")
+
+    >>> __collect_struct("", None, (), __ptr)
     """
     if isinstance(data, dict):
         prefix = str.strip(prefix)
@@ -80,60 +147,57 @@ def __struct_to_str(prefix: str, data: Any, fields: Iterable[str],
                 if isinstance(row, Iterable):
                     for element in row:
                         if element is not None:
-                            kname: Any = str.strip(key)
-                            name: str = kname if str.__len__(prefix) <= 0 \
-                                else f"{prefix} {kname}"
+                            name: str = f"{str.strip(key)}."
                             if hasattr(element, "label"):
                                 label: Any = getattr(element, "label")
-                                if isinstance(label, str) and (
-                                        str.__len__(label) > 0):
-                                    name = f"{name} {str.strip(label)}"
-                            __attrs_to_str(name, element, fields, collector)
+                                if isinstance(label, str):
+                                    label = str.strip(label)
+                                    if str.__len__(label) > 0:
+                                        name = f"{prefix}{name}.{label}."
+                            __collect_attrs(name, element, fields, collector)
 
 
-def system_state(skip_cpu_stats: bool = False) -> str:
+def collect_system_state(
+        collector: Callable[[str, str], Any]) -> None:
     """
     Get a single string with the current state of the system.
 
-    :param skip_cpu_stats: should we skip the CPU stats? This makes sense
-        when this function is invoked for the first time
-    :return: a string with the state of the system
+    :param collector: the collector to receive the key-value tuples
 
-    >>> s = system_state(True)
-    >>> s.startswith("Current System State")
-    True
+    >>> def __ptr(a: str, b: str) -> None:
+    ...     pass
 
-    >>> s = system_state(False)
-    >>> s.startswith("Current System State")
-    True
+    >>> s = collect_system_state(__ptr)
 
     >>> try:
-    ...     system_state(None)
+    ...     collect_system_state(None)
     ... except TypeError as te:
     ...     print(te)
-    skip_cpu_stats should be an instance of bool but is None.
+    collector should be a callable but is None.
     """
-    if not isinstance(skip_cpu_stats, bool):
-        raise type_error(skip_cpu_stats, "skip_cpu_stats", bool)
+    if not callable(collector):
+        raise type_error(collector, "collector", call=True)
 
-    lines: list[str] = ["Current System State"]
-    add: Callable[[str], Any] = lines.append
-
-    with suppress(BaseException):
-        __attrs_to_str("cpu_times", cpu_times(), ("user", "system", "idle"),
-                       add)
-
-    if not skip_cpu_stats:
-        with suppress(BaseException):
-            cpup: Any = cpu_times_percent(percpu=True)
-            if isinstance(cpup, Iterable):
-                for i, z in enumerate(cpup):
-                    __attrs_to_str(f"cpu_{i}_usage", z, (
-                        "user", "system", "idle"), add)
+    now: Final = __DTN()
+    collector("now", repr(try_int(now.timestamp())))
+    __collect_attrs("now.", now, (
+        "year", "month", "day", "hour", "minute", "second", "microsecond"),
+        collector)
 
     with suppress(BaseException):
-        __attrs_to_str("memory", virtual_memory(), (
-            "total", "available", "percent", "used", "free"), add)
+        __collect_attrs("cpu_times.", cpu_times(), ("user", "system", "idle"),
+                        collector)
+
+    with suppress(BaseException):
+        cpup: Any = cpu_times_percent(percpu=True)
+        if isinstance(cpup, Iterable):
+            for i, z in enumerate(cpup):
+                __collect_attrs(f"cpu_{i}_usage.", z, (
+                    "user", "system", "idle"), collector)
+
+    with suppress(BaseException):
+        __collect_attrs("memory.", virtual_memory(), (
+            "total", "available", "percent", "used", "free"), collector)
 
     with suppress(BaseException):
         dps: Any = disk_partitions(False)
@@ -147,17 +211,16 @@ def system_state(skip_cpu_stats: bool = False) -> str:
                 if str.startswith(mp, ("/snap/", "/var/snap/")):
                     continue
                 with suppress(BaseException):
-                    __attrs_to_str(f"disk '{mp}'", disk_usage(mp), (
-                        "total", "used", "free", "percent"), add)
+                    __collect_attrs(f"disk.{mp}.", disk_usage(mp), (
+                        "total", "used", "free", "percent"), collector)
 
     with suppress(BaseException):
-        __struct_to_str("temperature", sensors_temperatures(False), (
-            "current", "high", "critical"), add)
+        __collect_struct("temperature.", sensors_temperatures(False), (
+            "current", "high", "critical"), collector)
 
     with suppress(BaseException):
-        __struct_to_str("fan speed", sensors_fans(), ("current", ), add)
-
-    return "\n".join(lines)
+        __collect_struct("fan speed", sensors_fans(), ("current", ),
+                         collector)
 
 
 def log_system_state(interval_seconds: int = 300,
@@ -177,6 +240,11 @@ def log_system_state(interval_seconds: int = 300,
     out of memory, disk space, or if the CPU gets too hot, or something. Or,
     at least, you can rule out that this is not the case.
 
+    The output is presented in CSV format. Therefore, you can pipe it to a
+    file and later open it in Excel or whatever. This allows you to draw
+    diagrams of the usage of CPUs and memory or the temperature of the CPU
+    over time.
+
     :param interval_seconds: the interval seconds
     :param should_stop: a function telling the logger when it should stop
     :param lock: a shared lock for the console access
@@ -194,22 +262,13 @@ def log_system_state(interval_seconds: int = 300,
 
     >>> with redirect_stdout(sio):
     ...     log_system_state(1, __three)
-    >>> v = sio.getvalue()
-
-    >>> i = v.index("Current System State")
-    >>> i > 0
-    True
-
-    >>> i = v.index("Current System State", i + 1)
-    >>> i > 0
-    True
-
-    >>> i = v.index("Current System State", i + 1)
-    >>> i > 0
-    True
-
-    >>> i = v.find("Current System State", i + 1)
-    >>> i == -1
+    >>> v = sio.getvalue().splitlines()
+    >>> len(v)
+    4
+    >>> v[0][:20]
+    'now;now.year;now.mon'
+    >>> i = list.__len__(v[0].split(CSV_SEPARATOR))
+    >>> all(list.__len__(vv.split(CSV_SEPARATOR)) == i for vv in v)
     True
 
     >>> try:
@@ -231,13 +290,16 @@ def log_system_state(interval_seconds: int = 300,
     if not isinstance(lock, AbstractContextManager):
         raise type_error(lock, "lock", AbstractContextManager)
 
-    with suppress(BaseException):
-        cpu_times_percent(percpu=True)
+    keys: Final[list[str]] = []
+    collect_system_state(lambda a, _, x=keys.append: x(a))  # type: ignore
+    print(CSV_SEPARATOR.join(keys))  # noqa: T201
+    current: dict[str, str] = {}
 
-    skip_cpu_stats: bool = True
     while not should_stop():
-        logger(system_state(skip_cpu_stats), lock=lock, do_print=True)
-        skip_cpu_stats = False
+        collect_system_state(current.__setitem__)
+        print(CSV_SEPARATOR.join(  # noqa: T201
+            current[k] for k in keys if k in current))
+        current.clear()
         if should_stop():
             return
         sleep(interval_seconds)
