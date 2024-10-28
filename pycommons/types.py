@@ -184,7 +184,7 @@ length 1.')
             message = f"{message}, namely {float.__str__(obj)}"
         elif isinstance(obj, str):
             strlen: int = str.__len__(obj)
-            if strlen > 32:
+            if strlen > 32:  # take care of strings that are too long
                 obj = str.__getitem__(obj, slice(0, 30, 1)) + "..."
             message = f"{message}, namely {str.__str__(obj)!r}"
         elif isinstance(obj, list):
