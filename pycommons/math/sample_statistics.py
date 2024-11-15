@@ -861,6 +861,9 @@ def __almost_le(a: int | float, b: int | float) -> bool:
     """
     Check if `a <= b` holds approximately.
 
+    `a <= b` holds if, well, `a` is less than or equal to `b`. It holds almost
+    if `a` is just a tiny bit larger than `b`.
+
     :param a: the first value
     :param b: the second value
     :return: `True` if we can say: `a` is approximately less or equal than `b`
@@ -923,19 +926,25 @@ def __almost_le(a: int | float, b: int | float) -> bool:
     True
     >>> __almost_le(5.114672824837722e+148, 5.1146728248374894e+148)
     True
+
+    >>> __almost_le(-1.7976931348623157e+308,
+    ...             -int(1.7976931348623157e+308) * 10)
+    False
+    >>> __almost_le(-int(1.7976931348623157e+308) * 10,
+    ...             -1.7976931348623157e+308)
+    True
+    >>> __almost_le(1e-302, 0)
+    True
+    >>> __almost_le(1e-200, 0)
+    False
     """
     if a <= b:
         return True
 
     if a < 0:
-        if b >= 0:
-            return False
-        a, b = -b, -a
+        a, b = -b, -a  # maybe: a = -19, b = -20 -> maybe: a = 20, b = 19
     elif b <= 0:
-        return False
-
-    if (a <= 0) != (b <= 0):
-        return False
+        return (b >= 0) and (a <= 1e-300)
 
     with suppress(OverflowError):
         use_a: int | float = a
@@ -950,10 +959,7 @@ def __almost_le(a: int | float, b: int | float) -> bool:
     except OverflowError:
         a_int: Final[int] = int(a)
         b_int: Final[int] = int(b)
-        if (a_int <= 0) or (b_int <= 0):
-            return False
-        with suppress(OverflowError):
-            return (b_int / a_int) > 0.9999999999999
+        return (9999999999999 * a_int) <= (b_int * 10000000000000)
     return False
 
 

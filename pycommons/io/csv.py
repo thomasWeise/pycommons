@@ -867,6 +867,17 @@ def csv_write(
     ...     print(ve)
     Cannot have zero columns.
 
+    >>> dde = dd.copy()
+    >>> dde.append(None)
+    >>> try:
+    ...     list(csv_write(dde, lambda x: x, __get_row,
+    ...                    lambda _: ["a", "b", "c", "d"],
+    ...                    ";", "#", footer_comments=__empty_cmt,
+    ...                    footer_bottom_comments=lambda _: ()))
+    ... except TypeError as te:
+    ...     print(te)
+    data element should be an instance of object but is None.
+
     >>> def __error_column_titles_2(keyd: list[str]) -> Iterable[str]:
     ...     return (" ", )
 
