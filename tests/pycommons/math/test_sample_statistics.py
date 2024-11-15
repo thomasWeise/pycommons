@@ -9,7 +9,7 @@ from statistics import mean as statmean
 from statistics import median as statmedian
 from statistics import stdev as statstddev
 from sys import float_info
-from typing import Callable, Final, Iterable
+from typing import Final, Iterable
 
 import pytest
 
@@ -382,18 +382,17 @@ def test_csv_1() -> None:
                     has_geometric_mean_per_stat, all_int_per_stat,
                     all_float_per_stat))
             text: list[str] = []
-            csv_write(
-                data=data, consumer=text.append,
+            text.extend(csv_write(
+                data=data,
                 setup=CsvWriter().setup,
-                get_column_titles=CsvWriter.get_column_titles,
+                column_titles=CsvWriter.get_column_titles,
                 get_row=CsvWriter.get_row,
-                get_footer_comments=CsvWriter.get_footer_comments,
-                get_header_comments=CsvWriter.get_header_comments)
+                footer_comments=CsvWriter.get_footer_comments,
+                header_comments=CsvWriter.get_header_comments))
             output: list[SampleStatistics] = []
-            csv_read(rows=text,
-                     setup=CsvReader,
-                     parse_row=CsvReader.parse_row,
-                     consumer=output.append)
+            output.extend(csv_read(rows=text,
+                                   setup=CsvReader,
+                                   parse_row=CsvReader.parse_row))
             assert len(output) == len(data)
             assert output == data
 
@@ -410,11 +409,8 @@ def test_csv_2() -> None:
         "9;1;1;;;;0",
         "9;0;0;;;;0",
     ]
-    parsed: list[SampleStatistics] = []
-    csv_read(rows=text,
-             setup=CsvReader,
-             parse_row=CsvReader.parse_row,
-             consumer=parsed.append)
+    parsed: list[SampleStatistics] = list(csv_read(
+        rows=text, setup=CsvReader, parse_row=CsvReader.parse_row))
     assert len(parsed) == 7
     assert parsed[0].minimum == parsed[0].maximum == parsed[0].mean_geom == 1
     assert parsed[0].stddev == 0
@@ -462,7 +458,7 @@ def test_csv_3() -> None:
     w = CsvWriter()
     w.setup(data_2)
     try:
-        w.get_row(data[0], [].append)  # type: ignore
+        list(w.get_row(data[0]))  # type: ignore
         error = True
     except ValueError:
         pass
@@ -969,48 +965,48 @@ class _TCW:
         self._wc.setup(d[2] for d in data)
         return self
 
-    def get_column_titles(self, dest: Callable[[str], None]) -> None:
+    def get_column_titles(self) -> Iterable[str]:
         """
         Get the column titles.
 
-        :param dest: the destination
+        :returns: the data
         """
-        self._wa.get_column_titles(dest)
-        self._wb.get_column_titles(dest)
-        self._wc.get_column_titles(dest)
+        yield from self._wa.get_column_titles()
+        yield from self._wb.get_column_titles()
+        yield from self._wc.get_column_titles()
 
     def get_row(self, data: tuple[
-            SampleStatistics, SampleStatistics, SampleStatistics],
-            dest: Callable[[str], None]) -> None:
+            SampleStatistics, SampleStatistics, SampleStatistics]) \
+            -> Iterable[str]:
         """
         Render a single sample statistics to a CSV row.
 
         :param data: the data sample
-        :param dest: the destination list
+        :returns: the data
         """
-        self._wa.get_row(data[0], dest)
-        self._wb.get_row(data[1], dest)
-        self._wc.get_row(data[2], dest)
+        yield from self._wa.get_row(data[0])
+        yield from self._wb.get_row(data[1])
+        yield from self._wc.get_row(data[2])
 
-    def get_header_comments(self, dest: Callable[[str], None]) -> None:
+    def get_header_comments(self) -> Iterable[str]:
         """
         Get any possible header comments.
 
-        :param dest: the destination
+        :returns: the data
         """
-        self._wa.get_header_comments(dest)
-        self._wb.get_header_comments(dest)
-        self._wc.get_header_comments(dest)
+        yield from self._wa.get_header_comments()
+        yield from self._wb.get_header_comments()
+        yield from self._wc.get_header_comments()
 
-    def get_footer_comments(self, dest: Callable[[str], None]) -> None:
+    def get_footer_comments(self) -> Iterable[str]:
         """
         Get any possible footer comments.
 
-        :param dest: the destination
+        :returns: the data
         """
-        self._wa.get_footer_comments(dest)
-        self._wb.get_footer_comments(dest)
-        self._wc.get_footer_comments(dest)
+        yield from self._wa.get_footer_comments()
+        yield from self._wb.get_footer_comments()
+        yield from self._wc.get_footer_comments()
 
 
 def __do_test_multi_csv(same_n: bool) -> None:
@@ -1036,19 +1032,17 @@ def __do_test_multi_csv(same_n: bool) -> None:
                 break
         data.append((a, b, c))
 
-    text: list[str] = []
-    csv_write(
-        data=data, consumer=text.append,
+    text: list[str] = list(csv_write(
+        data=data,
         setup=_TCW(needs_n=not same_n).setup,
-        get_column_titles=_TCW.get_column_titles,
+        column_titles=_TCW.get_column_titles,
         get_row=_TCW.get_row,
-        get_footer_comments=_TCW.get_footer_comments,
-        get_header_comments=_TCW.get_header_comments)
-    output: list[SampleStatistics] = []
-    csv_read(rows=text,  # type: ignore
-             setup=_TCR,
-             parse_row=_TCR.parse_row,
-             consumer=output.append)
+        footer_comments=_TCW.get_footer_comments,
+        header_comments=_TCW.get_header_comments))
+    output: list[tuple[SampleStatistics, ...]] = list(csv_read(
+        rows=text,  # type: ignore
+        setup=_TCR,
+        parse_row=_TCR.parse_row))
     assert len(output) == len(data)
     assert output == data
 
@@ -1071,27 +1065,19 @@ def test_csv_4() -> None:
         "9;1;1;;;;0",
         "9;0;0;;;;0",
     ]
-    data_1: list[SampleStatistics] = []
-    csv_read(rows=text_1,
-             setup=CsvReader,
-             parse_row=CsvReader.parse_row,
-             consumer=data_1.append)
+    data_1: list[SampleStatistics] = list(csv_read(
+        rows=text_1, setup=CsvReader, parse_row=CsvReader.parse_row))
     assert len(data_1) == 7
-    text_2: list[str] = []
     writer: CsvWriter = CsvWriter()
-    csv_write(data_1, text_2.append, CsvWriter.get_column_titles,
-              CsvWriter.get_row, writer.setup)
-    data_2: list[SampleStatistics] = []
-    csv_read(rows=text_2,
-             setup=CsvReader,
-             parse_row=CsvReader.parse_row,
-             consumer=data_2.append)
+    text_2: list[str] = list(csv_write(
+        data_1, CsvWriter.get_column_titles, CsvWriter.get_row, writer.setup))
+    data_2: list[SampleStatistics] = list(csv_read(
+        rows=text_2, setup=CsvReader, parse_row=CsvReader.parse_row))
     assert data_2 == data_1
 
     reader: CsvReader = CsvReader({
         s: i for i, s in enumerate(text_2[0].split(";"))})
-    optional: list[str] = []
-    writer.get_optional_row(1, optional.append, n=5)
+    optional: list[str] = list(writer.get_optional_row(1, n=5))
     stat = reader.parse_optional_row(optional)
     assert stat is not None
     assert stat.n == 5
@@ -1101,18 +1087,18 @@ def test_csv_4() -> None:
     assert stat.mean_geom == 1
 
     optional.clear()
-    writer.get_optional_row(None, optional.append)
+    optional.extend(writer.get_optional_row(None))
     assert reader.parse_optional_row(optional) is None
 
     optional.clear()
-    writer.get_optional_row(data_1[0], optional.append, data_1[0].n)
+    optional.extend(writer.get_optional_row(data_1[0], data_1[0].n))
     assert reader.parse_optional_row(optional) == data_1[0]
 
     optional.clear()
     with pytest.raises(ValueError):
-        writer.get_optional_row(
-            data_1[0], optional.append, data_1[0].n + 1)
+        optional.extend(writer.get_optional_row(
+            data_1[0], data_1[0].n + 1))
 
     optional.clear()
-    writer.get_optional_row(data_1[0], optional.append, None)
+    optional.extend(writer.get_optional_row(data_1[0], None))
     assert reader.parse_optional_row(optional) == data_1[0]

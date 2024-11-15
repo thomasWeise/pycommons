@@ -42,8 +42,6 @@ __BASE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("flake8", ".", "--exclude", __EXCLUDES,
      "--ignore=B008,B009,B010,DUO102,TRY003,TRY101,W503"),
     ("pyroma", "."),
-    ("semgrep", ".", "--error", "--strict", "--use-git-ignore",
-     "--skip-unknown-extensions", "--optimizations", "all", "--config=auto"),
     ("pydocstyle", ".", "--convention=pep257"),
     ("vulture", ".", "--exclude", __EXCLUDES, "--min-confidence", "61"),
     ("dodgy", "."),

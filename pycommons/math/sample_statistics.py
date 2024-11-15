@@ -1682,7 +1682,8 @@ class CsvReader:
     >>> csv = ["n;min;mean;med;geom;max;sd",
     ...        "3;2;3;4;3;10;5", "6;2;;;;;0", "1;;;2;;;", "3;;;;;0;",
     ...        "4;5;12;32;11;33;7"]
-    >>> csv_read(csv, CsvReader, CsvReader.parse_row, print)
+    >>> for p in csv_read(csv, CsvReader, CsvReader.parse_row):
+    ...     print(p)
     3;2;4;3;3;10;5
     6;2;2;2;2;2;0
     1;2;2;2;2;2;None
@@ -1690,7 +1691,8 @@ class CsvReader:
     4;5;32;12;11;33;7
 
     >>> csv = ["value", "1", "3", "0", "-5", "7"]
-    >>> csv_read(csv, CsvReader, CsvReader.parse_row, print)
+    >>> for p in csv_read(csv, CsvReader, CsvReader.parse_row):
+    ...     print(p)
     1;1;1;1;1;1;None
     1;3;3;3;3;3;None
     1;0;0;0;None;0;None
@@ -1698,12 +1700,14 @@ class CsvReader:
     1;7;7;7;7;7;None
 
     >>> csv = ["n;m;sd", "1;3;", "3;5;0"]
-    >>> csv_read(csv, CsvReader, CsvReader.parse_row, print)
+    >>> for p in csv_read(csv, CsvReader, CsvReader.parse_row):
+    ...     print(p)
     1;3;3;3;3;3;None
     3;5;5;5;5;5;0
 
     >>> csv = ["n;m", "1;3", "3;5"]
-    >>> csv_read(csv, CsvReader, CsvReader.parse_row, print)
+    >>> for p in csv_read(csv, CsvReader, CsvReader.parse_row):
+    ...     print(p)
     1;3;3;3;3;3;None
     3;5;5;5;5;5;0
     """
@@ -2068,14 +2072,14 @@ class CsvWriter:
 
         return self
 
-    def get_column_titles(self, dest: Callable[[str], None]) -> None:
+    def get_column_titles(self) -> Iterable[str]:
         """
         Get the column titles.
 
-        :param dest: the destination string consumer
+        :returns: the column titles
 
         >>> try:
-        ...     CsvWriter().get_column_titles(print)
+        ...     list(CsvWriter().get_column_titles())
         ... except ValueError as ve:
         ...     print(ve)
         SampleStatistics CsvWriter has not been set up.
@@ -2083,23 +2087,22 @@ class CsvWriter:
         if not self.__setup:
             raise ValueError("SampleStatistics CsvWriter has not been set up.")
         if self.__has_n:
-            dest(self.__key_n)
+            yield self.__key_n
 
         if self.__single_value:
-            dest(self.__key_all)
+            yield self.__key_all
         else:
-            dest(self.__key_min)
-            dest(self.__key_mean_arith)
-            dest(self.__key_med)
+            yield self.__key_min
+            yield self.__key_mean_arith
+            yield self.__key_med
             if self.__has_geo_mean:
-                dest(self.__key_mean_geom)
-            dest(self.__key_max)
-            dest(self.__key_sd)
+                yield self.__key_mean_geom
+            yield self.__key_max
+            yield self.__key_sd
 
     def get_optional_row(self,
                          data: int | float | SampleStatistics | None,
-                         dest: Callable[[str], None],
-                         n: int | None = None) -> None:
+                         n: int | None = None) -> Iterable[str]:
         """
         Attach an empty row of the correct shape to the output.
 
@@ -2107,11 +2110,11 @@ class CsvWriter:
         other records that sometimes do not contain the record.
 
         :param data: the data item
-        :param dest: the output destination
         :param n: the number of samples
+        :returns: the optional row data
 
         >>> try:
-        ...     CsvWriter().get_optional_row("x", print)
+        ...     list(CsvWriter().get_optional_row("x"))
         ... except TypeError as te:
         ...     print(str(te)[:53])
         data should be an instance of any in {None, float, in
@@ -2121,7 +2124,7 @@ class CsvWriter:
             for _ in range((1 if self.__has_n else 0) + (
                     1 if self.__single_value else (
                     6 if self.__has_geo_mean else 5))):
-                dest("")
+                yield ""
             return
         if isinstance(data, int | float):  # convert single value
             data = from_single_value(data, 1 if n is None else n)
@@ -2130,45 +2133,45 @@ class CsvWriter:
                 int, float, SampleStatistics, None))
         elif (n is not None) and (n != data.n):  # sanity check
             raise ValueError(f"data.n={data.n} but n={n}.")
-        self.get_row(data, dest)
+        yield from self.get_row(data)
 
-    def get_row(self, data: SampleStatistics,
-                dest: Callable[[str], None]) -> None:
+    def get_row(self, data: SampleStatistics) -> Iterable[str]:
         """
         Render a single sample statistics to a CSV row.
 
         :param data: the data sample statistics
-        :param dest: the string consumer
+        :return: the row iterator
         """
         if self.__has_n:
-            dest(str(data.n))
+            yield str(data.n)
         if self.__single_value:
             if data.minimum != data.maximum:
                 raise ValueError(f"Inconsistent data {data}.")
-            dest(num_to_str(data.minimum))
+            yield num_to_str(data.minimum)
         else:
-            dest(num_to_str(data.minimum))
-            dest(num_to_str(data.mean_arith))
-            dest(num_to_str(data.median))
+            yield num_to_str(data.minimum)
+            yield num_to_str(data.mean_arith)
+            yield num_to_str(data.median)
             if self.__has_geo_mean:
-                dest(num_or_none_to_str(data.mean_geom))
-            dest(num_to_str(data.maximum))
-            dest(num_or_none_to_str(data.stddev))
+                yield num_or_none_to_str(data.mean_geom)
+            yield num_to_str(data.maximum)
+            yield num_or_none_to_str(data.stddev)
 
-    def get_header_comments(self, dest: Callable[[str], None]) -> None:
+    def get_header_comments(self) -> Iterable[str]:
         """
         Get any possible header comments.
 
-        :param dest: the destination
+        :returns: the iterable of header comments
         """
-        if (self.__scope is not None) and (self.__long_name is not None):
-            dest(f"Sample statistics about {self.__long_name}.")
+        return [f"Sample statistics about {self.__long_name}."]\
+            if (self.__scope is not None) and (self.__long_name is not None)\
+            else ()
 
-    def get_footer_comments(self, dest: Callable[[str], None]) -> None:
+    def get_footer_comments(self) -> Iterable[str]:
         """
         Get any possible footer comments.
 
-        :param dest: the destination
+        :returns: the footer comments
         """
         long_name: str | None = self.__long_name
         long_name = "" if long_name is None else f" {long_name}"
@@ -2181,65 +2184,64 @@ class CsvWriter:
         if (scope is not None) and (
                 self.__has_n or (not self.__single_value)):
             if first:
-                dest("")
+                yield ""
                 first = False
-            dest(f"All{name} sample statistics start with "
-                 f"{(scope + SCOPE_SEPARATOR)!r}.")
+            yield (f"All{name} sample statistics start with "
+                   f"{(scope + SCOPE_SEPARATOR)!r}.")
             name = short_name
 
         if self.__has_n:
             if first:
-                dest("")
+                yield ("")
                 first = False
-            dest(f"{self.__key_n}: the number of{name} samples")
+            yield f"{self.__key_n}: the number of{name} samples"
             name = short_name
         if self.__single_value:
             if first:
-                dest("")
-            dest(f"{self.__key_all}: all{name} samples have this value")
+                yield ""
+            yield f"{self.__key_all}: all{name} samples have this value"
         else:
             if first:
-                dest("")
+                yield ""
             n_name: str | None = self.__key_n
             if n_name is None:
                 n_name = KEY_N
-            dest(f"{self.__key_min}: the smallest encountered{name} value")
+            yield f"{self.__key_min}: the smallest encountered{name} value"
             name = short_name
-            dest(f"{self.__key_mean_arith}: the arithmetic mean of all the"
-                 f"{name} values, i.e., the sum of the values divided by "
-                 f"their number {n_name}")
-            dest(f"{self.__key_med}: the median of all the{name} values, "
-                 f"which can be computed by sorting the values and then "
-                 f"picking the value in the middle of the sorted list (in "
-                 f"case of an odd number {n_name} of values) or the "
-                 f"arithmetic mean (half the sum) of the two values in the "
-                 f"middle (in case of an even number {n_name})")
+            yield (f"{self.__key_mean_arith}: the arithmetic mean of all the"
+                   f"{name} values, i.e., the sum of the values divided by "
+                   f"their number {n_name}")
+            yield (f"{self.__key_med}: the median of all the{name} values, "
+                   f"which can be computed by sorting the values and then "
+                   f"picking the value in the middle of the sorted list (in "
+                   f"case of an odd number {n_name} of values) or the "
+                   f"arithmetic mean (half the sum) of the two values in the "
+                   f"middle (in case of an even number {n_name})")
             if self.__has_geo_mean:
-                dest(f"{self.__key_mean_geom}: the geometric mean of all the"
-                     f"{name} values, i.e., the {n_name}-th root of the "
-                     f"product of all values, which is only defined if all "
-                     f"values are > 0")
-            dest(f"{self.__key_max}: the largest encountered{name} value")
-            dest(f"{self.__key_sd}: the standard deviation of the{name} "
-                 "values, which is a measure of spread: the larger it "
-                 "is, the farther are the values distributed away from "
-                 f"the arithmetic mean {self.__key_mean_arith}. It can be "
-                 "computed as the ((sum of squares) - (square of the sum)"
-                 f" / {n_name}) / ({n_name} - 1) of all{name} values.")
+                yield (f"{self.__key_mean_geom}: the geometric mean of all the"
+                       f"{name} values, i.e., the {n_name}-th root of the "
+                       f"product of all values, which is only defined if all "
+                       f"values are > 0")
+            yield f"{self.__key_max}: the largest encountered{name} value"
+            yield (f"{self.__key_sd}: the standard deviation of the{name} "
+                   "values, which is a measure of spread: the larger it "
+                   "is, the farther are the values distributed away from "
+                   f"the arithmetic mean {self.__key_mean_arith}. It can be "
+                   "computed as the ((sum of squares) - (square of the sum)"
+                   f" / {n_name}) / ({n_name} - 1) of all{name} values.")
 
-    def get_footer_bottom_comments(self, dest: Callable[[str], None]) -> None:
+    def get_footer_bottom_comments(self) -> None | Iterable[str]:
         """
         Get the bottom footer comments.
 
-        :param dest: the string destination
+        :returns: an iterator with the bottom comments
 
-        >>> def __qpt(s: str):
-        ...     print(s[:70])
-        >>> CsvWriter.get_footer_bottom_comments(None, __qpt)
+        >>> for p in CsvWriter.get_footer_bottom_comments(None):
+        ...     print(p[:70])
         This CSV output has been created using the versatile CSV API of pycomm
         Sample statistics were computed using pycommons.math.sample_statistics
         You can find pycommons at https://thomasweise.github.io/pycommons.
         """
-        pycommons_footer_bottom_comments(
-            self, dest, ("Sample statistics were computed "
-                         "using pycommons.math.sample_statistics."))
+        yield from pycommons_footer_bottom_comments(
+            self, ("Sample statistics were computed "
+                   "using pycommons.math.sample_statistics."))
