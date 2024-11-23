@@ -13,7 +13,8 @@ from typing import Final, Iterable
 
 import pytest
 
-from pycommons.io.csv import csv_read, csv_write
+from pycommons.io.csv import CsvReader as CsvReaderBase
+from pycommons.io.csv import CsvWriter as CsvWriterBase
 from pycommons.math.sample_statistics import (
     KEY_N,
     CsvReader,
@@ -382,17 +383,9 @@ def test_csv_1() -> None:
                     has_geometric_mean_per_stat, all_int_per_stat,
                     all_float_per_stat))
             text: list[str] = []
-            text.extend(csv_write(
-                data=data,
-                setup=CsvWriter().setup,
-                column_titles=CsvWriter.get_column_titles,
-                get_row=CsvWriter.get_row,
-                footer_comments=CsvWriter.get_footer_comments,
-                header_comments=CsvWriter.get_header_comments))
+            text.extend(CsvWriter.write(data))
             output: list[SampleStatistics] = []
-            output.extend(csv_read(rows=text,
-                                   setup=CsvReader,
-                                   parse_row=CsvReader.parse_row))
+            output.extend(CsvReader.read(rows=text))
             assert len(output) == len(data)
             assert output == data
 
@@ -409,8 +402,7 @@ def test_csv_2() -> None:
         "9;1;1;;;;0",
         "9;0;0;;;;0",
     ]
-    parsed: list[SampleStatistics] = list(csv_read(
-        rows=text, setup=CsvReader, parse_row=CsvReader.parse_row))
+    parsed: list[SampleStatistics] = list(CsvReader.read(rows=text))
     assert len(parsed) == 7
     assert parsed[0].minimum == parsed[0].maximum == parsed[0].mean_geom == 1
     assert parsed[0].stddev == 0
@@ -431,39 +423,22 @@ def test_csv_2() -> None:
 
 def test_csv_3() -> None:
     """Test cover some features of the CSV Writer."""
-    CsvWriter(what_short="a")
-    CsvWriter(what_long="b")
-    CsvWriter(what_short="a", what_long="b")
-
     data: list[SampleStatistics] = [
         __make_sample_statistics(all_samples_same=False),
         __make_sample_statistics(all_samples_same=False),
         __make_sample_statistics(all_samples_same=False),
         __make_sample_statistics(all_samples_same=False)]
-    w: CsvWriter = CsvWriter()
-    w.setup(data)
-    error: bool = False
-    try:
-        w.setup(data)
-        error = True
-    except ValueError:
-        pass
-    if error:
-        raise ValueError("Unexpected!")
-
+    CsvWriter(data, what_short="a")
+    CsvWriter(data, what_long="b")
+    CsvWriter(data, what_short="a", what_long="b")
+    w: CsvWriter = CsvWriter(data)
     data_2 = [__make_sample_statistics(all_samples_same=True),
               __make_sample_statistics(all_samples_same=True),
               __make_sample_statistics(all_samples_same=True),
               __make_sample_statistics(all_samples_same=True)]
-    w = CsvWriter()
-    w.setup(data_2)
-    try:
+    w = CsvWriter(data_2)
+    with pytest.raises(ValueError):
         list(w.get_row(data[0]))  # type: ignore
-        error = True
-    except ValueError:
-        pass
-    if error:
-        raise ValueError("Unexpected!")
 
 
 def test_special_cases() -> None:
@@ -883,7 +858,7 @@ def test_special_cases() -> None:
         __check_with_data(from_samples(case), case)
 
 
-class _TCR:
+class _TCR(CsvReaderBase):
     """A three-CSV-reader."""
 
     def __init__(self, columns: dict[str, int]) -> None:
@@ -892,7 +867,7 @@ class _TCR:
 
         :param columns: the columns
         """
-        super().__init__()
+        super().__init__(columns)
 
         a_keys: dict[str, str] = {
             k[2:]: k for k in columns if k.startswith("a")}
@@ -933,37 +908,33 @@ class _TCR:
                 self.rc.parse_row(data))
 
 
-class _TCW:
+class _TCW(CsvWriterBase[tuple[
+        SampleStatistics, SampleStatistics, SampleStatistics]]):
     """A three-csv-writer."""
 
-    def __init__(self, needs_n: bool) -> None:
+    def __init__(self, data: Iterable[tuple[
+        SampleStatistics, SampleStatistics, SampleStatistics]],
+        scope: str | None = None,
+            needs_n: bool = False) -> None:
         """
         Initialize.
 
+        :param data: the data
+        :param scope: the scope
         :param needs_n: do we need all n?
         """
+        super().__init__(data, scope)
         n_set = 7 if needs_n else randint(1, 7)
 
         #: the first writer
-        self._wa: Final[CsvWriter] = CsvWriter("a", (n_set & 1) == 0)
+        self._wa: Final[CsvWriter] = CsvWriter(
+            (d[0] for d in data), "a", n_not_needed=(n_set & 1) == 0)
         #: the second writer
-        self._wb: Final[CsvWriter] = CsvWriter("b", (n_set & 2) == 0)
+        self._wb: Final[CsvWriter] = CsvWriter(
+            (d[1] for d in data), "b", n_not_needed=(n_set & 2) == 0)
         #: the third writer
-        self._wc: Final[CsvWriter] = CsvWriter("c", (n_set & 4) == 0)
-
-    def setup(self, data: Iterable[tuple[
-            SampleStatistics, SampleStatistics, SampleStatistics]]) \
-            -> "_TCW":
-        """
-        Set up this csv writer based on existing data.
-
-        :param data: the data to setup with
-        :returns: this writer
-        """
-        self._wa.setup(d[0] for d in data)
-        self._wb.setup(d[1] for d in data)
-        self._wc.setup(d[2] for d in data)
-        return self
+        self._wc: Final[CsvWriter] = CsvWriter(
+            (d[2] for d in data), "c", n_not_needed=(n_set & 4) == 0)
 
     def get_column_titles(self) -> Iterable[str]:
         """
@@ -1032,17 +1003,8 @@ def __do_test_multi_csv(same_n: bool) -> None:
                 break
         data.append((a, b, c))
 
-    text: list[str] = list(csv_write(
-        data=data,
-        setup=_TCW(needs_n=not same_n).setup,
-        column_titles=_TCW.get_column_titles,
-        get_row=_TCW.get_row,
-        footer_comments=_TCW.get_footer_comments,
-        header_comments=_TCW.get_header_comments))
-    output: list[tuple[SampleStatistics, ...]] = list(csv_read(
-        rows=text,  # type: ignore
-        setup=_TCR,
-        parse_row=_TCR.parse_row))
+    text: list[str] = list(_TCW.write(data, needs_n=not same_n))
+    output: list[tuple[SampleStatistics, ...]] = list(_TCR.read(text))
     assert len(output) == len(data)
     assert output == data
 
@@ -1065,18 +1027,15 @@ def test_csv_4() -> None:
         "9;1;1;;;;0",
         "9;0;0;;;;0",
     ]
-    data_1: list[SampleStatistics] = list(csv_read(
-        rows=text_1, setup=CsvReader, parse_row=CsvReader.parse_row))
+    data_1: list[SampleStatistics] = list(CsvReader.read(text_1))
     assert len(data_1) == 7
-    writer: CsvWriter = CsvWriter()
-    text_2: list[str] = list(csv_write(
-        data_1, CsvWriter.get_column_titles, CsvWriter.get_row, writer.setup))
-    data_2: list[SampleStatistics] = list(csv_read(
-        rows=text_2, setup=CsvReader, parse_row=CsvReader.parse_row))
+    text_2: list[str] = list(CsvWriter.write(data_1))
+    data_2: list[SampleStatistics] = list(CsvReader.read(text_2))
     assert data_2 == data_1
 
     reader: CsvReader = CsvReader({
         s: i for i, s in enumerate(text_2[0].split(";"))})
+    writer: CsvWriter = CsvWriter(data_2)
     optional: list[str] = list(writer.get_optional_row(1, n=5))
     stat = reader.parse_optional_row(optional)
     assert stat is not None

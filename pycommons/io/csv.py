@@ -2029,7 +2029,19 @@ pycommons.io.csv, version
     invalid scope 'x x'
 
     >>> try:
+    ...     CsvWriter([], " x")
+    ... except ValueError as ve:
+    ...     print(ve)
+    invalid scope ' x'
+
+    >>> try:
     ...     CsvWriter([]).get_row("x")
+    ... except NotImplementedError as nie:
+    ...     print(type(nie))
+    <class 'NotImplementedError'>
+
+    >>> try:
+    ...     CsvWriter([]).get_column_titles()
     ... except NotImplementedError as nie:
     ...     print(type(nie))
     <class 'NotImplementedError'>
@@ -2051,12 +2063,10 @@ pycommons.io.csv, version
         super().__init__()
         if not isinstance(data, Iterable):
             raise type_error(data, "data", Iterable)
-        if scope is not None:
-            use_scope: Final[str] = str.strip(scope)
-            if (str.__len__(scope) <= 0) or (any(map(
-                    scope.__contains__, WHITESPACE_OR_NEWLINE))):
-                raise ValueError(f"invalid scope {scope!r}")
-            scope = use_scope
+        if (scope is not None) and ((str.strip(scope) != scope) or (
+                str.__len__(scope) <= 0) or (any(map(
+                scope.__contains__, WHITESPACE_OR_NEWLINE)))):
+            raise ValueError(f"invalid scope {scope!r}")
         #: the optional scope
         self.scope: Final[str | None] = scope
 

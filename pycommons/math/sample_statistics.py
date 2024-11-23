@@ -17,6 +17,8 @@ from pycommons.io.csv import (
     csv_val_or_none,
     pycommons_footer_bottom_comments,
 )
+from pycommons.io.csv import CsvReader as CsvReaderBase
+from pycommons.io.csv import CsvWriter as CsvWriterBase
 from pycommons.math.int_math import (
     __DBL_INT_LIMIT_P_I,
     try_float_int_div,
@@ -1680,7 +1682,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
                             maximum=maximum, stddev=stddev, n=n)
 
 
-class CsvReader:
+class CsvReader(CsvReaderBase[SampleStatistics]):
     """
     A csv parser for sample statistics.
 
@@ -1760,10 +1762,7 @@ class CsvReader:
         ...     print(ve)
         Found strange keys in {'b': 2, 'c': 3}.
         """
-        super().__init__()
-
-        if not isinstance(columns, dict):
-            raise type_error(columns, "columns", dict)
+        super().__init__(columns)
 
         #: the index of the number of elements
         self.idx_n: Final[int | None] = csv_column_or_none(
@@ -1910,16 +1909,19 @@ class CsvReader:
         return None
 
 
-class CsvWriter:
+class CsvWriter(CsvWriterBase[SampleStatistics]):
     """A class for CSV writing of :class:`SampleStatistics`."""
 
-    def __init__(self, scope: str | None = None,
+    def __init__(self,
+                 data: Iterable[SampleStatistics],
+                 scope: str | None = None,
                  n_not_needed: bool = False,
                  what_short: str | None = None,
                  what_long: str | None = None) -> None:
         """
         Initialize the csv writer.
 
+        :param data: the data to use
         :param scope: the prefix to be pre-pended to all columns
         :param n_not_needed: should we omit the `n` column?
         :param what_short: the short description of what the statistics is
@@ -1927,90 +1929,26 @@ class CsvWriter:
         :param what_long: the long statistics of what the statistics is about
 
         >>> try:
-        ...     CsvWriter(n_not_needed=None)
+        ...     CsvWriter([], None, n_not_needed=None)
         ... except TypeError as te:
         ...     print(te)
         n_not_needed should be an instance of bool but is None.
-        """
-        #: an optional scope
-        self.__scope: Final[str | None] = (
-            str.strip(scope)) if scope is not None else None
-        if not isinstance(n_not_needed, bool):
-            raise type_error(n_not_needed, "n_not_needed", bool)
-        #: is the n-column needed
-        self.n_not_needed: Final[bool] = n_not_needed
 
-        #: has this writer been set up?
-        self.__setup: bool = False
-        #: should we print only a single value
-        self.__single_value: bool = False
-        #: do we have the n column
-        self.__has_n: bool = True
-        #: do we need the geometric mean column?
-        self.__has_geo_mean: bool = True
-
-        long_name: str | None = \
-            None if what_long is None else str.strip(what_long)
-        short_name: str | None = \
-            None if what_short is None else str.strip(what_short)
-        if long_name is None:
-            long_name = short_name
-        elif short_name is None:
-            short_name = long_name
-        else:
-            long_name = f"{long_name} ({short_name})"
-
-        #: the short description of what the statistics are about
-        self.__short_name: Final[str | None] = short_name
-        #: the long description of what the statistics are about
-        self.__long_name: Final[str | None] = long_name
-        #: the key for n if n is printed
-        self.__key_n: str | None = None
-        #: the key for single values
-        self.__key_all: str | None = None
-        #: the key for minimum values
-        self.__key_min: str | None = None
-        #: the key for the arithmetic mean
-        self.__key_mean_arith: str | None = None
-        #: the key for the median
-        self.__key_med: str | None = None
-        #: the key for the geometric mean
-        self.__key_mean_geom: str | None = None
-        #: the key for the maximum value
-        self.__key_max: str | None = None
-        #: the key for the standard deviation
-        self.__key_sd: str | None = None
-
-    def setup(self, data: Iterable[SampleStatistics]) -> "CsvWriter":
-        """
-        Set up this csv writer based on existing data.
-
-        :param data: the data to setup with
-        :returns: this writer
-
-        >>> a = CsvWriter()
         >>> try:
-        ...     a.setup([])
+        ...     CsvWriter([])
         ... except ValueError as ve:
         ...     print(ve)
         SampleStatistics CsvWriter did not see any data.
-        >>> try:
-        ...     a.setup([])
-        ... except ValueError as ve:
-        ...     print(ve)
-        SampleStatistics CsvWriter has already been set up.
 
         >>> try:
-        ...     CsvWriter().setup([1])
+        ...     CsvWriter([1])
         ... except TypeError as te:
         ...     print(str(te)[:60])
         data[i] should be an instance of pycommons.math.sample_stati
         """
-        if self.__setup:
-            raise ValueError(
-                "SampleStatistics CsvWriter has already been set up.")
-        self.__setup = True
-
+        super().__init__(data, scope)
+        if not isinstance(n_not_needed, bool):
+            raise type_error(n_not_needed, "n_not_needed", bool)
         # We need to check at most three conditions to see whether we can
         # compact the output:
         # 1. If all minimum, mean, median, maximum (and geometric mean, if
@@ -2023,7 +1961,7 @@ class CsvWriter:
         # False because otherwise, we rely on self.n_not_needed.
         # n_really_not_needed will become False if we find one situation where
         # we actually need n.
-        n_really_not_needed: bool = not self.n_not_needed
+        n_really_not_needed: bool = n_not_needed
         # So if n_really_not_needed is True, we need to do 3 checks.
         # Otherwise, we only need two checks.
         checks_needed: int = 3 if n_really_not_needed else 2
@@ -2053,58 +1991,84 @@ class CsvWriter:
         if seen <= 0:
             raise ValueError(
                 "SampleStatistics CsvWriter did not see any data.")
-        n_not_needed = n_really_not_needed or self.n_not_needed
-        # Now we know the columns that need to be generated.
-        self.__has_n = not n_not_needed
-        self.__single_value = all_same
-        self.__has_geo_mean = (not has_no_geom) and (not all_same)
+        n_not_needed = n_really_not_needed or n_not_needed
+        #: do we have a geometric mean?
+        has_geo_mean: Final[bool] = (not has_no_geom) and (not all_same)
 
-        scope: Final[str | None] = self.__scope
+        #: the key for `n` is `None` if `n` is not printed, else it is the key
+        self.__key_n: Final[str | None] = None if n_not_needed \
+            else csv_scope(scope, KEY_N)
 
-        # set up the keys
-        if self.__has_n:
-            self.__key_n = csv_scope(scope, KEY_N)
-        if self.__single_value:
-            self.__key_all = KEY_VALUE if scope is None else csv_scope(
-                scope, KEY_VALUE if self.__has_n else None)
+        key_all: str | None = None
+        key_min: str | None = None
+        key_mean_arith: str | None = None
+        key_med: str | None = None
+        key_max: str | None = None
+        key_mean_geom: str | None = None
+        key_sd: str | None = None
+
+        if all_same:
+            key_all = KEY_VALUE if scope is None else (
+                csv_scope(scope, None if self.__key_n is None else KEY_VALUE))
         else:
-            self.__key_min = csv_scope(scope, KEY_MINIMUM)
-            self.__key_mean_arith = csv_scope(scope, KEY_MEAN_ARITH)
-            self.__key_med = csv_scope(scope, KEY_MEDIAN)
-            self.__key_max = csv_scope(scope, KEY_MAXIMUM)
-            if self.__has_geo_mean:
-                self.__key_mean_geom = csv_scope(scope, KEY_MEAN_GEOM)
-            self.__key_sd = csv_scope(scope, KEY_STDDEV)
+            key_min = csv_scope(scope, KEY_MINIMUM)
+            key_mean_arith = csv_scope(scope, KEY_MEAN_ARITH)
+            key_med = csv_scope(scope, KEY_MEDIAN)
+            key_max = csv_scope(scope, KEY_MAXIMUM)
+            if has_geo_mean:
+                key_mean_geom = csv_scope(scope, KEY_MEAN_GEOM)
+            key_sd = csv_scope(scope, KEY_STDDEV)
 
-        return self
+        #: the key for single values
+        self.__key_all: Final[str | None] = key_all
+        #: the key for minimum values
+        self.__key_min: Final[str | None] = key_min
+        #: the key for the arithmetic mean
+        self.__key_mean_arith: Final[str | None] = key_mean_arith
+        #: the key for the median
+        self.__key_med: Final[str | None] = key_med
+        #: the key for the geometric mean
+        self.__key_mean_geom: Final[str | None] = key_mean_geom
+        #: the key for the maximum value
+        self.__key_max: Final[str | None] = key_max
+        #: the key for the standard deviation
+        self.__key_sd: Final[str | None] = key_sd
+
+        long_name: str | None = \
+            None if what_long is None else str.strip(what_long)
+        short_name: str | None = \
+            None if what_short is None else str.strip(what_short)
+        if long_name is None:
+            long_name = short_name
+        elif short_name is None:
+            short_name = long_name
+        else:
+            long_name = f"{long_name} ({short_name})"
+
+        #: the short description of what the statistics are about
+        self.__short_name: Final[str | None] = short_name
+        #: the long description of what the statistics are about
+        self.__long_name: Final[str | None] = long_name
 
     def get_column_titles(self) -> Iterable[str]:
         """
         Get the column titles.
 
         :returns: the column titles
-
-        >>> try:
-        ...     list(CsvWriter().get_column_titles())
-        ... except ValueError as ve:
-        ...     print(ve)
-        SampleStatistics CsvWriter has not been set up.
         """
-        if not self.__setup:
-            raise ValueError("SampleStatistics CsvWriter has not been set up.")
-        if self.__has_n:
+        if self.__key_n is not None:
             yield self.__key_n
 
-        if self.__single_value:
-            yield self.__key_all
-        else:
+        if self.__key_all is None:
             yield self.__key_min
             yield self.__key_mean_arith
             yield self.__key_med
-            if self.__has_geo_mean:
+            if self.__key_mean_geom is not None:
                 yield self.__key_mean_geom
             yield self.__key_max
             yield self.__key_sd
+        else:
+            yield self.__key_all
 
     def get_optional_row(self,
                          data: int | float | SampleStatistics | None,
@@ -2120,16 +2084,16 @@ class CsvWriter:
         :returns: the optional row data
 
         >>> try:
-        ...     list(CsvWriter().get_optional_row("x"))
+        ...     list(CsvWriter([from_single_value(1)]).get_optional_row("x"))
         ... except TypeError as te:
         ...     print(str(te)[:53])
         data should be an instance of any in {None, float, in
         """
         if data is None:
             # attach an empty row
-            for _ in range((1 if self.__has_n else 0) + (
-                    1 if self.__single_value else (
-                    6 if self.__has_geo_mean else 5))):
+            for _ in range((0 if self.__key_n is None else 1) + (
+                    (5 if self.__key_mean_geom is None else 6)
+                    if self.__key_all is None else 1)):
                 yield ""
             return
         if isinstance(data, int | float):  # convert single value
@@ -2148,20 +2112,20 @@ class CsvWriter:
         :param data: the data sample statistics
         :return: the row iterator
         """
-        if self.__has_n:
+        if self.__key_n is not None:
             yield str(data.n)
-        if self.__single_value:
-            if data.minimum != data.maximum:
-                raise ValueError(f"Inconsistent data {data}.")
-            yield num_to_str(data.minimum)
-        else:
+        if self.__key_all is None:
             yield num_to_str(data.minimum)
             yield num_to_str(data.mean_arith)
             yield num_to_str(data.median)
-            if self.__has_geo_mean:
+            if self.__key_mean_geom is not None:
                 yield num_or_none_to_str(data.mean_geom)
             yield num_to_str(data.maximum)
             yield num_or_none_to_str(data.stddev)
+        else:
+            if data.minimum != data.maximum:
+                raise ValueError(f"Inconsistent data {data}.")
+            yield num_to_str(data.minimum)
 
     def get_header_comments(self) -> Iterable[str]:
         """
@@ -2170,7 +2134,7 @@ class CsvWriter:
         :returns: the iterable of header comments
         """
         return [f"Sample statistics about {self.__long_name}."]\
-            if (self.__scope is not None) and (self.__long_name is not None)\
+            if (self.scope is not None) and (self.__long_name is not None)\
             else ()
 
     def get_footer_comments(self) -> Iterable[str]:
@@ -2186,9 +2150,10 @@ class CsvWriter:
         name: str = long_name
         first: bool = True
 
-        scope: Final[str] = self.__scope
+        scope: Final[str] = self.scope
         if (scope is not None) and (
-                self.__has_n or (not self.__single_value)):
+                (self.__key_n is not None) or (
+                self.__key_all is not None)):
             if first:
                 yield ""
                 first = False
@@ -2196,17 +2161,13 @@ class CsvWriter:
                    f"{(scope + SCOPE_SEPARATOR)!r}.")
             name = short_name
 
-        if self.__has_n:
+        if self.__key_n is not None:
             if first:
                 yield ("")
                 first = False
             yield f"{self.__key_n}: the number of{name} samples"
             name = short_name
-        if self.__single_value:
-            if first:
-                yield ""
-            yield f"{self.__key_all}: all{name} samples have this value"
-        else:
+        if self.__key_all is None:
             if first:
                 yield ""
             n_name: str | None = self.__key_n
@@ -2223,7 +2184,7 @@ class CsvWriter:
                    f"case of an odd number {n_name} of values) or the "
                    f"arithmetic mean (half the sum) of the two values in the "
                    f"middle (in case of an even number {n_name})")
-            if self.__has_geo_mean:
+            if self.__key_mean_geom is not None:
                 yield (f"{self.__key_mean_geom}: the geometric mean of all the"
                        f"{name} values, i.e., the {n_name}-th root of the "
                        f"product of all values, which is only defined if all "
@@ -2235,6 +2196,10 @@ class CsvWriter:
                    f"the arithmetic mean {self.__key_mean_arith}. It can be "
                    "computed as the ((sum of squares) - (square of the sum)"
                    f" / {n_name}) / ({n_name} - 1) of all{name} values.")
+        else:
+            if first:
+                yield ""
+            yield f"{self.__key_all}: all{name} samples have this value"
 
     def get_footer_bottom_comments(self) -> None | Iterable[str]:
         """
