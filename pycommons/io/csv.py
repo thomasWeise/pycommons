@@ -25,7 +25,6 @@ Different from other CSV processing tools, we want to
 The separator is configurable, but by default set to :const:`CSV_SEPARATOR`.
 Comments start with a comment start with :const:`COMMENT_START` by default.
 """
-
 from typing import (
     Any,
     Callable,
@@ -38,7 +37,7 @@ from typing import (
 )
 
 from pycommons.ds.sequences import reiterable
-from pycommons.strings.chars import NEWLINE
+from pycommons.strings.chars import NEWLINE, WHITESPACE_OR_NEWLINE
 from pycommons.types import check_int_range, type_error
 from pycommons.version import __version__ as pycommons_version
 
@@ -164,7 +163,7 @@ def csv_read(rows: Iterable[str],
     :param parse_row: the unction parsing the rows
     :param separator: the string used to separate columns
     :param comment_start: the string starting comments
-    :returns: an :class:`Iterator` with the parsed data rows
+    :returns: an :class:`Generator` with the parsed data rows
     :raises TypeError: if any of the parameters has the wrong type
     :raises ValueError: if the separator or comment start character are
         incompatible or if the data has some internal error
@@ -172,7 +171,7 @@ def csv_read(rows: Iterable[str],
     >>> def _setup(colidx: dict[str, int]) -> dict[str, int]:
     ...     return colidx
 
-    >>> def _parse_row(colidx: dict[str, int], row: list[str]) -> None:
+    >>> def _parse_row(colidx: dict[str, int], row: list[str]) -> dict:
     ...         return {x: row[y] for x, y in colidx.items()}
 
     >>> text = ["a;b;c;d", "# test", " 1; 2;3;4", " 5 ;6 ", ";8;;9",
@@ -383,7 +382,7 @@ def pycommons_footer_bottom_comments(
 
     :param _: ignored
     :param additional: an optional line of additional comments
-    :returns: an Iterable of standard pycommons comments
+    :returns: an :class:`Iterable` of standard pycommons comments
 
     >>> for p in pycommons_footer_bottom_comments(""):
     ...     print(p[:70])
@@ -617,6 +616,7 @@ def csv_write(
         comments to be printed after all other footers. These commonts may
         include something like the version information of the software used.
         This function is only invoked if `comment_start is not None`.
+    :returns: a :class:`Generator` with the rows of CSV text
     :raises TypeError: if any of the parameters has the wrong type
     :raises ValueError: if the separator or comment start character are
         incompatible or if the data has some internal error
@@ -1146,15 +1146,18 @@ def csv_write(
 
     # finally put footer comments
     if comment_start is not None:
+        empty_next: bool = False
         if footer_comments is not None:
-            yield from __print_comments(
-                footer_comments(setting) if callable(footer_comments)
-                else footer_comments, comment_start, "footer", False)
+            for c in __print_comments(footer_comments(setting) if callable(
+                    footer_comments) else footer_comments, comment_start,
+                    "footer", False):
+                yield c
+                empty_next = True
         if footer_bottom_comments is not None:
             yield from __print_comments(
                 footer_bottom_comments(setting) if callable(
                     footer_bottom_comments) else footer_bottom_comments,
-                comment_start, "footer bottom", True)
+                comment_start, "footer bottom", empty_next)
 
 
 def csv_str_or_none(data: list[str | None] | None,
@@ -1784,3 +1787,364 @@ def csv_select_scope_or_none(
         if kkk not in subset:
             subset[kkk] = check_int_range(vvv, kkk, 0, 1_000_000)
     return conv(subset)
+
+
+class CsvReader[T]:
+    """
+    A base class for CSV readers.
+
+    Using this class and its :meth:`read` class method provides for a more
+    elegant way to construct nested and combined CSV formats compared to
+    creating classes and handing their methods to :func:`csv_read`.
+
+    >>> class R(CsvReader):
+    ...     def __init__(self, columns: dict[str, int]) -> None:
+    ...         super().__init__(columns)
+    ...         self.cols = columns
+    ...     def parse_row(self, row: list[str]) -> dict:
+    ...         return {x: row[y] for x, y in self.cols.items()}
+
+    >>> text = ["a;b;c;d", "# test", " 1; 2;3;4", " 5 ;6 ", ";8;;9",
+    ...         "", "10", "# 11;12"]
+
+    >>> for p in R.read(text):
+    ...     print(p)
+    {'a': '1', 'b': '2', 'c': '3', 'd': '4'}
+    {'a': '5', 'b': '6', 'c': '', 'd': ''}
+    {'a': '', 'b': '8', 'c': '', 'd': '9'}
+    {'a': '10', 'b': '', 'c': '', 'd': ''}
+
+    >>> text = ["a,b,c,d", "v test", " 1, 2,3,4", " 5 ,6 ", ",8,,9",
+    ...         "", "10", "v 11,12"]
+
+    >>> for p in R.read(text, separator=',', comment_start='v'):
+    ...     print(p)
+    {'a': '1', 'b': '2', 'c': '3', 'd': '4'}
+    {'a': '5', 'b': '6', 'c': '', 'd': ''}
+    {'a': '', 'b': '8', 'c': '', 'd': '9'}
+    {'a': '10', 'b': '', 'c': '', 'd': ''}
+
+    >>> class S(CsvReader):
+    ...     def __init__(self, columns: dict[str, int], add: str) -> None:
+    ...         super().__init__(columns)
+    ...         self.cols = columns
+    ...         self.s = add
+    ...     def parse_row(self, row: list[str]) -> dict:
+    ...         return {x: self.s + row[y] for x, y in self.cols.items()}
+
+    >>> text = ["a;b;c;d", "# test", " 1; 2;3;4", " 5 ;6 ", ";8;;9",
+    ...         "", "10", "# 11;12"]
+
+    >>> for p in S.read(text, add="b"):
+    ...     print(p)
+    {'a': 'b1', 'b': 'b2', 'c': 'b3', 'd': 'b4'}
+    {'a': 'b5', 'b': 'b6', 'c': 'b', 'd': 'b'}
+    {'a': 'b', 'b': 'b8', 'c': 'b', 'd': 'b9'}
+    {'a': 'b10', 'b': 'b', 'c': 'b', 'd': 'b'}
+
+    >>> ccc = S({"a": 1}, add="x")
+    >>> print(ccc.parse_optional_row(None))
+    None
+    >>> print(S.parse_optional_row(None, None))
+    None
+    >>> print((ccc).parse_optional_row(["x", "y"]))
+    {'a': 'xy'}
+
+    >>> try:
+    ...     CsvReader("x")
+    ... except TypeError as te:
+    ...     print(te)
+    columns should be an instance of dict but is str, namely 'x'.
+
+    >>> try:
+    ...     CsvReader({"a": 1}).parse_row(["a"])
+    ... except NotImplementedError as nie:
+    ...     print(type(nie))
+    <class 'NotImplementedError'>
+    """
+
+    def __init__(self, columns: dict[str, int]) -> None:
+        """
+        Create the CSV reader.
+
+        :param columns: the columns
+        :raises TypeError: if `columns` is not a :class:`dict`
+        """
+        super().__init__()
+        if not isinstance(columns, dict):
+            raise type_error(columns, "columns", dict)
+
+    def parse_row(self, data: list[str]) -> T:
+        """
+        Parse a row of data.
+
+        :param data: the data row
+        :return: the object representing the row
+        :raises NotImplementedError: because it must be overridden
+        :raises ValueError: should raise a :class:`ValueError` if the row is
+            incomplete or invalid
+        """
+        raise NotImplementedError
+
+    def parse_optional_row(self, data: list[str] | None) -> T | None:
+        """
+        Parse a row of data that may be incomplete or empty.
+
+        The default implementation of this method returns `None` if the data
+        row is `None`, or if `self` is `None`, which should never happen.
+        Otherwise, it calls :meth:`parse_row`, which will probably raise a
+        :class:`ValueError`.
+
+        :param data: the row of data that may be empty
+        :return: an object constructed from the partial row, if possible,
+            or `None`
+        """
+        if (self is None) or (data is None):
+            return None
+        return self.parse_row(data)
+
+    @classmethod
+    def read(cls: type["CsvReader"], rows: Iterable[str],
+             separator: str = CSV_SEPARATOR,
+             comment_start: str | None = COMMENT_START,
+             **kwargs) -> Generator[T, None, None]:
+        """
+        Parse a stream of CSV data.
+
+        This class method creates a single new instance of `cls` and passes it
+        the column names/indices as well as any additional named arguments of
+        this method into the constructor. It then uses the method
+        :meth:`parse_row` of the class to parse the row data to generate the
+        output stream.
+
+        It offers a more convenient wrapper around :func:`csv_read` for cases
+        where it makes more sense to implement the parsing functionality in a
+        class.
+
+        :param rows: the rows of strings with CSV data
+        :param separator: the separator character
+        :param comment_start: the comment start character
+        """
+        def __creator(y: dict[str, int], __c=cls,  # pylint: disable=W0102
+                      __x=kwargs) -> "CsvReader":  # noqa  # type: ignore
+            return cls(y, **__x)  # noqa  # type: ignore
+
+        yield from csv_read(rows=rows,
+                            setup=__creator,
+                            parse_row=cls.parse_row,  # type: ignore
+                            separator=separator,
+                            comment_start=comment_start)
+
+
+class CsvWriter[T]:
+    """
+    A base class for structured CSV writers.
+
+    >>> class W(CsvWriter):
+    ...     def __init__(self, data: Iterable[dict[str, int]],
+    ...                  scope: str | None = None) -> None:
+    ...         super().__init__(data, scope)
+    ...         self.rows = sorted({dkey for datarow in data
+    ...                                 for dkey in datarow})
+    ...     def get_column_titles(self) -> Iterable[str]:
+    ...         return self.rows
+    ...     def get_row(self, row: dict[str, int]) -> Iterable[str]:
+    ...         return map(str, (row.get(key, "") for key in self.rows))
+    ...     def get_header_comments(self) -> list[str]:
+    ...         return ["This is a header comment.", " We have two of it. "]
+    ...     def get_footer_comments(self) -> list[str]:
+    ...         return [" This is a footer comment."]
+
+    >>> dd = [{"a": 1, "c": 2}, {"b": 6, "c": 8},
+    ...       {"a": 4, "d": 12, "b": 3}, {}]
+
+    >>> for p in W.write(dd):
+    ...     print(p[:-8] if "version" in p else p)
+    # This is a header comment.
+    # We have two of it.
+    a;b;c;d
+    1;;2
+    ;6;8
+    4;3;;12
+    ;
+    # This is a footer comment.
+    #
+    # This CSV output has been created using the versatile CSV API of \
+pycommons.io.csv, version
+    # You can find pycommons at https://thomasweise.github.io/pycommons.
+
+    >>> class W2(CsvWriter):
+    ...     def __init__(self, data: Iterable[dict[str, int]],
+    ...                  scope: str | None = None) -> None:
+    ...         super().__init__(data, scope)
+    ...         self.rows = sorted({dkey for datarow in data
+    ...                             for dkey in datarow})
+    ...     def get_column_titles(self) -> Iterable[str]:
+    ...         return self.rows if self.scope is None else [
+    ...             f"{self.scope}.{r}" for r in self.rows]
+    ...     def get_row(self, row: dict[str, int]) -> Iterable[str]:
+    ...         return map(str, (row.get(key, "") for key in self.rows))
+    ...     def get_footer_bottom_comments(self) -> None | Iterable[str]:
+    ...         return ["Bla!"]
+
+    >>> for p in W2.write(dd, separator="@", comment_start="B"):
+    ...     print(p)
+    a@b@c@d
+    1@@2
+    @6@8
+    4@3@@12
+    @
+    B Bla!
+
+    >>> for p in W2.write(dd, scope="k", separator="@", comment_start="B"):
+    ...     print(p)
+    k.a@k.b@k.c@k.d
+    1@@2
+    @6@8
+    4@3@@12
+    @
+    B Bla!
+
+    >>> ";".join(W2(dd).get_optional_row(None))
+    ';;;'
+    >>> ";".join(W2(dd).get_optional_row(dd[0]))
+    '1;;2;'
+
+    >>> try:
+    ...     CsvWriter(1, None)
+    ... except TypeError as te:
+    ...     print(te)
+    data should be an instance of typing.Iterable but is int, namely 1.
+
+    >>> try:
+    ...     CsvWriter([], 1)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object
+
+    >>> try:
+    ...     CsvWriter([], "x x")
+    ... except ValueError as ve:
+    ...     print(ve)
+    invalid scope 'x x'
+
+    >>> try:
+    ...     CsvWriter([]).get_row("x")
+    ... except NotImplementedError as nie:
+    ...     print(type(nie))
+    <class 'NotImplementedError'>
+    """
+
+    def __init__(self, data: Iterable[T],
+                 scope: str | None = None) -> None:
+        """
+        Initialize the csv writer.
+
+        :param data: the data to be written
+        :param scope: the prefix to be pre-pended to all columns
+        :raises TypeError: if `data` is not an `Iterable` or if `scope` is
+            neither `None` nor a string
+        :raises ValueError: if `scope` is not `None` but: an empty string,
+            becomes an empty string after stripping, or contains any
+            whitespace or newline character
+        """
+        super().__init__()
+        if not isinstance(data, Iterable):
+            raise type_error(data, "data", Iterable)
+        if scope is not None:
+            use_scope: Final[str] = str.strip(scope)
+            if (str.__len__(scope) <= 0) or (any(map(
+                    scope.__contains__, WHITESPACE_OR_NEWLINE))):
+                raise ValueError(f"invalid scope {scope!r}")
+            scope = use_scope
+        #: the optional scope
+        self.scope: Final[str | None] = scope
+
+    def get_column_titles(self) -> Iterable[str]:
+        """
+        Get the column titles.
+
+        :returns: the column titles
+        """
+        raise NotImplementedError
+
+    def get_optional_row(self, data: T | None) -> Iterable[str]:
+        """
+        Attach an empty row of the correct shape to the output.
+
+        :param data: the data item or `None`
+        :returns: the optional row data
+        """
+        if data is None:  # very crude and slow way to create an optional row
+            return [""] * list.__len__(list(self.get_column_titles()))
+        return self.get_row(data)
+
+    def get_row(self, data: T) -> Iterable[str]:
+        """
+        Render a single sample statistics to a CSV row.
+
+        :param data: the data sample statistics
+        :return: the row iterator
+        """
+        raise NotImplementedError
+
+    def get_header_comments(self) -> Iterable[str]:
+        """
+        Get any possible header comments.
+
+        :returns: the iterable of header comments
+        """
+        return ()
+
+    def get_footer_comments(self) -> Iterable[str]:
+        """
+        Get any possible footer comments.
+
+        :returns: the footer comments
+        """
+        return ()
+
+    def get_footer_bottom_comments(self) -> None | Iterable[str]:
+        """
+        Get the bottom footer comments.
+
+        :returns: an iterator with the bottom comments
+        """
+        return pycommons_footer_bottom_comments(self)
+
+    @classmethod
+    def write(
+        cls: type["CsvWriter"],
+        data: Iterable[T],
+        scope: str | None = None,
+        separator: str = CSV_SEPARATOR,
+        comment_start: str | None = COMMENT_START,
+            **kwargs) -> Generator[str, None, None]:
+        """
+        Write the CSV data based on the methods provided by the class `cls`.
+
+        :param data: the data
+        :param separator: the CSV separator
+        :param comment_start: the comment start character
+        :param scope: the scope, or `None`
+        :param kwargs: additional arguments to be passed to the constructor
+
+        :raises TypeError: if `kwargs` is not `None` but also not a
+            :class:`dict`
+        """
+        def __creator(y: Iterable[T], __c=cls,  # pylint: disable=W0102
+                      __s=scope,  # noqa  # type: ignore
+                      __x=kwargs) -> "CsvWriter":   # noqa  # type: ignore
+            return __c(data=y, scope=__s, **__x)   # noqa  # type: ignore
+
+        yield from csv_write(
+            data=data,
+            column_titles=cls.get_column_titles,  # type: ignore
+            get_row=cls.get_row,  # type: ignore
+            setup=__creator,
+            separator=separator,
+            comment_start=comment_start,
+            header_comments=cls.get_header_comments,  # type: ignore
+            footer_comments=cls.get_footer_comments,  # type: ignore
+            footer_bottom_comments=cls.  # type: ignore
+            get_footer_bottom_comments)  # type: ignore
