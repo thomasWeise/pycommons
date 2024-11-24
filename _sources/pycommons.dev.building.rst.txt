@@ -1,0 +1,50 @@
+pycommons.dev.building package
+==============================
+
+.. automodule:: pycommons.dev.building
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Submodules
+----------
+
+pycommons.dev.building.build\_info module
+-----------------------------------------
+
+.. automodule:: pycommons.dev.building.build_info
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycommons.dev.building.make\_dist module
+----------------------------------------
+
+.. automodule:: pycommons.dev.building.make_dist
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycommons.dev.building.make\_documentation module
+-------------------------------------------------
+
+.. automodule:: pycommons.dev.building.make_documentation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycommons.dev.building.run\_tests module
+----------------------------------------
+
+.. automodule:: pycommons.dev.building.run_tests
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycommons.dev.building.static\_analysis module
+----------------------------------------------
+
+.. automodule:: pycommons.dev.building.static_analysis
+   :members:
+   :undoc-members:
+   :show-inheritance:
