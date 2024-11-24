@@ -157,6 +157,10 @@ def csv_read(rows: Iterable[str],
     first occurence of `comment_start` is discarted before the line is
     processed.
 
+    If you want to read more complex CSV structures, then using the class
+    :class:`CsvReader` and its class method :meth:`CsvReader.read` are a more
+    convenient approach. They are wrappers around :func:`csv_read`.
+
     :param rows: the rows of text
     :param setup: a function which creates an object holding the necessary
         information for row parsing
@@ -600,6 +604,11 @@ def csv_write(
     print nothing. Alternatively, if you apply multiple `setup` routines to
     the same data that extract different information, then the first `setup`
     run may consume all the data, leaving nothing for the second one.
+
+    If you want to write more complex CSV structures, then implementing the
+    class :class:`CsvWriter` and using its class method
+    :meth:`CsvWriter.write` may be a more convenient solution.
+    They are wrappers around :func:`csv_write`.
 
     :param data: the iterable of data to be written
     :param column_titles: get the column titles
