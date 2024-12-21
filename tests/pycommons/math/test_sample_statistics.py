@@ -156,7 +156,8 @@ def __make_sample_statistics(
         all_samples_same: bool = False,
         has_geometric_mean: bool = True,
         all_samples_int: bool = False,
-        all_samples_float: bool = False) -> SampleStatistics:
+        all_samples_float: bool = False,
+        n: int | None = None) -> SampleStatistics:
     """
     Create random sample statistics.
 
@@ -165,6 +166,7 @@ def __make_sample_statistics(
     :param has_geometric_mean: do we have a geometric mean?
     :param all_samples_int: should we use only integer numbers?
     :param all_samples_float: should we use only floating point numbers?
+    :param n: the number of samples to generate
     :returns: the sample statistics and the data it was created from
     """
     if not isinstance(multiple_samples, bool):
@@ -180,8 +182,8 @@ def __make_sample_statistics(
     if not ((not all_samples_int) or (not all_samples_float)):
         raise ValueError(f"{all_samples_int} <-> {all_samples_float}")
 
-    n_samples: Final[int] = max(2, min(MAX_N, int(expovariate(0.01)))) \
-        if multiple_samples else 1
+    n_samples: Final[int] = (max(2, min(MAX_N, int(expovariate(0.01))))
+                             if multiple_samples else 1) if n is None else n
     if multiple_samples != (n_samples > 1):
         raise ValueError(f"{multiple_samples} vs. {n_samples}")
     if (not multiple_samples) and (not all_samples_same):
@@ -991,16 +993,22 @@ def __do_test_multi_csv(same_n: bool) -> None:
 
     for _ in range(randint(1, 22)):
         a = __make_sample_statistics(has_geometric_mean=randint(0, 1) <= 0)
-        while True:
+
+        if same_n:
+            b = __make_sample_statistics(
+                has_geometric_mean=randint(0, 1) <= 0,
+                n=a.n, multiple_samples=a.n > 1)
+        else:
             b = __make_sample_statistics(
                 has_geometric_mean=randint(0, 1) <= 0)
-            if (not same_n) or (b.n == a.n):
-                break
-        while True:
+
+        if same_n:
+            c = __make_sample_statistics(
+                has_geometric_mean=randint(0, 1) <= 0,
+                n=a.n, multiple_samples=a.n > 1)
+        else:
             c = __make_sample_statistics(
                 has_geometric_mean=randint(0, 1) <= 0)
-            if (not same_n) or (c.n == a.n):
-                break
         data.append((a, b, c))
 
     text: list[str] = list(_TCW.write(data, needs_n=not same_n))

@@ -22,30 +22,30 @@
 # urllib3 and certifi are used to check the URLs in the [dev] extras variant
 # of our package. They are used to check URL in markdown files.
 urllib3 == 2.2.3
-certifi == 2024.8.30
+certifi == 2024.12.14
 
 # these static analysis tools are also needed for the [dev] extras variant
 # only
 autoflake == 2.3.1
-bandit == 1.7.10
-coverage == 7.6.5
+bandit == 1.8.0
+coverage == 7.6.9
 coverage-badge == 1.1.2
 dlint == 0.16.0
 dodgy == 0.2.1
 flake8 == 7.1.1
-flake8-bugbear == 24.10.31
+flake8-bugbear == 24.12.12
 flake8-eradicate == 1.5.0
 flake8-use-fstring == 1.4
-mypy == 1.13.0
+mypy == 1.14.0
 pycodestyle == 2.12.1
 pydocstyle == 6.3.0
 pyflakes == 3.2.0
-pylint == 3.3.1
+pylint == 3.3.2
 pyroma == 4.2
-ruff == 0.7.3
-tryceratops == 2.4.0
+ruff == 0.8.4
+tryceratops == 2.4.1
 unimport == 1.2.1
-vulture == 2.13
+vulture == 2.14
 
 # sphinx is needed for generating the documentation. Together with its
 # modules, it parses the documentation root file as well as the code and
@@ -69,7 +69,7 @@ minify_html == 0.15.0
 # errors. But they can at least check whether our code behaves as it should in
 # some usual or border cases. Also, they can help us find out if changes in
 # the code lead to changes in (tested/expected) behavior.
-pytest == 8.3.3
+pytest == 8.3.4
 pytest-timeout == 2.3.1
 
 # for converting the additional markdown files to HTML in the [dev] variant
@@ -77,11 +77,11 @@ markdown == 3.7
 
 # setuptools, testresources, twine, virtualenv, and wheel are needed for
 # generating the installable pip package in the [dev] variant.
-setuptools == 75.5.0
+setuptools == 75.6.0
 testresources == 2.0.1
-twine == 5.1.1
-virtualenv == 20.27.1
-wheel == 0.45.0
+twine == 6.0.1
+virtualenv == 20.28.0
+wheel == 0.45.1
 
 # psutil is used for getting information about the system configuration.
-psutil == 6.1.0
+psutil == 6.1.1

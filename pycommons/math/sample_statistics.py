@@ -2,11 +2,11 @@
 
 from contextlib import suppress
 from dataclasses import dataclass
-from math import gcd, inf, isfinite, log2, nextafter, sqrt
+from fractions import Fraction
+from math import ceil, inf, isfinite, nan, nextafter
 from statistics import geometric_mean as stat_geomean
 from statistics import mean as stat_mean
-from statistics import stdev as stat_stddev
-from typing import Callable, Final, Iterable, cast
+from typing import Callable, Final, Iterable
 
 from pycommons.io.csv import (
     CSV_SEPARATOR,
@@ -21,12 +21,10 @@ from pycommons.io.csv import CsvReader as CsvReaderBase
 from pycommons.io.csv import CsvWriter as CsvWriterBase
 from pycommons.math.int_math import (
     __DBL_INT_LIMIT_P_I,
-    try_float_int_div,
+    ceil_div,
+    float_to_frac,
     try_int,
-    try_int_add,
     try_int_div,
-    try_int_mul,
-    try_int_sqrt,
 )
 from pycommons.strings.string_conv import (
     num_or_none_to_str,
@@ -53,7 +51,7 @@ KEY_N: Final[str] = "n"
 KEY_VALUE: Final[str] = "value"
 
 
-@dataclass(frozen=True, init=False, order=False, eq=True, unsafe_hash=True)
+@dataclass(frozen=True, init=False, order=False, eq=False)
 class SampleStatistics:
     """An immutable record with sample statistics of one quantity."""
 
@@ -437,7 +435,7 @@ class SampleStatistics:
     def __key(self) -> tuple[float | int, float | int, float | int,
                              float | int, float | int, float | int, int]:
         r"""
-        Get a comparison key.
+        Get a comparison and hash key.
 
         :return: the comparison key
 
@@ -453,9 +451,9 @@ class SampleStatistics:
                 self.maximum, inf if self.stddev is None else self.stddev,
                 self.n)
 
-    def __lt__(self, other: "SampleStatistics") -> bool:
+    def __lt__(self, other) -> bool:
         """
-        Check if this object is less than another one.
+        Check if this statistics record is less than another one.
 
         :param other: the other sample statistics
         :return: `True` if this object is less, `False` otherwise
@@ -475,15 +473,14 @@ class SampleStatistics:
         ...     s3 < 23
         ... except TypeError as te:
         ...     print(str(te)[:60])
-        other should be an instance of pycommons.math.sample_statist
+        '<' not supported between instances of 'SampleStatistics' an
         """
-        if isinstance(other, SampleStatistics):
-            return self.__key() < other.__key()
-        raise type_error(other, "other", SampleStatistics)
+        return self.__key() < other.__key()\
+            if isinstance(other, SampleStatistics) else NotImplemented
 
-    def __le__(self, other: "SampleStatistics") -> bool:
+    def __le__(self, other) -> bool:
         """
-        Check if this object is less than or equal to another one.
+        Check if this statistics record is less than or equal to another one.
 
         :param other: the other sample statistics
         :return: `True` if this object is less or equal, `False` otherwise
@@ -503,15 +500,14 @@ class SampleStatistics:
         ...     s3 <= 23
         ... except TypeError as te:
         ...     print(str(te)[:60])
-        other should be an instance of pycommons.math.sample_statist
+        '<=' not supported between instances of 'SampleStatistics' a
         """
-        if isinstance(other, SampleStatistics):
-            return self.__key() <= other.__key()
-        raise type_error(other, "other", SampleStatistics)
+        return self.__key() <= other.__key() \
+            if isinstance(other, SampleStatistics) else NotImplemented
 
-    def __gt__(self, other: "SampleStatistics") -> bool:
+    def __gt__(self, other) -> bool:
         """
-        Check if this object is greater than another one.
+        Check if this statistics record is greater than another one.
 
         :param other: the other sample statistics
         :return: `True` if this object is greater, `False` otherwise
@@ -531,13 +527,12 @@ class SampleStatistics:
         ...     s3 > 23
         ... except TypeError as te:
         ...     print(str(te)[:60])
-        other should be an instance of pycommons.math.sample_statist
+        '>' not supported between instances of 'SampleStatistics' an
         """
-        if isinstance(other, SampleStatistics):
-            return self.__key() > other.__key()
-        raise type_error(other, "other", SampleStatistics)
+        return self.__key() > other.__key() \
+            if isinstance(other, SampleStatistics) else NotImplemented
 
-    def __ge__(self, other: "SampleStatistics") -> bool:
+    def __ge__(self, other) -> bool:
         """
         Check if this object is greater than or equal to another one.
 
@@ -559,11 +554,69 @@ class SampleStatistics:
         ...     s3 >= 23
         ... except TypeError as te:
         ...     print(str(te)[:60])
-        other should be an instance of pycommons.math.sample_statist
+        '>=' not supported between instances of 'SampleStatistics' a
         """
-        if isinstance(other, SampleStatistics):
-            return self.__key() >= other.__key()
-        raise type_error(other, "other", SampleStatistics)
+        return self.__key() >= other.__key() \
+            if isinstance(other, SampleStatistics) else NotImplemented
+
+    def __eq__(self, other) -> bool:
+        """
+        Check if this statistics record equals another object.
+
+        :param other: the other obect
+        :return: `True` if this object is equal, `False` otherwise
+
+        >>> s1 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
+        >>> s2 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
+        >>> s1 == s2
+        True
+
+        >>> s3 = SampleStatistics(2, 0.5, 2, 4.0, 3, 6, 0.2)
+        >>> s3 == s1
+        False
+
+        >>> s3 == 23
+        False
+        """
+        return (isinstance(other, SampleStatistics)) and (
+            self.__key() == other.__key())
+
+    def __ne__(self, other) -> bool:
+        """
+        Check if this statistics record does not equal another object.
+
+        :param other: the other sample statistics
+        :return: `True` if this object is not equal, `False` otherwise
+
+        >>> s1 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
+        >>> s2 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
+        >>> s1 != s2
+        False
+
+        >>> s3 = SampleStatistics(2, 0.5, 2, 4.0, 3, 6, 0.2)
+        >>> s3 != s1
+        True
+
+        >>> s3 != "x"
+        True
+        """
+        return (not isinstance(other, SampleStatistics)) or (
+            self.__key() != other.__key())
+
+    def __hash__(self) -> int:
+        """
+        Compute the hash code of this statistics record.
+
+        :return: the hash code
+
+        >>> hash(SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2))
+        1256902036954760112
+
+        >>> hash(SampleStatistics(2, -1, 2, 4.0, None, 6, 0.2))
+        -676871091302665479
+        """
+        return hash((self.n, self.minimum, self.median, self.mean_arith,
+                     self.mean_geom, self.maximum, self.stddev))
 
     def get_n(self) -> int:
         """
@@ -962,7 +1015,6 @@ def __almost_le(a: int | float, b: int | float) -> bool:
         a_int: Final[int] = int(a)
         b_int: Final[int] = int(b)
         return (9999999999999 * a_int) <= (b_int * 10000000000000)
-    return False
 
 
 def from_single_value(value: int | float | SampleStatistics, n: int = 1) \
@@ -1103,6 +1155,275 @@ def from_single_value(value: int | float | SampleStatistics, n: int = 1) \
         stddev=None if n <= 1 else 0)
 
 
+def __to_frac(a: int | float) -> Fraction:
+    """
+    Convert a number to a fraction.
+
+    :param a: the number
+    :return: the fraction
+
+    >>> __to_frac(23)
+    Fraction(23, 1)
+    >>> __to_frac(2.34)
+    Fraction(117, 50)
+    """
+    return Fraction(a) if isinstance(a, int) else Fraction(*float_to_frac(a))
+
+
+def __from_frac(a: int | float | Fraction) -> int | float:
+    """
+    Convert a fraction to either an integer or a float.
+
+    :param a: the fraction
+    :return: the integer or float value
+
+    >>> __from_frac(1.6)
+    1.6
+    >>> __from_frac(123)
+    123
+    >>> __from_frac(Fraction(7, 8))
+    0.875
+    >>> __from_frac(Fraction(1237, 1))
+    1237
+    """
+    if isinstance(a, int):
+        return a
+    if isinstance(a, float):
+        return try_int(a)
+    num: Final[int] = a.numerator
+    denom: Final[int] = a.denominator
+    if denom == 1:
+        return num
+    return try_int_div(num, denom)
+
+
+#: the 0 fraction
+__FRAC_0: Final[Fraction] = Fraction(0, 1)
+#: the 1 fraction
+__FRAC_1: Final[Fraction] = Fraction(1, 1)
+
+
+def __int_root_bound_lower(base: int, root: int) -> int:
+    """
+    Compute a lower bound for a root.
+
+    We use that `log(a ** b) = log(a) * b`.
+    In binary, this means that: `a ** b == 2 ** (log2(a) * b)`, or, for roots
+    `a ** (1/b) == 2 ** (log2(a) / b`.
+    In bits, `2 ** x == 1 << x` and `floor(log2(x)) == x.bit_length() - 1`.
+    Therefore, we know that `a ** (1/b) >= 1 << ((a.bit_length() // b) - 1)`.
+    Similarly, we can have an upper bound by rounding up at each step
+    `a ** (1/b) <= 1 << (1 + ((b.bit_length() + 1) // root)
+
+    :param base: the base number
+    :param root: the root
+    :return: the lower bound
+
+    >>> __int_root_bound_lower(8, 3)
+    1
+
+    >>> __int_root_bound_lower(8, 2)
+    2
+
+    >>> __int_root_bound_lower(25, 3)
+    1
+    """
+    logdiv: Final[int] = base.bit_length() // root
+    return (1 << (logdiv - 1)) if logdiv > 0 else (0 if base < 1 else 1)
+
+
+def __int_root_bound_upper(base: int, root: int) -> int:
+    """
+    Compute an upper bound for a root.
+
+    :param base: the base number
+    :param root: the root
+    :return: the upper bound
+
+    >>> __int_root_bound_upper(8, 3)
+    4
+
+    >>> __int_root_bound_upper(8, 2)
+    4
+
+    >>> __int_root_bound_upper(25, 3)
+    8
+    """
+    return base if root == 1 else min(1 << (1 + ceil_div(
+        base.bit_length() + 1, root)), (base // 2) + (1 if base < 6 else 0))
+
+
+def __frac_root_bound_lower(base: Fraction, root: int) -> Fraction:
+    """
+    Compute a lower bound for a root.
+
+    :param base: the base number
+    :param root: the root
+    :return: the lower bound
+
+    >>> __frac_root_bound_lower(Fraction(8), 3)
+    Fraction(1, 1)
+
+    >>> __frac_root_bound_lower(Fraction(8), 2)
+    Fraction(2, 1)
+
+    >>> __frac_root_bound_lower(Fraction(25), 3)
+    Fraction(1, 1)
+
+    >>> __frac_root_bound_lower(Fraction(3, 8), 3)
+    Fraction(1, 2)
+
+    >>> __frac_root_bound_lower(Fraction(11, 8), 2)
+    Fraction(1, 1)
+
+    >>> __frac_root_bound_lower(Fraction(11, 25), 3)
+    Fraction(1, 2)
+    """
+    return __FRAC_0 if base <= __FRAC_0 else (
+        Fraction(1, __int_root_bound_upper(ceil_div(
+            base.denominator, base.numerator), root))
+        if base < __FRAC_1 else (
+            __FRAC_1 if base == __FRAC_1 else Fraction(
+                __int_root_bound_lower(int(base), root))))
+
+
+def __frac_root_bound_upper(base: Fraction, root: int) -> Fraction:
+    """
+    Compute an upper bound for a root.
+
+    :param base: the base number
+    :param root: the root
+    :return: the upper bound
+
+    >>> __frac_root_bound_upper(Fraction(8), 3)
+    Fraction(4, 1)
+
+    >>> __frac_root_bound_upper(Fraction(8), 2)
+    Fraction(4, 1)
+
+    >>> __frac_root_bound_upper(Fraction(25), 3)
+    Fraction(8, 1)
+
+    >>> __frac_root_bound_upper(Fraction(3, 8), 3)
+    Fraction(1, 1)
+
+    >>> __frac_root_bound_upper(Fraction(11, 8), 2)
+    Fraction(2, 1)
+
+    >>> __frac_root_bound_upper(Fraction(11, 25), 3)
+    Fraction(1, 1)
+    """
+    return __FRAC_0 if base <= __FRAC_0 else (
+        Fraction(1, __int_root_bound_lower(
+            base.denominator // base.numerator, root))
+        if base < __FRAC_1 else (
+            __FRAC_1 if base == __FRAC_1 else Fraction(
+                __int_root_bound_upper(int(ceil(base)), root))))
+
+
+def __limited_root(base: Fraction, root: int,
+                   mini: Fraction = __FRAC_0,
+                   maxi: Fraction | None = None) -> int | float:
+    """
+    Try to compute a root at a precision so exact that no digits are lost.
+
+    :param base: the base
+    :param root: the exponent
+    :param mini: a limit for the smallest possible result
+    :param maxi: a maximum value, the limit for the largest possible result,
+        or `None` if no upper limit is known
+    :return: the power
+
+    >>> from math import sqrt
+    >>> sqrt(3)
+    1.7320508075688772
+    >>> __limited_root(Fraction(3, 1), 2)
+    1.7320508075688772
+    >>> __limited_root(Fraction(4, 1), 2)
+    2
+
+    >>> __limited_root(Fraction(3 ** 3, 1), 3)
+    3
+    >>> type(__limited_root(Fraction(3 ** 3, 1), 3))
+    <class 'int'>
+
+    >>> __limited_root(Fraction(3 ** 333, 1), 333)
+    3
+
+    >>> __limited_root(Fraction(9000 ** 1000, 1), 1000)
+    9000
+
+    >>> __limited_root(Fraction((10 ** 8) ** 100, 1), 35)
+    71968567300115201992879
+
+    >>> 0.456 ** (1 / 25)
+    0.9690776862089129
+    >>> __limited_root(Fraction(456, 1000), 25)
+    0.9690776862089129
+
+    >>> __limited_root(Fraction(2, 1), 2)
+    1.4142135623730951
+    >>> sqrt(2)
+    1.4142135623730951
+    """
+    lower: Fraction | None = None
+    upper: Fraction | None = None
+    if base.denominator == 1:
+        ibase = base.numerator
+        if ibase <= 1:
+            return ibase
+
+        ilower: int = max(int(mini), __int_root_bound_lower(ibase, root))
+        iupper: int = __int_root_bound_upper(ibase, root)
+        if maxi is not None:
+            iupper = min(int(maxi) + 1, iupper)
+        imid: int = ilower
+        while ilower <= iupper:
+            imid = (ilower + iupper) >> 1
+            imid_exp = imid ** root
+            if imid_exp > ibase:
+                iupper = imid - 1
+            elif imid_exp < ibase:
+                ilower = imid + 1
+            else:
+                return imid  # We got an exact integer result
+        # No exact integer result, but at least new limits
+        upper = Fraction(imid + 1)
+        lower = Fraction(max(0, imid - 1))
+
+    # Now we do binary search using fractions
+    if upper is None:
+        upper = max(base, __FRAC_1)
+    if maxi is not None:
+        upper = min(upper, maxi)
+    upper = min(upper, __frac_root_bound_upper(base, root))
+    if lower is None:
+        lower = __FRAC_0
+    lower = max(mini, lower)
+    lower = max(lower, __frac_root_bound_lower(base, root))
+
+    # Now compute the root using binary search within the limits.
+    guess: int | float = nan
+    equal_steps: int = 4
+    while equal_steps > 0:
+        last_guess: int | float = guess
+        mid: Fraction = (lower + upper) / 2
+        mid_exp = mid ** root
+        if mid_exp > base:
+            upper = mid
+        elif mid_exp < base:
+            lower = mid
+        else:
+            return __from_frac(mid)
+
+        guess = __from_frac(mid)
+        if (type(guess) is type(last_guess)) and (guess == last_guess):
+            equal_steps -= 1
+        else:
+            equal_steps = 4
+    return guess
+
+
 def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     """
     Create a statistics object from an iterable of integers or floats.
@@ -1177,6 +1498,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     >>> print(s.stddev)
     0
 
+    >>> from statistics import stdev as stat_stddev
     >>> dd = [1.5, 2.5]
     >>> s = from_samples(dd)
     >>> s.n
@@ -1307,12 +1629,14 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     >>> s.maximum
     4.9
     >>> print(s.mean_geom)
-    3.497139351921697
+    3.4971393519216964
+    >>> 3.4971393519216964 ** 4
+    149.5725
     >>> (3.3 * 2.5 * 3.7 * 4.9) ** 0.25
     3.497139351921697
     >>> s.median
     3.5
-    >>> print(s.stddev)
+    >>> s.stddev
     1.0000000000000002
     >>> stat_stddev(dd)
     1.0000000000000002
@@ -1346,7 +1670,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     >>> print(s.median)
     13
     >>> print(s.mean_geom)
-    12.19715026502289
+    12.197150265022891
     >>> stat_geomean(dd)
     12.19715026502289
     >>> print(s.stddev)
@@ -1386,7 +1710,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     171787904870400.1
 
     >>> print(s.stddev)
-    10.917042556563485
+    10.917042556563484
     >>> print(str(stat_stddev(dd))[:-1])
     10.91704255656348
 
@@ -1406,14 +1730,14 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     1041417453269301410322718941408784761
 
     >>> print(s.mean_geom)
-    9.382801392765291e+35
+    938280139276529201997232316081385153
     >>> stat_geomean(dd)
     9.38280139276522e+35
 
     >>> str(dd[0] * dd[1] * dd[2])[:60]
     '826033329443972563356247815302467930409182372405786485790679'
-    >>> str(int(9.382801392765291e+35) ** 3)[:60]
-    '826033329443972374842763874805993468673735440486439147266106'
+    >>> str(938280139276529201997232316081385153 ** 3)[:60]
+    '826033329443972563356247815302467929164458081790138679285598'
     >>> str(int(9.38280139276522e+35) ** 3)[:60]
     '826033329443953666416831847378532327244986484162191539691938'
 
@@ -1440,7 +1764,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     482178404791292289021955619498303854464057392180997
 
     >>> print(s.mean_geom)
-    3.783188481668667e+50
+    378318848166864995660791573439112525534046591591759
     >>> stat_geomean(dd)
     3.78318848166862e+50
 
@@ -1503,7 +1827,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     >>> dd = [44, 63, 63, 68, 68, 68, 70, 74, 74, 80, 95, 108, 110, 128]
     >>> s = from_samples(dd)
     >>> print(s.mean_geom)
-    76.6864641736076
+    76.68646417360762
     >>> print(stat_geomean(dd))
     76.68646417360763
 
@@ -1521,6 +1845,74 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
 843032960943121516556362641127137000879"))).mean_arith
     38408781925110551288804847071749420604746651597990567009597840581\
 565913672301929416406528849308895284373981465359
+
+    Corner cases where the standard deviation resulting from compact fractions
+    deviates very much from the standard deviation resulting from normalized
+    fractions:
+
+    >>> dd = [-7.737125245533627e+25] * 28
+    >>> dd[2] = -7.737125245533626e+25
+    >>> s = from_samples(dd)
+    >>> s.stddev
+    1623345050.6245058
+    >>> stat_stddev(dd)
+    1623345050.6245058
+    >>> ddx = tuple(map(__to_frac, dd))
+    >>> ds = sum(ddx)
+    >>> dss = sum(ddy * ddy for ddy in ddx)
+    >>> from math import sqrt
+    >>> sqrt((dss - (ds * ds / 28)) / 27)
+    1889822365.0461361
+
+    Here the standard deviation becomes meaningless.
+    If you compute it based on converting all values to floats, you get
+    something like 0.435.
+    You get the same result if you represent all values directly as
+    Fractions.
+    However, if you represent the float values as more compact Fractions,
+    i.e., as Fractions that map to the exactly same floats but have smaller
+    denominators, you get a standard deviation of 9.32+64.
+    Basically, the difference is 65 orders of magnitude.
+    But the source numbers would be exactly the same...
+    The reason is the limited range of floats.
+    >>> dd = (7.588550360256754e+81, int("75885503602567541832791480735293707\
+29071901715047420004889892225542594864082845697"), int("758855036025675418327\
+9148073529370729071901715047420004889892225542594864082845697"),
+    ... 7.588550360256754e+81, 7.588550360256754e+81, 7.588550360256754e+81,
+    ... int("7588550360256754183279148073529370729071901715047420004889892225\
+542594864082845696"), 7.588550360256754e+81, 7.588550360256754e+81,
+    ... 7.588550360256754e+81, 7.588550360256754e+81, int("758855036025675418\
+3279148073529370729071901715047420004889892225542594864082845696"), int("7588\
+55036025675418327914807352937072907190171504742000488989222554259486408284569\
+7"), int("7588550360256754183279148073529370729071901715047420004889892225542\
+594864082845696"), int("75885503602567541832791480735293707290719017150474200\
+04889892225542594864082845696"), int("758855036025675418327914807352937072907\
+1901715047420004889892225542594864082845697"), 7.588550360256754e+81,
+    ... int("7588550360256754183279148073529370729071901715047420004889892225\
+542594864082845697"), int("75885503602567541832791480735293707290719017150474\
+20004889892225542594864082845697"), int("758855036025675418327914807352937072\
+9071901715047420004889892225542594864082845697"), 7.588550360256754e+81,
+    ... int("7588550360256754183279148073529370729071901715047420004889892225\
+542594864082845696"), int("75885503602567541832791480735293707290719017150474\
+20004889892225542594864082845696"), 7.588550360256754e+81,
+    ... 7.588550360256754e+81, int("75885503602567541832791480735293707290719\
+01715047420004889892225542594864082845696"), 7.588550360256754e+81,
+    ... 7.588550360256754e+81, 7.588550360256754e+81)
+    >>> s = from_samples(dd)
+    >>> s.stddev
+    0.4354941703556927
+    >>> stat_stddev(dd)
+    0.4354941703556927
+    >>> ddx = tuple(map(__to_frac, dd))
+    >>> ds = sum(ddx)
+    >>> dss = sum(ddy * ddy for ddy in ddx)
+    >>> __limited_root((dss - (ds * ds / len(dd))) / (len(dd) - 1), 2)
+    93206175962530968626911348905791729797971161757128018983942059951
+    >>> ddx = tuple(map(Fraction, dd))
+    >>> ds = sum(ddx)
+    >>> dss = sum(ddy * ddy for ddy in ddx)
+    >>> __limited_root((dss - (ds * ds / len(dd))) / (len(dd) - 1), 2)
+    0.4354941703556927
 
     >>> try:
     ...     from_samples(1)
@@ -1567,98 +1959,60 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
             (n * (1 + max(maximum, 0) - min(minimum, 0)))
             < __DBL_INT_LIMIT_P_I) else None)
     mean_geom: int | float | None = None  # We do not know the geometric mean
-    stddev: int | float | None = None  # and neither the standard deviation.
+    # Go over the data once and see if we can treat it as all-integer.
+    # If yes, then we can compute some statistics very precisely.
+    # are all values integers?
+    int_sum: int = 0  # the integer sum (for mean, stddev)
+    int_sum_sqr: int = 0  # the sum of squares (for stddev)
+    int_sum_sqr_2: int = 0  # the sum of squares (for stddev)
+    int_prod: int = 1  # the integer product (for geom_mean)
+    frac_sum: Fraction = __FRAC_0
+    frac_sum_sqr: Fraction = frac_sum
+    frac_prod: Fraction = __FRAC_1
 
-    if can_int:  # can we try to do exact computations using ints?
-        # Go over the data once and see if we can treat it as all-integer.
-        # If yes, then we can compute some statistics very precisely.
-        # are all values integers?
-        int_sum: int = 0  # the integer sum (for mean, stddev)
-        int_prod: int = 1  # the integer product (for geom_mean)
-        int_sum_sqr: int = 0  # the sum of squares (for stddev)
-        big_gcd: int = cast(int, minimum)  # the GCD of *all* the integers
+    # The following is *only* used if we have *only* integer data.
+    # stddev((a, b, ...)) = stddev((a-x, b-x, ...))
+    # If we can shift the whole data such that its center is around 0,
+    # then the difference that we have to add up become smaller, and thus
+    # the floating point arithmetic that we may need to use becomes more
+    # accurate. If we know the mean, then shifting the data by the mean
+    # will lead to the smallest sum of deviations. If we know only the
+    # median, then this is better than nothing.
+    shift: Final[int] = int(median) if mean_arith is None \
+        else (mean_arith if isinstance(mean_arith, int)
+              else int(round(mean_arith)))
 
-        # The following is *only* used if we have *only* integer data.
-        # stddev((a, b, ...)) = stddev((a-x, b-x, ...))
-        # If we can shift the whole data such that its center is around 0,
-        # then the difference that we have to add up become smaller, and thus
-        # the floating point arithmetic that we may need to use becomes more
-        # accurate. If we know the mean, then shifting the data by the mean
-        # will lead to the smallest sum of deviations. If we know only the
-        # median, then this is better than nothing.
-        shift: Final[int] = int(median) if mean_arith is None \
-            else (mean_arith if isinstance(mean_arith, int)
-                  else int(round(mean_arith)))
-
-        for ee in data:  # iterate over all data
-            if not isinstance(ee, int):
-                can_int = False
-                break
-            int_prod *= ee  # We can compute exact products (needed for gmean)
-            big_gcd = gcd(big_gcd, ee)
-            e: int = ee - shift  # shift to improve precision
+    for ii, ee in enumerate(data):  # iterate over all data
+        if can_int and (not isinstance(ee, int)):
+            frac_sum = Fraction(int_sum + ii * shift)
+            frac_sum_sqr = Fraction(int_sum_sqr_2)
+            frac_prod = Fraction(int_prod)
+            can_int = False
+        if can_int:  # == ee must be int
+            int_sum_sqr_2 += ee * ee  # type: ignore
+            int_prod *= ee  # type: ignore
+            e: int = ee - shift  # type: ignore
             int_sum += e  # so we can sum exactly
             int_sum_sqr += e * e  # and compute the sum of squares
+        else:
+            eef = Fraction(ee)
+            frac_sum += eef
+            frac_sum_sqr += eef * eef
+            frac_prod *= eef
 
+    if n > 2:  # mean_arith is None or an approximation
+        mean_arith = __from_frac((Fraction(
+            int_sum, n) + shift) if can_int else (frac_sum / n))
+    stddev: Final[int | float] = __limited_root(((int_sum_sqr - Fraction(
+        int_sum * int_sum, n)) if can_int else (frac_sum_sqr - (
+            frac_sum * frac_sum / n))) / (n - 1), 2)
+
+    if minimum > 0:  # geometric mean only defined for all-positive
         if can_int:
-            if n > 2:  # mean_arith is None or an approximation
-                mean_arith = try_int_add(shift, try_int_div(int_sum, n))
+            frac_prod = Fraction(int_prod)
+        mean_geom = __limited_root(
+            frac_prod, n, __to_frac(minimum), __to_frac(maximum))
 
-            if stddev is None:
-                with suppress(ArithmeticError):
-                    issmvs: int | float = try_int_add(
-                        int_sum_sqr, -try_int_div(int_sum * int_sum, n))
-                    var: Final[int | float] = try_float_int_div(issmvs, n - 1)
-                    stddev_test: Final[float] = try_int_sqrt(var) if \
-                        isinstance(var, int) else sqrt(var)
-                    if stddev_test > 0:
-                        stddev = stddev_test
-
-            if minimum > 0:  # geometric mean only defined for all-positive
-                mean_geom_a: float | None = None
-                mean_geom_b: float | None = None
-
-                # most likely, big_gcd is 1 ... but we can try...
-                int_prod //= (big_gcd ** n)  # must be exact: it's the gcd
-                lower: Final[int] = cast(int, minimum) // big_gcd  # exact
-                upper: Final[int] = cast(int, maximum) // big_gcd  # exact
-
-                # two different attempts to compute the geometric mean
-                # either by log-scaling
-                with suppress(ArithmeticError):
-                    mean_geom_test = 2 ** try_int(log2(int_prod) / n)
-                    if isfinite(mean_geom_test) and (
-                            lower <= mean_geom_test <= upper):
-                        mean_geom_a = mean_geom_test
-
-                # or by computing the actual root
-                with suppress(ArithmeticError):
-                    mean_geom_test = try_int(int_prod ** (1 / n))
-                    if isfinite(mean_geom_test) and (
-                            lower <= mean_geom_test <= upper):
-                        mean_geom_b = mean_geom_test
-
-                if mean_geom_a is None:  # the log scaling failed
-                    mean_geom = None if mean_geom_b is None \
-                        else try_int_mul(big_gcd, mean_geom_b)
-                elif mean_geom_b is not None:  # so the actual root worked, too
-                    if mean_geom_a > mean_geom_b:
-                        mean_geom_a, mean_geom_b = mean_geom_b, mean_geom_a
-                    # the difference will not be big, we can try everything
-                    best_diff = inf
-                    while mean_geom_a <= mean_geom_b:
-                        diff = abs(int_prod - (mean_geom_a ** n))
-                        if diff < best_diff:
-                            best_diff = diff
-                            mean_geom = try_int_mul(big_gcd, mean_geom_a)
-                        mean_geom_a = nextafter(mean_geom_a, inf)
-                else:
-                    mean_geom = try_int_mul(big_gcd, mean_geom_a)
-
-    if mean_arith is None:
-        mean_arith = stat_mean(data)
-    if stddev is None:
-        stddev = stat_stddev(data)
     if (mean_geom is None) and (minimum > 0):
         mean_geom = stat_geomean(data)
 
