@@ -233,6 +233,34 @@ namely False.
         else float_to_str(value)
 
 
+def bool_or_num_to_str(value: int | float | bool) -> str:
+    """
+    Convert a `bool` or number to string.
+
+    :param value: the number or `bool`
+    :return: the string
+    :raists TypeError: if the number is neither `bool`, `float`, or `int`.
+
+    >>> bool_or_num_to_str(True)
+    'T'
+    >>> bool_or_num_to_str(False)
+    'F'
+    >>> bool_or_num_to_str(12.0)
+    '12'
+    >>> bool_or_num_to_str(12)
+    '12'
+    >>> bool_or_num_to_str(12.5)
+    '12.5'
+    >>> try:
+    ...     bool_or_num_to_str("x")
+    ... except TypeError as te:
+    ...     print(te)
+    value should be an instance of float but is str, namely 'x'.
+    """
+    return bool_to_str(value) if isinstance(value, bool) else (
+        int.__str__(value) if isinstance(value, int) else float_to_str(value))
+
+
 def num_or_none_to_str(value: int | float | None) -> str:
     """
     Convert a numerical type (`int`, `float`) or `None` to a string.
