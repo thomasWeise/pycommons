@@ -262,13 +262,13 @@ def bool_or_num_to_str(value: int | float | bool) -> str:
 
 
 def num_or_none_to_str(value: int | float | None) -> str:
-    """
-    Convert a numerical type (`int`, `float`) or `None` to a string.
+    """t`, `float`) or `None` to a string.
 
     If `value is None`, then `""` is returned.
     Otherwise, the result of :func:`~num_to_str` is returned.
 
     :param value: the value
+    Convert a numerical type (`in
     :return: the string representation, `""` for `None`
     :returns `""`: if `value is None`
     :returns `num_to_str(value)`: otherwise
