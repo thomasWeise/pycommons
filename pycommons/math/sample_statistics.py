@@ -1433,11 +1433,11 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     However, sometimes, something else may work: In particular, if the data
     consists of only integers. In this case, it just might be possible to
     compute the statistics very accurately with integer precision, where
-    possible.
-
-    Let's say we have a sequence of pure integers.
-    We can compute the arithmetic mean by
-
+    possible. Also, otherwise, we can often accummulate the data using
+    instances of :class:`fractions.Fraction`. Indeed, even the
+    :mod:`statistics` routines may do this, but they convert to `float` in
+    cases of non-1 denominators, even if the integer presentation was much
+    more accurate.
 
     :param source: the source
     :return: a statistics representing the statistics over `source`
@@ -1958,6 +1958,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
         try_int(stat_mean(data)) if can_int and (
             (n * (1 + max(maximum, 0) - min(minimum, 0)))
             < __DBL_INT_LIMIT_P_I) else None)
+    mean_arith_frac: Fraction | None = None
     mean_geom: int | float | None = None  # We do not know the geometric mean
     # Go over the data once and see if we can treat it as all-integer.
     # If yes, then we can compute some statistics very precisely.
@@ -2001,8 +2002,9 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
             frac_prod *= eef
 
     if n > 2:  # mean_arith is None or an approximation
-        mean_arith = __from_frac((Fraction(
-            int_sum, n) + shift) if can_int else (frac_sum / n))
+        mean_arith_frac = (Fraction(int_sum, n) + shift) \
+            if can_int else (frac_sum / n)
+        mean_arith = __from_frac(mean_arith_frac)
     stddev: Final[int | float] = __limited_root(((int_sum_sqr - Fraction(
         int_sum * int_sum, n)) if can_int else (frac_sum_sqr - (
             frac_sum * frac_sum / n))) / (n - 1), 2)
@@ -2010,8 +2012,13 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     if minimum > 0:  # geometric mean only defined for all-positive
         if can_int:
             frac_prod = Fraction(int_prod)
+        # # mean_geom always <= mean_arith
         mean_geom = __limited_root(
-            frac_prod, n, __to_frac(minimum), __to_frac(maximum))
+            frac_prod, n, __to_frac(minimum), min(
+                __to_frac(maximum), (Fraction(mean_arith) if isinstance(
+                    mean_arith, int) else Fraction(nextafter(
+                        mean_arith, inf))) if (mean_arith_frac is None)
+                else mean_arith_frac))
 
     if (mean_geom is None) and (minimum > 0):
         mean_geom = stat_geomean(data)
