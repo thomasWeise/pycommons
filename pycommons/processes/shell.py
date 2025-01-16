@@ -140,7 +140,7 @@ class Command:
 
     >>> sxx = str(Command("x", env={"A": "B", "C": "D"}))
     >>> sxx[sxx.index("with "):sxx.index("with ") + 30]
-    "with environment (('A', 'B'), "
+    'with <env> no stdin, stdout ig'
 
     >>> try:
     ...     Command("x", env={"A": "B", "C": 1})
@@ -227,6 +227,11 @@ class Command:
         """
         Get the string representation of this command.
 
+        This string includes most of the important information, but it will
+        never include the environment variables. These variables may contain
+        security sensitive stuff, so they are not printed. Instead. if an
+        environment is specified, this will just be printed as `<env>`.
+
         :return: A string representing this command
 
         >>> str(Command("a"))[-50:]
@@ -235,11 +240,12 @@ class Command:
         "('x',) in '"
         >>> "with 3 chars of stdin" in str(Command("x", stdin="123"))
         True
+        >>> str(Command("a", env={"y": "x"}))[-65:]
+        'for 3600s with <env> no stdin, stdout ignored, and stderr ignored'
         """
         si: str = "no" if self.stdin is None \
             else f"{str.__len__(self.stdin)} chars of"
-        ev: str = "" if self.env is None else \
-            f"environment {self.env!r}, "
+        ev: str = "" if self.env is None else "<env> "
         return (f"{self.command!r} in {self.working_dir!r} for {self.timeout}"
                 f"s with {ev}{si} stdin, stdout{_SM(self.stdout)}, and "
                 f"stderr{_SM(self.stderr)}")
@@ -248,7 +254,11 @@ class Command:
         r"""
         Execute the given process.
 
-        :param log_call: should the call be logged?
+        :param log_call: should the call be logged? If `True`, the
+            string representation of the :class:`Command` will be
+            written to the `logger`, otherwise nothing is logged.
+            Note: The environment, if any, will not be printed for security
+            reasons.
         :return: a tuple with the standard output and standard error, which
             are only not `None` if they were supposed to be captured
         :raises TypeError: if any argument has the wrong type
