@@ -74,8 +74,6 @@ def __inner_parse(
             if not isinstance(should, bool):  # type check
                 raise type_error(should, "should", bool)
             if should:  # OK, the file should be parsed.
-                if progress_logger is not None:
-                    progress_logger(parser, f"parsing file {current!r}.")
                 result = parse_file(parser, root, current)
                 if result is not None:  # We got some result.
                     yield result

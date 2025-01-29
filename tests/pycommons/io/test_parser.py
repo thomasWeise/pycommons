@@ -293,8 +293,8 @@ class CorrectParser(Parser[object]):
             self.messages[0].startswith("beginning to parse")
             for m in self.messages[1:]:
                 assert m.startswith((
-                    "beginning to parse", "parsing file",
-                    "entering directory", "finished parsing"))
+                    "beginning to parse", "entering directory",
+                    "finished parsing"))
         assert 0 <= self.n_end_parse <= self.n_start_parse <= 1
 
 
