@@ -27,8 +27,8 @@ certifi == 2024.12.14
 # these static analysis tools are also needed for the [dev] extras variant
 # only
 autoflake == 2.3.1
-bandit == 1.8.0
-coverage == 7.6.9
+bandit == 1.8.2
+coverage == 7.6.10
 coverage-badge == 1.1.2
 dlint == 0.16.0
 dodgy == 0.2.1
@@ -36,13 +36,13 @@ flake8 == 7.1.1
 flake8-bugbear == 24.12.12
 flake8-eradicate == 1.5.0
 flake8-use-fstring == 1.4
-mypy == 1.14.0
+mypy == 1.14.1
 pycodestyle == 2.12.1
 pydocstyle == 6.3.0
 pyflakes == 3.2.0
-pylint == 3.3.2
+pylint == 3.3.4
 pyroma == 4.2
-ruff == 0.8.4
+ruff == 0.9.3
 tryceratops == 2.4.1
 unimport == 1.2.1
 vulture == 2.14
@@ -52,7 +52,7 @@ vulture == 2.14
 # generates the html files with the documentation. It therefore uses the
 # docstrings and the type hints.
 sphinx == 8.1.3
-sphinx-autodoc-typehints == 2.5.0
+sphinx-autodoc-typehints == 3.0.1
 # myst-parser is needed for including README.md into the documentation
 myst-parser == 4.0.0
 
@@ -77,10 +77,10 @@ markdown == 3.7
 
 # setuptools, testresources, twine, virtualenv, and wheel are needed for
 # generating the installable pip package in the [dev] variant.
-setuptools == 75.6.0
+setuptools == 75.8.0
 testresources == 2.0.1
-twine == 6.0.1
-virtualenv == 20.28.0
+twine == 6.1.0
+virtualenv == 20.29.1
 wheel == 0.45.1
 
 # psutil is used for getting information about the system configuration.

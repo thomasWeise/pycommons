@@ -21,7 +21,7 @@ from pycommons.types import check_int_range, type_error
 
 #: The hosts that somtimes are unreachable from my local machine.
 #: When the test is executed in a GitHub workflow, all hosts should be
-#: reachable.
+#: reachable, except sometimes our institute's website and fsf.org.
 __SOMETIMES_UNREACHABLE_HOSTS: Final[set[str]] = \
     {"fsf.org", "iao.hfuu.edu.cn"} if "GITHUB_JOB" in environ else \
     {"fsf.org", "iao.hfuu.edu.cn", "img.shields.io", "pypi.org",
@@ -31,6 +31,7 @@ __SOMETIMES_UNREACHABLE_HOSTS: Final[set[str]] = \
 __CORRECT_URLS: Final[set[str]] = {
     "https://example.com", "http://example.com",
     "https://github.com", "http://github.com",
+    "http://iao.hfuu.edu.cn", "https://iao.hfuu.edu.cn",
     "https://www.acm.org/publications/policies/artifact-review"
     "-and-badging-current"}
 
