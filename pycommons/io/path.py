@@ -38,7 +38,16 @@ from os.path import (
 from os.path import basename as osbasename
 from os.path import exists as osexists
 from shutil import rmtree
-from typing import Any, Callable, Final, Iterable, Iterator, TextIO, cast
+from typing import (
+    Any,
+    Callable,
+    Final,
+    Generator,
+    Iterable,
+    Iterator,
+    TextIO,
+    cast,
+)
 
 from pycommons.types import check_int_range, type_error
 
@@ -1290,6 +1299,47 @@ def line_writer(output: TextIO | TextIOBase) -> Callable[[str], None]:
     return cast(Callable[[str], None], __call)
 
 
+def __line_iterator(lines: Iterable[str]) -> Generator[str, None, None]:
+    r"""
+    Iterate over the given lines, adding newlines where needed.
+
+    :param lines: the lines
+    :return: the generator
+
+    >>> list(__line_iterator([]))
+    []
+
+    >>> list(__line_iterator(['a']))
+    ['a', '\n']
+
+    >>> list(__line_iterator(['a', 'b']))
+    ['a', '\n', 'b', '\n']
+
+    >>> list(__line_iterator(['a\n']))
+    ['a\n']
+
+    >>> list(__line_iterator(['a\n', 'b']))
+    ['a\n', 'b', '\n']
+
+    >>> list(__line_iterator(['a', 'b\n']))
+    ['a', '\n', 'b\n']
+
+    >>> list(__line_iterator(['a\n', 'b\n']))
+    ['a\n', 'b\n']
+
+    >>> try:
+    ...     list(__line_iterator(["a", 1]))
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor 'endswith' for 'str' objects doesn't apply to a 'int' object
+    """
+    for line in lines:
+        b: bool = __ENDSWITH(line, "\n")
+        yield line
+        if not b:
+            yield "\n"
+
+
 def write_lines(lines: Iterable[str], output: TextIO | TextIOBase) -> None:
     r"""
     Write all the lines in the given :class:`typing.Iterable` to the output.
@@ -1299,16 +1349,16 @@ def write_lines(lines: Iterable[str], output: TextIO | TextIOBase) -> None:
 
     Notice that :meth:`~io.TextIOBase.write` and
     :meth:`~io.IOBase.writelines` of class :class:`io.TextIOBase` do not
-    terminate lines that are written
-    with a `"\n"`. This means that, unless you manually make sure that all
-    lines are terminated by `"\n"`, they get written as a single line instead
-    of multiple lines. To solve this issue conveniently, we provide the
-    functions :func:`line_writer`, which wraps the
-    :meth:`~io.TextIOBase.write` into another function, which automatically
-    terminates all strings passed to it with `"\n"` unless they already end in
-    `"\n"`, and :func:`write_lines`, which iterates over a sequence of strings
-    and writes each of them to a given :class:`typing.TextIO` and automatically
-    adds the `"\n"` terminator to each of them if necessary.
+    terminate lines that are written with a `"\n"`. This means that, unless
+    you manually make sure that all lines are terminated by `"\n"`, they get
+    written as a single line instead of multiple lines. To solve this issue
+    conveniently, we provide the functions :func:`line_writer`, which wraps
+    the :meth:`~io.TextIOBase.write` into another function, which
+    automatically terminates all strings passed to it with `"\n"` unless they
+    already end in `"\n"`, and :func:`write_lines`, which iterates over a
+    sequence of strings and writes each of them to a given
+    :class:`typing.TextIO` and automatically adds the `"\n"` terminator to
+    each of them if necessary.
 
     :param lines: the lines
     :param output: the output
@@ -1465,13 +1515,7 @@ def write_lines(lines: Iterable[str], output: TextIO | TextIOBase) -> None:
         raise type_error(lines, "lines", Iterable)
     if not isinstance(output, TextIOBase):
         raise type_error(output, "output", TextIOBase)
-
-    wd: Final[Callable[[str], Any]] = output.write
-    for line in lines:
-        b: bool = __ENDSWITH(line, "\n")
-        wd(line)
-        if not b:
-            wd("\n")
+    output.writelines(__line_iterator(lines))
 
 
 def delete_path(path: str) -> None:

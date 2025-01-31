@@ -5,270 +5,225 @@ This module provides a unified API for parsing data from files in
 directories. The goal is to offer a way to return a generator that
 allows us to iterate over the data loaded. While we iterate over this
 data, the generator internally iterates over the files.
+
+This means that the control of how the data is loaded stays with the user,
+while the programmer can implement the necessary methods to load and process
+data in a natural way.
 """
 
-from typing import Any, Callable, Final, Generator, Iterable, TypeVar, cast
+from typing import Final, Generator, Iterable, TypeVar
 
 from pycommons.io.console import logger
-from pycommons.io.path import Path
+from pycommons.io.path import Path, directory_path, file_path
 from pycommons.types import type_error
 
 #: the type variable for data to be read from the directories
 T = TypeVar("T")
 
-#: the parser data object type
-P = TypeVar("P")
-
-
-def __inner_parse(
-        root: Path, source: Iterable[Path], parser: P,
-        start_parse_file: Callable[[P, Path, Path], bool],
-        parse_file: Callable[[P, Path, Path], T | None],
-        end_parse_file: Callable[[P, Path, Path], Any],
-        start_list_dir: Callable[[P, Path, Path], tuple[bool, bool]],
-        end_list_dir: Callable[[P, Path, Path], Any],
-        end_parse: Callable[[P, Path], Any] | None,
-        progress_logger: Callable[[P, str], Any] | None) \
-        -> Generator[T, None, None]:
-    """
-    Perform the recursive parsing for `parse`.
-
-    :param root: the root path
-    :param source: the paths to parse
-    :param parser: the parser object
-    :param start_parse_file: a function receiving `parser` and the path stack.
-        This function should return `True` if the file should be processed by
-        `parse_file` and `False` otherwise.
-    :param parse_file: a function receiving `parser` and the path stack.
-        It should then parse the file highest on the stack and return either
-        an object or `None` if the file did not contain enough data.
-    :param end_parse_file: For every encountered file: If `start_parse_file`
-        returned `True`, then this function will be invoked after the file
-        parsing has been completed. If `start_parse_file` returned `False`,
-        this function will not be called. This function receives the `parser`,
-        the root path, and the current path as parameters.
-    :param start_list_dir: This function should return a tuple of two `bool`
-        values. The first one should indicate whether to recursively
-        investigate sub-directories, the second one whether files should be
-        loaded. This function receives the `parser`, the root path, and the
-        current path as parameters.
-    :param end_list_dir: For every encountered directory: If `start_list_dir`
-        returned one `True` value, then `end_list_dir` is called after
-        processing the directory has finished. Otherwise, `end_list_dir` is
-        not called. This function receives the `parser`, the root path, and
-        the current path as parameters.
-    :param end_parse: the end parsing function, receiving the `parser`
-        and the root path as parameter
-    :param progress_logger: a function receiving `parser` and
-        a progress information strings, or `None` if such information is not
-        needed.
-    :return: the elements found
-    """
-    current: Path | None = None
-    for current in source:
-        if current.is_file():
-            # The current path identifies a file. We need to check whether
-            # this file should be parsed and, if so, parse it and yield from
-            # the parsing results.
-            should: bool = start_parse_file(parser, root, current)
-            if not isinstance(should, bool):  # type check
-                raise type_error(should, "should", bool)
-            if should:  # OK, the file should be parsed.
-                result = parse_file(parser, root, current)
-                if result is not None:  # We got some result.
-                    yield result
-                # Notify the end of parsing.
-                end_parse_file(parser, root, current)
-        elif current.is_dir():  # The path is a directory.
-            # Check if we should parse.
-            list_dirs, list_files = start_list_dir(parser, root, current)
-            if not isinstance(list_dirs, bool):
-                raise type_error(  # wrong type
-                    list_dirs, "retval[1] of start_list_dir", bool)
-            if not isinstance(list_files, bool):
-                raise type_error(  # wrong type
-                    list_files, "retval[2] of start_list_dir", bool)
-            if list_dirs or list_files:
-                # add the current directory name
-                if progress_logger is not None:
-                    progress_logger(
-                        parser, f"entering directory {current!r}.")
-                yield from __inner_parse(
-                    root=root, source=current.list_dir(
-                        list_files, list_dirs), parser=parser,
-                    start_parse_file=start_parse_file, parse_file=parse_file,
-                    end_parse_file=end_parse_file,
-                    start_list_dir=start_list_dir, end_list_dir=end_list_dir,
-                    progress_logger=progress_logger, end_parse=None)
-                end_list_dir(parser, root, current)
-        else:  # We got a path that is neither a file nor a directory
-            raise ValueError(  # this should never happen
-                f"{current!r} is neither a file nor a directory.")
-    if (end_parse is not None) and (root is current):
-        end_parse(parser, root)
-        if progress_logger is not None:
-            progress_logger(parser, f"finished parsing {root!r}.")
-
-
-def parse_path(
-        path: str, parser: P = None,  # type: ignore
-        start_parse: Callable[[P, Path], Any]
-        = lambda _, __: None,  # type: ignore
-        start_parse_file: Callable[[P, Path, Path], bool]
-        = lambda _, __, ___: True,  # type: ignore
-        parse_file: Callable[[P, Path, Path], T | None]
-        = lambda _, __, ___: None,  # type: ignore
-        end_parse_file: Callable[[P, Path, Path], Any]
-        = lambda _, __, ___: None,  # type: ignore
-        start_list_dir: Callable[[P, Path, Path], tuple[bool, bool]]
-        = lambda _, __, ___: (True, True),  # type: ignore
-        end_list_dir: Callable[[P, Path, Path], Any]
-        = lambda _, __, ___: None,  # type: ignore
-        end_parse: Callable[[P, Path], Any] | None
-        = lambda _, __: None,  # type: ignore
-        progress_logger: Callable[[P, str], Any] | None = lambda _, txt:
-        logger(txt)) -> Generator[T, None, None]:  # type: ignore
-    """
-    Potentially recursively parse a given path identifying a file or directory.
-
-    :param path: the path to parse
-    :param parser: the parser object
-    :param start_parse: the start parsing function, receiving the `parser`
-        and the root path as parameter
-    :param start_parse_file: returns `True` if the file should be processed by
-        `parse_file` and `False` otherwise. This function receives the
-        `parser`, the root path, and the current path as parameters.
-    :param parse_file: parses the current file and returns either
-        an object or `None` if the file did not contain enough data. This
-        function receives the `parser`, the root path, and the current path as
-        parameters.
-    :param end_parse_file: For every encountered file: If `start_parse_file`
-        returned `True`, then this function will be invoked after the file
-        parsing has been completed. If `start_parse_file` returned `False`,
-        this function will not be called. This function receives the `parser`,
-        the root path, and the current path as parameters.
-    :param start_list_dir: returns a tuple of two `bool` values for a
-        directory. The first one should indicate whether to recursively
-        investigate sub-directories, the second one whether files should be
-        loaded. This function receives the `parser`, the root path, and the
-        current path as parameters.
-    :param end_list_dir: For every encountered directory: If `start_list_dir`
-        returned one `True` value, then `end_list_dir` is called after
-        processing the directory has finished. Otherwise, `end_list_dir` is
-        not called. This function receives the `parser`, the root path, and
-        the current path as parameters.
-    :param end_parse: the end parsing function, receiving the `parser`
-        and the root path as parameter
-    :param progress_logger: a function receiving `parser` and
-        a progress information strings, or `None` if such information is not
-        needed.
-    :return: the elements found
-    """
-    if not callable(start_parse):
-        raise type_error(start_parse, "start_parse", call=True)
-    if not callable(start_parse_file):
-        raise type_error(start_parse_file, "start_parse_file", call=True)
-    if not callable(parse_file):
-        raise type_error(parse_file, "parse_file", call=True)
-    if not callable(end_parse_file):
-        raise type_error(end_parse_file, "end_parse_file", call=True)
-    if not callable(start_list_dir):
-        raise type_error(start_list_dir, "start_list_dir", call=True)
-    if not callable(end_list_dir):
-        raise type_error(end_list_dir, "end_list_dir", call=True)
-    if (progress_logger is not None) and (not callable(progress_logger)):
-        raise type_error(progress_logger, "progress_logger",
-                         expected=type(None), call=True)
-    if not callable(end_parse):
-        raise type_error(end_parse, "end_parse", call=True)
-    root: Final[Path] = Path(path)
-    if progress_logger is not None:
-        progress_logger(parser, f"beginning to parse {root!r}.")
-    start_parse(parser, root)
-    return __inner_parse(
-        root, source=(root, ), parser=parser,
-        start_parse_file=start_parse_file, parse_file=parse_file,
-        end_parse_file=end_parse_file, start_list_dir=start_list_dir,
-        end_list_dir=end_list_dir, end_parse=end_parse,
-        progress_logger=progress_logger)
-
 
 class Parser[T]:
-    """The parser class."""
+    """
+    The parser class.
 
-    def start_parse(self, root: Path) -> None:
+    This class allows you to implement convenient parsing routines that can
+    hierarchically process nested directories of files and return a stream,
+    i.e., a :class:`Generator` of results. In other words, it flattens the
+    hierarchical processing of directories into a linear sequence of data.
+    This allows the user of the API stay in control of when the data is loaded
+    while the programmer of the parser API can work in a convenient way with
+    high-level abstractions. Another advantage of this parsing API is that its
+    results can be processed like a stream and be piped into some filters,
+    processors, or even output destinations while it is loaded from the files.
+    For example, we can extract certain elements of data from huge collections
+    of files and while they are loaded, they could already be processed and
+    stored to a stream of CSV data.
+
+    The method :meth:`~pycommons.io.parser.Parser.parse` can be applied to any
+    path to a file or directory and will hierarchically process the path and
+    yield the parsing results one by one. This is the normal entry point
+    function for this parsing API.
+    The method :meth:`~pycommons.io.parser.Parser.parse_file` is a convenient
+    wrapper that processes a single file in *exactly the same way*.
+    The method :meth:`~pycommons.io.parser.Parser.parse_directory` parses a
+    path that identifies a directory.
+
+    This class offers an internal API, where the internal functions are
+    prefixed with `_`, that allows you to customize the hierarchical parsing
+    process to a high degree. You can decide which directories and files to
+    process, and you can set up and tear down datastructures on a per-file or
+    per-directory basis. All the internal functions are invoked in a
+    consistent way, regardless whether you parse single files or nested
+    directories.
+    """
+
+    def _start_parse(self, root: Path) -> None:
         """
         Begin the parsing process.
+
+        This method is called before the recursing parsing begins. It can be
+        used to initialize any internal datastructures to make the parser
+        reusable.
 
         :param root: the root path of the parsing process
         """
 
     # pylint: disable=W0613
-    def start_parse_file(self, root: Path, current: Path) -> bool:
+    def _should_parse_file(self, file: Path) -> bool:
         """
         Check whether we should start parsing a file.
 
-        :param root: the root path of the parsing process
-        :param current: the current file path
+        The other file-parsing routines are only called if this method returns
+        `True` for a file. Any overriding method should first call the super
+        method.
+
+        :param file: the current file path
         :return: `True` if the file should be parsed, `False` otherwise
         """
         return True
 
+    def _start_parse_file(self, file: Path) -> None:
+        """
+        Check whether we should start parsing a file.
+
+        Any method overriding this method should first invoke the super method
+        and then perform its own startup code.
+
+        :param file: the current file path
+        """
+
     # pylint: disable=W0613
-    def parse_file(self, root: Path, current: Path) -> T:
+    def _parse_file(self, file: Path) -> T | None:
         """
         Parse a file and return the result.
 
-        :param root: the root path of the parsing process
-        :param current: the current file path
+        :param file: the current file path
         :return: the parsing result
         """
-        return cast(T, None)
+        return None
 
-    def end_parse_file(self, root: Path, current: Path) -> None:
+    def _end_parse_file(self, file: Path) -> None:
         """
-        Process the end of a parsed file.
+        Cleanup after a file has been parsed.
 
-        :param root: the root path of the parsing process
-        :param current: the current file path
+        Any method overriding this function should first perform its own
+        cleanup and then call the super implementation.
+
+        :param file: the current file path
         """
 
     # pylint: disable=W0613
-    def start_list_dir(self, root: Path, current: Path) \
+    def _should_list_directory(self, directory: Path) \
             -> tuple[bool, bool]:
         """
         Check whether we should parse a directory.
 
-        :param root: the root path of the parsing process
-        :param current: the current directory path
+        This method is called whenever the parser enters a directory.
+        It should return a :class:`tuple` of two :class:`bool` values.
+        The first one indicates whether the sub-directories of this directory
+        should be processed. `True` means that they are listed and processed.
+        `False` means that they are skipped. The second Boolean value
+        indicates whether the files inside the directory should be listed.
+        `True` means that the files should be listed, `False` means that they
+        are not.
+
+        Any overriding method should first call the super method.
+
+        :param directory: the current directory path
         :return: A :class:`tuple` of two `bool` values, where the first one
             indicates whether sub-directories should be visited and the
             second one indicates whether files should be listed
         """
         return True, True
 
-    def end_list_dir(self, root: Path, current: Path) -> None:
+    def _start_list_directory(self, directory: Path) -> None:
         """
-        Check whether we should start parsing a file.
+        Prepare for listing a directory.
 
-        :param root: the root path of the parsing process
-        :param current: the current directory path
+        This method is only called if `_should_list_directory` returned
+        `True`.
+
+        :param directory: the current directory path
         """
 
-    def end_parse(self, root: Path) -> None:
+    def _end_list_directory(self, directory: Path) -> None:
+        """
+        Clean up after a directory has been processed.
+
+        :param directory: the current directory path
+        """
+
+    def _end_parse(self, root: Path) -> None:
         """
         End the parsing process.
 
+        This method can perform any cleanup and purging of internal
+        datastructures to make the parser reusable.
+
         :param root: the root path of the parsing process
         """
 
-    def progress_logger(self, text: str) -> None:
+    def _progress_logger(self, text: str) -> None:
         """
         Log the progress.
+
+        This method is called with a string that should be logged. By default,
+        it forwards the string to :func:`logger`.
 
         :param text: the test
         """
         logger(text)
+
+    def __internal_parse(self, paths: Iterable[Path], log_progress: bool,
+                         is_root: bool) \
+            -> Generator[T, None, None]:
+        """
+        Perform the internal parsing work.
+
+        This method should never be called directly. It is called by `parse`.
+
+        :param paths: the paths to parse.
+        :param log_progress: should we log progress?
+        :param is_root: is this the root of parsing
+        :return: the generator
+        """
+        current: Path | None = None
+        for current in paths:
+            if current.is_file():
+                # The current path identifies a file. We need to check whether
+                # this file should be parsed and, if so, parse it and yield
+                # from the parsing results.
+                should: bool = self._should_parse_file(current)
+                if not isinstance(should, bool):  # type check
+                    raise type_error(should, "should", bool)
+                if should:  # OK, the file should be parsed.
+                    self._start_parse_file(current)
+                    result: T | None = self._parse_file(current)
+                    if result is not None:  # We got some result.
+                        yield result
+                    # Notify the end of parsing.
+                    self._end_parse_file(current)
+            elif current.is_dir():  # The path is a directory.
+                # Check if we should parse.
+                list_dirs, list_files = self._should_list_directory(current)
+                if not isinstance(list_dirs, bool):
+                    raise type_error(  # wrong type
+                        list_dirs, "retval[1] of start_list_dir", bool)
+                if not isinstance(list_files, bool):
+                    raise type_error(  # wrong type
+                        list_files, "retval[2] of start_list_dir", bool)
+                if list_dirs or list_files:
+                    self._start_list_directory(current)
+                    # add the current directory name
+                    if log_progress:
+                        self._progress_logger(
+                            f"entering directory {current!r}.")
+                    yield from self.__internal_parse(current.list_dir(
+                        list_files, list_dirs), log_progress, False)
+                    self._end_list_directory(current)
+        if is_root:
+            self._end_parse(current)
+            if log_progress:
+                self._progress_logger(f"finished parsing {current!r}.")
 
     def parse(self, path: str, log_progress: bool = True) \
             -> Generator[T, None, None]:
@@ -276,18 +231,50 @@ class Parser[T]:
         Parse the given path.
 
         :param path: the path to parse
-        :param log_progress: the progress logger
+        :param log_progress: should the progress be logged?
         :returns: the parsed sequence
         """
+        root: Final[Path] = Path(path)
         if not isinstance(log_progress, bool):
             raise type_error(log_progress, "log_progress", bool)
-        cls: type[Parser] = type(self)
-        return parse_path(
-            path, self, cls.start_parse,  # type: ignore
-            cls.start_parse_file,  # type: ignore
-            cls.parse_file,  # type: ignore
-            cls.end_parse_file,  # type: ignore
-            cls.start_list_dir,  # type: ignore
-            cls.end_list_dir,  # type: ignore
-            cls.end_parse,  # type: ignore
-            cls.progress_logger if log_progress else None)  # type: ignore
+
+        if log_progress:
+            self._progress_logger(f"beginning to parse {root!r}.")
+        self._start_parse(root)
+        return self.__internal_parse((root, ), log_progress, True)
+
+    def parse_file(self, file: str, log_progress: bool = False) -> T:
+        """
+        Parse a single file.
+
+        This method guarantees to not return `None`. If the internal parsing
+        process yields `None` anyway, it will raise a :class:`TypeError`.
+        It will also raise a :class:`ValueError` if `file` does not identify a
+        file.
+
+        :param file: the file to parse
+        :param log_progress: should the progress be logged?
+        :return: the parsing result.
+        """
+        path: Final[Path] = file_path(file)
+        try:
+            return next(self.parse(path, log_progress))
+        except StopIteration as se:
+            raise TypeError(
+                f"result of parsing file {path!r} should not be None.")\
+                from se
+
+    def parse_directory(self, directory: str, log_progress: bool = True) \
+            -> Generator[T, None, None]:
+        """
+        Parse a directory of files.
+
+        This function basically works exactly as
+        :meth:`~pycommons.io.parser.Parser.parse`, but it enforces that
+        `directory` is a directory and raises a :class:`ValueError` otherwise.
+
+        :param directory: the directory to parse
+        :param log_progress: should the progress be logged?
+        :return: the generator with the parsing results
+        """
+        return self.parse(directory_path(directory), log_progress)

@@ -1077,14 +1077,14 @@ def csv_write(
         raise type_error(setup, "setup", call=True)
     if str.__len__(separator) <= 0:
         raise ValueError(f"Invalid separator {separator!r}.")
-    forbidden_maker: Final[set[str]] = set(NEWLINE)
-    forbidden_maker.add(separator)
+    forbidden_marker: Final[set[str]] = set(NEWLINE)
+    forbidden_marker.add(separator)
     if comment_start is not None:
         if (str.__len__(comment_start) <= 0) or (
                 str.strip(comment_start) != comment_start) or (
                 comment_start in separator):
             raise ValueError(f"Invalid comment start: {comment_start!r}.")
-        forbidden_maker.add(comment_start)
+        forbidden_marker.add(comment_start)
     if (header_comments is not None) and (not (isinstance(
             header_comments, Iterable) or callable(header_comments))):
         raise type_error(
@@ -1101,7 +1101,7 @@ def csv_write(
 
     data = reiterable(data)  # make sure we can iterate over the data twice
     setting: Final[S] = setup(data)
-    forbidden: Final[list[str]] = sorted(forbidden_maker)
+    forbidden: Final[list[str]] = sorted(forbidden_marker)
 
     # first put header comments
     if (comment_start is not None) and (header_comments is not None):
