@@ -403,7 +403,7 @@ def __put_nojekyll(dest: Path) -> None:
 
     :param dest: the destination path.
 
-    >>> from pycommons.io.temp import temp_dir
+    >>> from pycommons.io.temp import temp_dir, temp_file
     >>> with temp_dir() as td:
     ...     x = td.resolve_inside("x")
     ...     x.ensure_dir_exists()
@@ -416,6 +416,9 @@ def __put_nojekyll(dest: Path) -> None:
     True
     True
     True
+
+    >>> with temp_file() as tf:
+    ...     __put_nojekyll(tf)  # nothing happens
     """
     if not dest.is_dir():
         return
@@ -440,6 +443,12 @@ def make_documentation(info: BuildInfo) -> None:
     >>> from contextlib import redirect_stdout
     >>> with redirect_stdout(None):
     ...     make_documentation(bf)
+
+    >>> try:
+    ...     make_documentation(1)
+    ... except TypeError as te:
+    ...     print(str(te)[-13:])
+    nt, namely 1.
     """
     if not isinstance(info, BuildInfo):
         raise type_error(info, "info", BuildInfo)

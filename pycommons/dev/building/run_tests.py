@@ -10,7 +10,6 @@ from pycommons.dev.building.build_info import (
 )
 from pycommons.io.arguments import pycommons_argparser
 from pycommons.io.console import logger
-from pycommons.io.path import Path, delete_path
 from pycommons.types import type_error
 
 
@@ -42,9 +41,6 @@ def run_tests(info: BuildInfo) -> None:
         f"Performing unit tests for {info}. First erasing old coverage data.")
 
     info.command(("coverage", "erase")).execute()
-    coverage_file: Final[Path] = info.base_dir.resolve_inside(".coverage")
-    if coverage_file.exists():
-        delete_path(coverage_file)
 
     logger("Now running doctests.")
     ignores: Final[list] = []
