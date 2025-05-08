@@ -342,10 +342,21 @@ def __minify(file: Path) -> None:
     logger(f"Minifying HTML in {file!r}.")
     text: str = str.strip(file.read_all_str())
     text = str.strip(minify_html.minify(  # pylint: disable=E1101
-        text, do_not_minify_doctype=True,
-        ensure_spec_compliant_unquoted_attribute_values=True,
-        keep_html_and_head_opening_tags=False, minify_css=True,
-        minify_js=True, remove_bangs=True,
+        text,
+        allow_noncompliant_unquoted_attribute_values=False,
+        allow_optimal_entities=True,
+        allow_removing_spaces_between_attributes=True,
+        keep_closing_tags=False,
+        keep_comments=False,
+        keep_html_and_head_opening_tags=False,
+        keep_input_type_text_attr=False,
+        keep_ssi_comments=False,
+        minify_css=True,
+        minify_doctype=False,
+        minify_js=True,
+        preserve_brace_template_syntax=False,
+        preserve_chevron_percent_template_syntax=False,
+        remove_bangs=True,
         remove_processing_instructions=True))
     if "<pre" not in text:
         text = " ".join(map(str.strip, text.splitlines()))

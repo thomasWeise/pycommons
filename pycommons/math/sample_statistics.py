@@ -1318,7 +1318,7 @@ def __frac_root_bound_upper(base: Fraction, root: int) -> Fraction:
             base.denominator // base.numerator, root))
         if base < __FRAC_1 else (
             __FRAC_1 if base == __FRAC_1 else Fraction(
-                __int_root_bound_upper(int(ceil(base)), root))))
+                __int_root_bound_upper(ceil(base), root))))
 
 
 def __limited_root(base: Fraction, root: int,
@@ -1981,7 +1981,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     # median, then this is better than nothing.
     shift: Final[int] = int(median) if mean_arith is None \
         else (mean_arith if isinstance(mean_arith, int)
-              else int(round(mean_arith)))
+              else round(mean_arith))
 
     for ii, ee in enumerate(data):  # iterate over all data
         if can_int and (not isinstance(ee, int)):
