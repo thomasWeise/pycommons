@@ -91,7 +91,7 @@ prints `'mappingproxy' object does not support item assignment` and `2`.
 
 [`pycommons`](https://thomasweise.github.io/pycommons) is a library with utilities for Python projects.
 
-Copyright (C) 2024  [Thomas Weise](http://iao.hfuu.edu.cn/5) (汤卫思教授)
+Copyright (C) 2024  Thomas Weise (汤卫思教授)
 
 Dr. Thomas Weise (see [Contact](#5-contact)) holds the copyright of this package.
 
@@ -110,8 +110,8 @@ If you have any concerns regarding security, please visit our [security policy](
 ## 5. Contact
 
 If you have any questions or suggestions, please contact
-Prof. Dr. [Thomas Weise](http://iao.hfuu.edu.cn/5) (汤卫思教授) of the 
-Institute of Applied Optimization (应用优化研究所, [IAO](http://iao.hfuu.edu.cn)) of the
+Prof. Dr. Thomas Weise (汤卫思教授) of the 
+Institute of Applied Optimization (应用优化研究所, IAO) of the
 School of Artificial Intelligence and Big Data ([人工智能与大数据学院](http://www.hfuu.edu.cn/aibd/)) at
 [Hefei University](http://www.hfuu.edu.cn/english/) ([合肥大学](http://www.hfuu.edu.cn/)) in
 Hefei, Anhui, China (中国安徽省合肥市) via
