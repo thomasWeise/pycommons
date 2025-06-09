@@ -283,8 +283,8 @@ def __make_base_url_replacer(
     for sr, er, ss, es in chain(__HTML_URL_SEPARTORS, __MD_URL_SEPARTORS) \
             if for_markdown else __HTML_URL_SEPARTORS:
         collector((
-            cast(Pattern, re_compile(f"{sr}{use_url}(.*){er}")),
-            cast(Callable[[Match], str],
+            cast("Pattern", re_compile(f"{sr}{use_url}(.*){er}")),
+            cast("Callable[[Match], str]",
                  lambda mm, _ss=ss, _es=es, _rr=use_repl:
                  f"{_ss}{_rr}{str.strip(mm.group(1))}{_es}")))
 
@@ -546,7 +546,7 @@ def __make_full_url_replacer(
     for sr, er, ss, es in chain(__HTML_URL_SEPARTORS, __MD_URL_SEPARTORS) \
             if for_markdown else __HTML_URL_SEPARTORS:
         collector((
-            cast(Pattern, re_compile(f"{sr}{use_url}{er}")),
+            cast("Pattern", re_compile(f"{sr}{use_url}{er}")),
             f"{ss}{use_repl}{es}"))
 
 
@@ -556,7 +556,7 @@ def __make_replacer(replacers: Iterable[tuple[
     Make a function that replaces all URL parts in a string.
 
     :param replacers: the replacers patterns
-    :return: the function that can apply the replacers
+    :returns: the function that can apply the replacers
 
     >>> coll = list()
     >>> __make_full_url_replacer(coll.append, "https://example.com/log.txt",
@@ -657,7 +657,7 @@ def __make_replacer(replacers: Iterable[tuple[
                 raise ValueError(f"Endless loop: {text!r} -> {out_str!r}.")
         return str.rstrip(out_str)  # enforce string
 
-    return cast(Callable[[str], str], __func)
+    return cast("Callable[[str], str]", __func)
 
 
 def make_url_replacer(base_urls: Mapping[str, str] | None = None,

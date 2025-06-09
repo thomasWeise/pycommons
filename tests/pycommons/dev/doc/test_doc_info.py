@@ -1,6 +1,7 @@
 """Test the documentation info module."""
 
 from os import chdir, getcwd
+from re import compile as re_compile
 from typing import Final
 
 # noinspection PyPackageRequirements
@@ -20,30 +21,34 @@ def test_extract_md_infos() -> None:
     """Test parsing of readme.md files."""
     base: Final[Path] = file_path(__file__).up()
 
-    with pytest.raises(ValueError, match="Already have title.*"):
+    with pytest.raises(ValueError, match=re_compile(r"Already have title.*")):
         extract_md_infos(base.resolve_inside("md_2_titles.md"))
 
     with pytest.raises(
-            ValueError, match="Got '## x. blubb' and finding index 1.*"):
+            ValueError, match=re_compile(
+                r"Got '## x. blubb' and finding index 1.*")):
         extract_md_infos(base.resolve_inside(
             "md_error_2nd_level_heading_1.md"))
 
     with pytest.raises(
-            ValueError, match="Got '## blubb' after having index.*"):
+            ValueError, match=re_compile(
+                r"Got '## blubb' after having index.*")):
         extract_md_infos(base.resolve_inside(
             "md_error_2nd_level_heading_2.md"))
 
     with pytest.raises(
-            ValueError, match="Found index 1 in line '## 1. blubb'.*"):
+            ValueError, match=re_compile(
+                r"Found index 1 in line '## 1. blubb'.*")):
         extract_md_infos(base.resolve_inside(
             "md_error_2nd_level_heading_3.md"))
 
     with pytest.raises(
-            ValueError, match="Got '## a. blubb' and finding index.*"):
+            ValueError, match=re_compile(
+                r"Got '## a. blubb' and finding index.*")):
         extract_md_infos(base.resolve_inside(
             "md_error_2nd_level_heading_4.md"))
 
-    with pytest.raises(ValueError, match="No title in '.*"):
+    with pytest.raises(ValueError, match=re_compile(r"No title in '.*")):
         extract_md_infos(base.resolve_inside(
             "md_error_no_title.md"))
 
@@ -53,27 +58,32 @@ def test_parse_version() -> None:
     base: Final[Path] = file_path(__file__).up()
 
     with pytest.raises(
-            ValueError, match="Incorrect string limits for.*"):
+            ValueError, match=re_compile(r"Incorrect string limits for.*")):
         parse_version_py(base.resolve_inside(
             "version_error_1.txt"))
 
-    with pytest.raises(ValueError, match="Strange version string.*"):
+    with pytest.raises(ValueError, match=re_compile(
+            r"Strange version string.*")):
         parse_version_py(base.resolve_inside(
-            "version_error_2.txt"))
+            r"version_error_2.txt"))
 
-    with pytest.raises(ValueError, match="Strange version string.*"):
+    with pytest.raises(ValueError, match=re_compile(
+            r"Strange version string.*")):
         parse_version_py(base.resolve_inside(
-            "version_error_2.txt"))
+            r"version_error_2.txt"))
 
-    with pytest.raises(ValueError, match="Version defined as.*"):
+    with pytest.raises(ValueError, match=re_compile(
+            r"Version defined as.*")):
         parse_version_py(base.resolve_inside(
             "version_error_3.txt"))
 
-    with pytest.raises(ValueError, match="Undelimited string in.*"):
+    with pytest.raises(ValueError, match=re_compile(
+            r"Undelimited string in.*")):
         parse_version_py(base.resolve_inside(
-            "version_error_4.txt"))
+            r"version_error_4.txt"))
 
-    with pytest.raises(ValueError, match="Did not find version attr.*"):
+    with pytest.raises(ValueError, match=re_compile(
+            r"Did not find version attr.*")):
         parse_version_py(base.resolve_inside(
             "version_error_5.txt"))
 
@@ -177,7 +187,8 @@ def test_load_doc_info_from_setup_cfg() -> None:
 
         try:
             with pytest.raises(
-                    ValueError, match="Invalid version attribute.*"):
+                    ValueError, match=re_compile(
+                        r"Invalid version attribute.*")):
                 load_doc_info_from_setup_cfg(f)
         finally:
             chdir(cd)
@@ -196,7 +207,8 @@ def test_load_doc_info_from_setup_cfg() -> None:
 
         try:
             with pytest.raises(
-                    ValueError, match="Invalid version attribute.*"):
+                    ValueError, match=re_compile(
+                        r"Invalid version attribute.*")):
                 load_doc_info_from_setup_cfg(f)
         finally:
             chdir(cd)
@@ -214,7 +226,8 @@ def test_load_doc_info_from_setup_cfg() -> None:
 
         try:
             with pytest.raises(
-                    ValueError, match="Invalid long_description attribute.*"):
+                    ValueError, match=re_compile(
+                        r"Invalid long_description attribute.*")):
                 load_doc_info_from_setup_cfg(f)
         finally:
             chdir(cd)
@@ -233,8 +246,8 @@ def test_load_doc_info_from_setup_cfg() -> None:
 
         try:
             with pytest.raises(
-                    ValueError,
-                    match="long_description 'bla' does not point.*"):
+                    ValueError, match=re_compile(
+                        r"long_description 'bla' does not point.*")):
                 load_doc_info_from_setup_cfg(f)
         finally:
             chdir(cd)
@@ -252,7 +265,8 @@ def test_load_doc_info_from_setup_cfg() -> None:
             write_lines(rd.readlines(), wd)
 
         try:
-            with pytest.raises(ValueError, match="Two docu URLs found?.*"):
+            with pytest.raises(ValueError, match=re_compile(
+                    r"Two docu URLs found?.*")):
                 load_doc_info_from_setup_cfg(f)
         finally:
             chdir(cd)
@@ -270,7 +284,8 @@ def test_load_doc_info_from_setup_cfg() -> None:
             write_lines(rd.readlines(), wd)
 
         try:
-            with pytest.raises(ValueError, match="Strange URL line.*"):
+            with pytest.raises(ValueError, match=re_compile(
+                    r"Strange URL line.*")):
                 load_doc_info_from_setup_cfg(f)
         finally:
             chdir(cd)

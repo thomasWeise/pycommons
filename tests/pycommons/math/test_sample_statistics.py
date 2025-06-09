@@ -34,7 +34,7 @@ def __check(data: SampleStatistics) -> SampleStatistics:
     Check a sample statistics.
 
     :param data: the data
-    :return: the data
+    :returns: the data
     """
     if not isinstance(data, SampleStatistics):
         raise TypeError(f"{type(data)}")
@@ -105,7 +105,7 @@ def __check_with_data(stat: SampleStatistics,
 
     :param stat: the statistics
     :param data: the data
-    :return: the statistics
+    :returns: the statistics
     """
     if not isinstance(stat, SampleStatistics):
         raise TypeError(f"{type(stat)}")
@@ -904,7 +904,7 @@ class _TCR(CsvReaderBase):
         Parse a row.
 
         :param data: the row data
-        :return: the result
+        :returns: the result
         """
         return (self.ra.parse_row(data), self.rb.parse_row(data),
                 self.rc.parse_row(data))

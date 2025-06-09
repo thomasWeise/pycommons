@@ -85,7 +85,7 @@ def type_name_of(obj: Any) -> str:
 
 
 def type_error(obj: Any, name: str,
-               expected: None | type | Iterable[type] = None,
+               expected: type | Iterable[type] | None = None,
                call: bool = False) -> ValueError | TypeError:
     """
     Create an error to raise if a type did not fit.

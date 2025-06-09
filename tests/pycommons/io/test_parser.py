@@ -155,7 +155,7 @@ class CorrectParser(Parser[object]):
         A correct start file parsing method always returning `True`.
 
         :param file: the current directory path
-        :return: the result
+        :returns: the result
         """
         CorrectParser.check_path(self, file)
         file.enforce_file()
@@ -184,7 +184,7 @@ class CorrectParser(Parser[object]):
 
         :param root: the root path of the parsing process
         :param current: the current directory path
-        :return: the result
+        :returns: the result
         """
         super()._start_parse_file(file)
         CorrectParser.check_path(self, file)
@@ -201,7 +201,7 @@ class CorrectParser(Parser[object]):
         Do the parsing.
 
         :param file: the current file path
-        :return: the result
+        :returns: the result
         """
         assert super()._parse_file(file) is None
         CorrectParser.check_path(self, file)
@@ -244,7 +244,7 @@ class CorrectParser(Parser[object]):
         Start listing the directory.
 
         :param directory: the current directory path
-        :return: the dir/file result
+        :returns: the dir/file result
         """
         CorrectParser.check_path(self, directory)
         directory.enforce_dir()

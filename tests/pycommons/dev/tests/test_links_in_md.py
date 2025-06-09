@@ -1,5 +1,6 @@
 """Test the type."""
 
+from re import compile as re_compile
 from typing import Final
 
 # noinspection PyPackageRequirements
@@ -21,103 +22,125 @@ def test_links_from_md() -> None:
     check_links_in_md(base.resolve_inside("md_with_incomplete_links_5.md"))
 
     with pytest.raises(
-            ValueError, match=f"Found no links in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                f"Found no links in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_no_examples_1.md"))
 
     with pytest.raises(
-            ValueError, match=f"Found no links in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                f"Found no links in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_no_examples_2.md"))
 
     with pytest.raises(
-            ValueError, match=f"Found no links in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                f"Found no links in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_empty_1.md"))
 
     with pytest.raises(
-            ValueError, match=f"Found no links in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                f"Found no links in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_empty_2.md"))
 
     with pytest.raises(
-            ValueError, match="Multi-line code start without "
-                              f"end in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                r"Multi-line code start without "
+                f"end in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_empty_3.md"))
 
     with pytest.raises(
-            ValueError, match="Multi-line code start without "
-                              f"end in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                r"Multi-line code start without "
+                f"end in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_empty_4.md"))
 
     with pytest.raises(
-            ValueError, match="Multi-line code start without "
-                              f"end in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                r"Multi-line code start without "
+                f"end in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_empty_5.md"))
 
     with pytest.raises(
-            ValueError, match=f"Found no links in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                f"Found no links in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_empty_6.md"))
 
     with pytest.raises(
-            ValueError, match=f"Found no links in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                f"Found no links in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_empty_7.md"))
 
     with pytest.raises(
-            ValueError, match=f"Found no links in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                f"Found no links in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_empty_8.md"))
 
-    with pytest.raises(ValueError, match=f"File {repr(base)[:-1]}.*"):
+    with pytest.raises(ValueError, match=re_compile(
+            f"File {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_empty_9.md"))
 
     with pytest.raises(
-            ValueError, match=f"Found no links in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                f"Found no links in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_error_fragment_1.md"))
 
     with pytest.raises(
-            ValueError, match=f"Found no links in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                f"Found no links in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_error_fragment_2.md"))
 
     with pytest.raises(
-            ValueError, match="Multi-line code start without "
-                              f"end in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                r"Multi-line code start without "
+                f"end in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_no_end_mark_1.md"))
 
     with pytest.raises(
-            ValueError, match="Multi-line code start without "
-                              f"end in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                r"Multi-line code start without "
+                f"end in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_no_end_mark_2.md"))
 
     with pytest.raises(
-            ValueError, match=r"No closing gap for \[...\]\(...\) link "
-                              f"in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                r"No closing gap for \[...\]\(...\) link "
+                f"in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_with_link_errors_1.md"))
 
     with pytest.raises(
-            ValueError, match=r"Invalid \[...\]\(...\) "
-                              f"link in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                r"Invalid \[...\]\(...\) "
+                f"link in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_with_link_errors_2.md"))
 
     with pytest.raises(
-            ValueError,
-            match=f"Invalid image sequence in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                f"Invalid image sequence in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_with_link_errors_3.md"))
 
     with pytest.raises(
-            ValueError, match="No closing gap for image sequence"
-                              f" in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                r"No closing gap for image sequence"
+                f" in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_with_link_errors_4.md"))
 
     with pytest.raises(
-            ValueError, match=f"Found no links in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                f"Found no links in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_with_link_errors_5.md"))
 
     with pytest.raises(
-            ValueError, match=f"Found no links in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                f"Found no links in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_with_link_errors_6.md"))
 
     with pytest.raises(
-            ValueError, match="Headline without space after"
-                              f" # in file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                r"Headline without space after"
+                f" # in file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_with_error_header_1.md"))
 
     with pytest.raises(
-            ValueError, match="Headline without end in "
-                              f"file {repr(base)[:-1]}.*"):
+            ValueError, match=re_compile(
+                r"Headline without end in "
+                f"file {repr(base)[:-1]}.*")):
         check_links_in_md(base.resolve_inside("md_with_error_header_2.md"))

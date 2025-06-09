@@ -12,11 +12,11 @@ from pycommons.io.temp import temp_dir, temp_file
 def test_path_creation() -> None:
     """Test that path creation fails with wrong time."""
     with pytest.raises(TypeError):
-        Path(cast(str, 1))
+        Path(cast("str", 1))
     with pytest.raises(TypeError):
-        directory_path(cast(str, 1))
+        directory_path(cast("str", 1))
     with pytest.raises(TypeError):
-        file_path(cast(str, 1))
+        file_path(cast("str", 1))
     with pytest.raises(ValueError):
         Path("")
 
@@ -28,7 +28,7 @@ def test_write_all_read_all_and_enforce_exists() -> None:
             tf.write_all_str("")
         tf.write_all_str(" ")
         with pytest.raises(TypeError):
-            tf.write_all_str(cast(str, 2))
+            tf.write_all_str(cast("str", 2))
 
         ls = " \nbla\n\n x \n99 x   y\n\n"
         tf.write_all_str(ls)
@@ -66,7 +66,7 @@ def test_enforce_exists() -> None:
         with pytest.raises(ValueError):
             td.write_all_str("test")
         with pytest.raises(TypeError):
-            td.write_all_str(cast(str, 2))
+            td.write_all_str(cast("str", 2))
         with pytest.raises(ValueError):
             td.write_all_str("")
 

@@ -16,7 +16,7 @@ from pycommons.dev.url_replacer import make_url_replacer
 from pycommons.types import type_error
 
 #: detects strings of the form [xyz](#123-bla) and gives \1=xyz and \2=bla
-__FIX_LINKS: Final[Pattern] = re_compile("(\\[.+?])\\(#\\d+-(.+?)\\)")
+__FIX_LINKS: Final[Pattern] = re_compile(r"(\[.+?])\(#\d+-(.+?)\)")
 
 
 def __process_markdown(
@@ -303,6 +303,6 @@ def process_markdown_for_sphinx(
     <BLANKLINE>
     """
     __process_markdown(source, dest, cast(
-        Callable[[str], str], lambda s, __l=make_url_replacer(
+        "Callable[[str], str]", lambda s, __l=make_url_replacer(
             base_urls, full_urls): __l(sub(__FIX_LINKS, "\\1(#\\2)",
                                            s))), discard_until)

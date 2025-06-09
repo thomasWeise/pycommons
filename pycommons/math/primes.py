@@ -16,7 +16,7 @@ def primes(maximum: int = 2 ** 32) -> Generator[int, None, None]:
     something like the Sieve of Eratosthenes.
 
     :param maximum: the maximum number to consider
-    :return: the prime numbers
+    :returns: the prime numbers
 
     >>> list(primes(-1))
     []

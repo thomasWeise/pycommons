@@ -23,15 +23,13 @@ from pycommons.types import check_int_range, type_error
 #: When the test is executed in a GitHub workflow, all hosts should be
 #: reachable, except sometimes our institute's website and fsf.org.
 __SOMETIMES_UNREACHABLE_HOSTS: Final[set[str]] = \
-    {"fsf.org", "iao.hfuu.edu.cn"} if "GITHUB_JOB" in environ else \
-    {"fsf.org", "iao.hfuu.edu.cn", "img.shields.io", "pypi.org",
-     "docs.python.org"}
+    {"fsf.org"} if "GITHUB_JOB" in environ else \
+    {"fsf.org", "img.shields.io", "pypi.org", "docs.python.org"}
 
 #: URLs that we never need to check because they are OK
 __CORRECT_URLS: Final[set[str]] = {
     "https://example.com", "http://example.com",
     "https://github.com", "http://github.com",
-    "http://iao.hfuu.edu.cn", "https://iao.hfuu.edu.cn",
     "https://www.acm.org/publications/policies/artifact-review"
     "-and-badging-current"}
 
@@ -108,13 +106,13 @@ def __ve(msg: str, text: str, idx: int) -> ValueError:
     return ValueError(f"{msg}: '...{piece}...'")
 
 
-def __make_headers() -> tuple[None | dict[str, str], ...]:
+def __make_headers() -> tuple[dict[str, str] | None, ...]:
     """
     Make the headers.
 
     :returns: the headers
     """
-    headers: list[None | dict[str, str]] = [None]
+    headers: list[dict[str, str] | None] = [None]
     headers.extend(
         {"User-Agent": ua} for ua in (
             "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:138.0) Gecko/20100101"
@@ -153,7 +151,7 @@ def __make_headers() -> tuple[None | dict[str, str], ...]:
 #: The headers to use for the HTTP requests.
 #: It seems that some websites may throttle requests.
 #: Maybe by using different headers, we can escape this.
-__HEADERS: Final[tuple[None | dict[str, str], ...]] = __make_headers()
+__HEADERS: Final[tuple[dict[str, str] | None, ...]] = __make_headers()
 del __make_headers
 
 
@@ -343,7 +341,6 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
 
     >>> with redirect_stdout(None):
     ...     __check_url("https://thomasweise.github.io/pycommons", vu)
-    ...     __check_url("http://iao.hfuu.edu.cn", vu)
     ...     __check_url("http://example.com/", vu)
     ...     __check_url("https://thomasweise.github.io/pycommons/pycommons"
     ...                 ".io.html", vu)
@@ -351,8 +348,6 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     >>> __check_url(
     ...     "https://thomasweise.github.io/pycommons/pycommons.io.html", vu)
 
-    >>> with redirect_stdout(None):
-    ...     __check_url("http://iao.hfuu.edu.cn/", vu)
     >>> __check_url("https://thomasweise.github.io/pycommons/pycommons"
     ...             ".io.html#pycommons.io.path.Path", vu)
     >>> __check_url("http://example.com", vu)
@@ -491,14 +486,14 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
         headers[header_count], headers[header_idx] \
             = header, headers[header_count]
         try:
-            response = cast(HTTPResponse, http.request(
+            response = cast("HTTPResponse", http.request(
                 method, base_url, timeout=timeout, redirect=True,
                 retries=retries, headers=header))
             if isinstance(response, HTTPResponse) and isinstance(
                     response.status, int) and (response.status == 200):
                 error = None
                 break
-        except BaseException as be:  # noqa: B036,BLE001
+        except BaseException as be:  # noqa
             logger(f"Attempt sleep={sleep_time}, retries={retries}, "
                    f"timeout={timeout}, error={str(be)!r}, and "
                    f"header={header!r} for {base_url!r} gave {be}.")
@@ -517,7 +512,7 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     if needs_body:
         try:
             body = str.strip(response.data.decode(UTF8))
-        except BaseException as be:    # noqa: B036
+        except BaseException as be:    # noqa
             raise ValueError(f"Error in body of url {url!r}: {be}") from be
 
     body_len: Final[int] = 0 if body is None else str.__len__(body)

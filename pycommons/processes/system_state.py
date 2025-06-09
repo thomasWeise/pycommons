@@ -47,7 +47,7 @@ def __fix_key(key: Any) -> str | None:
     Fix a key for usage.
 
     :param key: the key
-    :return: the key string
+    :returns: the key string
 
     >>> print(__fix_key(None))
     None

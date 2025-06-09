@@ -68,7 +68,7 @@ class Parser[T]:
         """
 
     # pylint: disable=W0613
-    def _should_parse_file(self, file: Path) -> bool:
+    def _should_parse_file(self, file: Path) -> bool:  # noqa: ARG002
         """
         Check whether we should start parsing a file.
 
@@ -77,7 +77,7 @@ class Parser[T]:
         method.
 
         :param file: the current file path
-        :return: `True` if the file should be parsed, `False` otherwise
+        :returns: `True` if the file should be parsed, `False` otherwise
         """
         return True
 
@@ -92,12 +92,12 @@ class Parser[T]:
         """
 
     # pylint: disable=W0613
-    def _parse_file(self, file: Path) -> T | None:
+    def _parse_file(self, file: Path) -> T | None:  # noqa: ARG002
         """
         Parse a file and return the result.
 
         :param file: the current file path
-        :return: the parsing result
+        :returns: the parsing result
         """
         return None
 
@@ -113,7 +113,7 @@ class Parser[T]:
 
     # pylint: disable=W0613
     def _should_list_directory(self, directory: Path) \
-            -> tuple[bool, bool]:
+            -> tuple[bool, bool]:  # noqa: ARG002
         """
         Check whether we should parse a directory.
 
@@ -129,7 +129,7 @@ class Parser[T]:
         Any overriding method should first call the super method.
 
         :param directory: the current directory path
-        :return: A :class:`tuple` of two `bool` values, where the first one
+        :returns: A :class:`tuple` of two `bool` values, where the first one
             indicates whether sub-directories should be visited and the
             second one indicates whether files should be listed
         """
@@ -184,7 +184,7 @@ class Parser[T]:
         :param paths: the paths to parse.
         :param log_progress: should we log progress?
         :param is_root: is this the root of parsing
-        :return: the generator
+        :returns: the generator
         """
         current: Path | None = None
         for current in paths:
@@ -254,7 +254,7 @@ class Parser[T]:
 
         :param file: the file to parse
         :param log_progress: should the progress be logged?
-        :return: the parsing result.
+        :returns: the parsing result.
         """
         path: Final[Path] = file_path(file)
         try:
@@ -275,6 +275,6 @@ class Parser[T]:
 
         :param directory: the directory to parse
         :param log_progress: should the progress be logged?
-        :return: the generator with the parsing results
+        :returns: the generator with the parsing results
         """
         return self.parse(directory_path(directory), log_progress)

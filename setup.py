@@ -24,7 +24,7 @@ doc_url: Final[str] = "https://thomasweise.github.io/pycommons"
 repo_url: Final[str] = "https://github.com/thomasWeise/pycommons"
 
 # detects strings of the form [xyz](#123-bla) and gives \1=xyz and \2=bla
-regex_search: Final[Pattern] = re_compile("(\\[.+?])\\(#\\d+-(.+?)\\)")
+regex_search: Final[Pattern] = re_compile(r"(\[.+?])\(#\d+-(.+?)\)")
 regex_repl: Final[str] = f"\\1({doc_url}#\\2)"
 
 # other replacements

@@ -27,7 +27,7 @@ class __Reiterator(Iterable[T]):
         """
         Generate the sequence of elements.
 
-        :return: the generator
+        :returns: the generator
         """
         get_length: Callable[[], int] = self.__more.__len__
         get: Callable[[int], T] = self.__more.__getitem__
@@ -100,7 +100,7 @@ def reiterable(source: Iterable[T] | Iterator[T]) -> Iterable[T]:
     :class:`Generator`, for example.
 
     :param source: the data source
-    :return: the resulting re-iterable iterator
+    :returns: the resulting re-iterable iterator
     :raises TypeError: if `source` is neither an :class:`Iterable` nor an
         :class:`Iterator`.
 
@@ -240,7 +240,7 @@ def merge_sorted_and_return_unique(
 
     :param seqs: the sequences, i.e., some instances of :class:`Iterable` or
         :class:`Iterator`
-    :return: a merged sequence of integers
+    :returns: a merged sequence of integers
     :raises TypeError: if any of the provided iterators or any of their
         elements is `None`, or if any of the elements in `seqs`is not an
         :class:`Iterable`.

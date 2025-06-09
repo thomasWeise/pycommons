@@ -86,7 +86,7 @@ def try_int(value: int | float) -> int | float:
     `-1` work without loss of precision.
 
     :param value: the input value, which must either be `int` or `float`
-    :return: an `int` if `value` can be represented as `int` without loss of
+    :returns: an `int` if `value` can be represented as `int` without loss of
         precision, `val` otherwise
     :raises TypeError: if `value` is neither an instance of `int` nor of
         `float`
@@ -190,7 +190,7 @@ def float_to_frac(value: int | float) -> tuple[int, int]:
     numerator.
 
     :param value: the floating point value
-    :return: the integer fraction
+    :returns: the integer fraction
     :raises TypeError: if value is neither an integer nor a float
     :raises ValueError: if value is not finite
 
@@ -524,7 +524,7 @@ def try_int_div(a: int, b: int) -> int | float:
 
     :param a: the first integer
     :param b: the second integer
-    :return: a/b, either as `int` or as `float` but always a finite value
+    :returns: a/b, either as `int` or as `float` but always a finite value
     :raises ZeroDivisionError: if `b==0`
     :raises TypeError: if `a` or `b` are not integers
 
@@ -1053,7 +1053,7 @@ def try_float_int_div(a: int | float, b: int) -> int | float:
 
     :param a: the first number, which is either a float or an int
     :param b: the second number, which must be an int
-    :return: `a/b`, but always finite
+    :returns: `a/b`, but always finite
 
     :raises ValueError: if either one of the arguments or the final result
         would not be finite
@@ -1153,7 +1153,7 @@ def try_int_sqrt(value: int) -> int | float:
     Try to compute the square root of a potentially large integer.
 
     :param value: the value
-    :return: the square root
+    :returns: the square root
     :raises ValueError: if `value` is negative
     :raises TypeError: if `value` is not an integer
 
@@ -1432,7 +1432,7 @@ def try_int_add(a: int, b: int | float) -> int | float:
 
     :param a: the integer
     :param b: the floating point number
-    :return: `a + b` or the best possible approximation thereof
+    :returns: `a + b` or the best possible approximation thereof
     :raises TypeError: if `a` is not an integer or if `b` is neither a
         float nor an integer
     :raises ValueError: if `b` or the result is not finite
@@ -1590,7 +1590,7 @@ def try_int_mul(a: int, b: int | float) -> int | float:
 
     :param a: the integer
     :param b: the int or float to multiply `a` with
-    :return: `a * b`
+    :returns: `a * b`
     :raises ValueError: if `b` or the result is not finite
     :raises TypeError: if `a` is not an integer or if `b` is neither an
         integer nor a float
@@ -1952,7 +1952,7 @@ def ceil_div(a: int, b: int) -> int:
 
     :param a: the number to be divided by `b`
     :param b: the number dividing `a`
-    :return: the rounded-up result of the division
+    :returns: the rounded-up result of the division
 
     >>> ceil_div(1, 1)
     1

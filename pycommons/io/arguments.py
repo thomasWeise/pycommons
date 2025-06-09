@@ -214,7 +214,7 @@ def make_epilog(
     :param url: the URL, or `None` for no URL
     :param email: the email address(es) of the author, or `None` for no email
         address information
-    :return: the copyright information
+    :returns: the copyright information
 
     >>> cy = datetime.now(tz=UTC).year
     >>> ex = (f"This is a test.\n\nGNU\xa0GENERAL\xa0PUBLIC\xa0LICENSE"

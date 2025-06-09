@@ -49,16 +49,18 @@ __BASE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
 
 #: the rule sets we use for ruff
 __RUFF_RULES: Final[str] =\
-    ("--select=A,AIR,ANN,ASYNC,B,BLE,C,C4,COM,D,DJ,DTZ,E,ERA,EXE,F,FA,"
-     "FIX,FLY,FURB,G,I,ICN,INP,ISC,INT,LOG,N,NPY,PERF,PIE,PLC,PLE,"
-     "PLR,PLW,PT,PYI,Q,RET,RSE,RUF,S,SIM,T,T10,T20,TD,TID,TRY,UP,W,YTT")
+    ("--select=A,AIR,ANN,ARG,ASYNC,B,BLE,C,C4,COM,D,DJ,DOC,DTZ,E,ERA,EXE,F,"
+     "FA,FIX,FLY,FURB,G,I,ICN,INP,ISC,INT,LOG,N,NPY,PERF,PGH,PIE,PL,PLC,PLE,"
+     "PLR,PLW,PT,PYI,Q,RET,RSE,RUF,S,SIM,SLF,SLOT,T,T10,T20,TC,TD,TID,TRY,"
+     "UP,W,YTT")
 
 #: the ruff rules that we ignore
 __RUFF_IGNORE: Final[str] =\
-    ("--ignore=A005,ANN001,ANN002,ANN003,ANN204,ANN401,B008,B009,B010,"
-     "C901,D203,D208,D212,D401,D407,D413,N801,PLC2801,PLR0904,PLR0911,"
-     "PLR0912,PLR0913,PLR0914,PLR0915,PLR0916,PLR0917,PLR1702,PLR2004,"
-     "PLR6301,PT011,PT012,PT013,PYI041,RUF100,S,TRY003,UP035,W")
+    ("--ignore=A005,ANN001,ANN002,ANN003,ANN204,ANN401,ARG002,B008,B009,B010,"
+     "C901,D203,D208,D212,D401,D407,D413,DOC201,DOC402,DOC501,FURB189,N801,"
+     "PGH003,PGH004,PLC2801,PLR0904,PLR0911,PLR0912,PLR0913,PLR0914,PLR0915,"
+     "PLR0916,PLR0917,PLR1702,PLR2004,PLR6301,PT011,PT012,PT013,PYI041,"
+     "RUF100,S,TC001,TRY003,UP035,UP047,W")
 
 #: the pylint rules that we ignore
 __PYLINT_IGNORE: Final[str] =\
@@ -74,9 +76,8 @@ __PACKAGE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
     ("pycodestyle", "."),
-    ("ruff", "check", "--target-version", "py312",
-     __RUFF_RULES, __RUFF_IGNORE, "--line-length", "79",
-     "."),
+    ("ruff", "check", "--target-version", "py312", __RUFF_RULES,
+     __RUFF_IGNORE, "--line-length", "79", "--preview", "."),
 )
 
 #: a list of analysis to be applied to the test directory
@@ -88,7 +89,7 @@ __TESTS_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("unimport", "."),
     ("pycodestyle", "."),
     ("ruff", "check", "--target-version", "py312",
-     __RUFF_RULES, f"{__RUFF_IGNORE},INP001", "."),
+     __RUFF_RULES, f"{__RUFF_IGNORE},INP001", "--preview", "."),
 )
 
 #: a list of analysis to be applied to the examples directory
@@ -100,7 +101,7 @@ __EXAMPLES_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("pycodestyle", "--ignore=E731,W503", "."),
     ("ruff", "check", "--target-version", "py310",
      __RUFF_RULES.replace(",T20", ""), f"{__RUFF_IGNORE},INP001,T201",
-     "--line-length", "79", "."),
+     "--line-length", "79", "--preview", "."),
 )
 
 #: a list of analysis to be applied to the examples directory

@@ -9,7 +9,7 @@ from pycommons.strings.chars import NBDASH, NBSP
 from pycommons.types import type_error
 
 #: fast call to :meth:`str.__len__`
-__LEN: Final[Callable[[str], int]] = cast(Callable[[str], int], str.__len__)
+__LEN: Final[Callable[[str], int]] = cast("Callable[[str], int]", str.__len__)
 
 
 def float_to_str(value: float) -> str:
@@ -19,7 +19,7 @@ def float_to_str(value: float) -> str:
     The floating point value `value` is converted to a string.
 
     :param value: the floating point value
-    :return: the string representation
+    :returns: the string representation
     :raises TypeError: if `value` is not a `float`
     :raises ValueError: if `value` is not a number
 
@@ -178,7 +178,7 @@ def num_to_str(value: int | float) -> str:
     neither an `int`, `bool`, or `float` will incur a `TypeError`.
 
     :param value: the value
-    :return: the string
+    :returns: the string
     :raises TypeError: if `value` is a `bool` (notice that `bool` is a
         subclass of `int`) or any other type that is neither `int` nor
         `float`.
@@ -238,7 +238,7 @@ def bool_or_num_to_str(value: int | float | bool) -> str:
     Convert a `bool` or number to string.
 
     :param value: the number or `bool`
-    :return: the string
+    :returns: the string
     :raises TypeError: if the number is neither `bool`, `float`, or `int`.
 
     >>> bool_or_num_to_str(True)
@@ -269,7 +269,7 @@ def num_or_none_to_str(value: int | float | None) -> str:
     Otherwise, the result of :func:`~num_to_str` is returned.
 
     :param value: the value
-    :return: the string representation, `""` for `None`
+    :returns: the string representation, `""` for `None`
     :returns `""`: if `value is None`
     :returns `num_to_str(value)`: otherwise
     :raises TypeError: if `value` not `Nont` but instead is a `bool`
@@ -318,7 +318,7 @@ def int_or_none_to_str(value: int | None) -> str:
     Otherwise, a `TypeError` is thrown.
 
     :param value: the value
-    :return: the string representation, `''` for `None`
+    :returns: the string representation, `''` for `None`
     :returns `""`: if `value is None`
     :returns `int.__str__(value)`: otherwise
     :raises TypeError: if `value` is a `bool` (notice that `bool` is a
@@ -373,7 +373,7 @@ def __str_to_num_or_none(value: str | None,
     Otherwise, a `ValueError` is thrown.
 
     :param value: the string value
-    :return: the `int` or `float` or `None` corresponding to `value`
+    :returns: the `int` or `float` or `None` corresponding to `value`
 
     >>> print(type(__str_to_num_or_none("15.0", False)))
     <class 'int'>
@@ -488,7 +488,7 @@ def str_to_num(value: str) -> int | float:
     Otherwise, a `ValueError` is thrown.
 
     :param value: the string value
-    :return: the `int` or `float`: Integers are preferred to be used whereever
+    :returns: the `int` or `float`: Integers are preferred to be used whereever
         possible
     :raises TypeError: if `value` is not a `str`
     :raises ValueError: if `value` is a `str` but cannot be converted to an
@@ -568,7 +568,7 @@ def str_to_num_or_none(value: str | None) -> int | float | None:
     Otherwise, a `ValueError` is thrown.
 
     :param value: the string value
-    :return: the `int` or `float` or `None`
+    :returns: the `int` or `float` or `None`
     :raises TypeError: if `value` is neither a `str` nor `None`
     :raises ValueError: if `value` is a `str` but cannot be converted to an
         integer (base-10) or converts to a `float` which is not a number
@@ -643,7 +643,7 @@ def str_to_int_or_none(value: str | None) -> int | None:
     Otherwise, a `ValueError` is thrown.
 
     :param value: the string value, or `None`
-    :return: the int or None
+    :returns: the int or None
     :raises TypeError: if `value` is neither a `str` nor `None`
     :raises ValueError: if `value` is a `str` but cannot be base-10 converted
         to an integer
@@ -690,7 +690,7 @@ def datetime_to_date_str(date: datetime) -> str:
     Convert a datetime object to a date string.
 
     :param date: the date
-    :return: the date string
+    :returns: the date string
     :raises TypeError: if `date` is not an instance of
         :class:`datetime.datetime`.
 
@@ -717,7 +717,7 @@ def datetime_to_datetime_str(dateandtime: datetime) -> str:
     Convert a datetime object to a date-time string.
 
     :param dateandtime: the date and time
-    :return: the date-time string
+    :returns: the date-time string
     :raises TypeError: if `dateandtime` is not an instance of
         :class:`datetime.datetime`.
 

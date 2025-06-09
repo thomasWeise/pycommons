@@ -175,13 +175,13 @@ def compile_and_run(code: str, source: str) -> None:
                 compiled = compile(  # noqa # nosec
                     use_code, filename=use_source,  # noqa # nosec
                     mode="exec", dont_inherit=True)  # noqa # nosec
-            except BaseException as be:  # noqa: B036
+            except BaseException as be:  # noqa
                 raise ValueError(
                     f"Error when compiling {use_source!r}.") from be
             logger(f"Successfully compiled, now executing {use_source!r}.")
             try:
                 exec(compiled, {})  # pylint: disable = W0122 # noqa # nosec
-            except BaseException as be:  # noqa: B036
+            except BaseException as be:  # noqa
                 raise ValueError(
                     f"Error when executing {use_source!r}.") from be
         finally:

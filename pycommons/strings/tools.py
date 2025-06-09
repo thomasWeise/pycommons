@@ -7,7 +7,7 @@ from typing import Callable, Final, Generator, Iterable, Pattern, cast
 from pycommons.types import type_error
 
 #: fast call to :meth:`str.__len__`
-__LEN: Final[Callable[[str], int]] = cast(Callable[[str], int], str.__len__)
+__LEN: Final[Callable[[str], int]] = cast("Callable[[str], int]", str.__len__)
 
 
 def replace_str(find: str, replace: str, src: str) -> str:
@@ -25,7 +25,8 @@ def replace_str(find: str, replace: str, src: str) -> str:
     :param find: the string to find
     :param replace: the string with which it will be replaced
     :param src: the string in which we search
-    :return: the string `src`, with all occurrences of find replaced by replace
+    :returns: the string `src`, with all occurrences of find replaced by
+        replace
     :raises TypeError: if any of the parameters are not strings
 
     >>> replace_str("a", "b", "abc")
@@ -104,7 +105,7 @@ def replace_regex(search: str | Pattern,
     :param replace: the string to replace it with, or a function receiving
         a :class:`re.Match` instance and returning a replacement string
     :param inside: the string in which to search/replace
-    :return: the new string after the recursive replacement
+    :returns: the new string after the recursive replacement
     :raises TypeError: if any of the parameters is not of the right type
     :raises ValueError: if there are 100000 recursive replacements or more,
         indicating that there could be an endless loop
@@ -234,7 +235,7 @@ def get_prefix_str(strings: str | Iterable[str]) -> str:
     Compute the common prefix of an iterable of strings.
 
     :param strings: the iterable of strings
-    :return: the common prefix
+    :returns: the common prefix
     :raises TypeError: if the input is not a string, iterable of string,
         or contains any non-string element (before the prefix is determined)
         Notice: If the prefix is determined as the empty string, then the
@@ -324,7 +325,7 @@ def split_str(source: str, split_by: str) -> Generator[str, None, None]:
 
     :param source: the source string
     :param split_by: the split string
-    :return: each split element
+    :returns: each split element
 
     >>> list(split_str("", ""))
     ['']

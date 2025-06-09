@@ -30,7 +30,7 @@ def __get_source(
 
     :param source: the directory
     :param __dst: the destination
-    :return: the set of files
+    :returns: the set of files
 
     >>> from pycommons.io.temp import temp_dir
     >>> with temp_dir() as td:
@@ -135,7 +135,7 @@ def __keep_only_source(
         if f.is_dir():
             __keep_only_source(f, keep, __collect)
     if lst:
-        lst.sort(key=cast(Callable[[Path], int], str.__len__), reverse=True)
+        lst.sort(key=cast("Callable[[Path], int]", str.__len__), reverse=True)
         for k in lst:
             delete_path(k)
 

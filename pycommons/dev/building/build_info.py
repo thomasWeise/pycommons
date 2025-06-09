@@ -175,6 +175,7 @@ class BuildInfo:
         :param doc_dest_dir: the documentation destination directory, if any
         :param dist_dir: the distribution directory, if any
         :param timeout: the standard timeout in seconds
+        :raises ValueError: if the directories are inconsistent
         """
         object.__setattr__(self, "base_dir", directory_path(base_dir))
         object.__setattr__(self, "package_name", str.strip(package_name))
@@ -235,7 +236,7 @@ class BuildInfo:
         r"""
         Convert this object to a string.
 
-        :return: the string version of this object.
+        :returns: the string version of this object.
 
         >>> str(BuildInfo(Path(__file__).up(4), "pycommons"))[:15]
         "'pycommons' in "
@@ -294,6 +295,7 @@ class BuildInfo:
 
         :param args: the arguments of the command
         :param env: the environment to be used with this command
+        :returns: a command relative to the build directories
 
         >>> b = BuildInfo(Path(__file__).up(4), "pycommons")
         >>> cmd = b.command(("cat", "README.txt"))
@@ -322,6 +324,8 @@ def parse_project_arguments(parser: ArgumentParser,
 
     :param parser: the argument parser
     :param args: the command line arguments
+    :returns: the build info
+    :raises: TypeError if the types are wrong
 
     >>> from pycommons.io.arguments import pycommons_argparser
     >>> ap = pycommons_argparser(__file__, "a test program",
@@ -437,7 +441,7 @@ def replace_in_cmd(orig: Iterable[str], replace_with: str,
     :param orig: the original sequence
     :param replace_with: the string it is to be replace with
     :param replace_what: the string to be replaced
-    :return: the replaced sequence
+    :returns: the replaced sequence
 
     >>> replace_in_cmd(('x', '.', 'y'), 'a', '.')
     ['x', 'a', 'y']

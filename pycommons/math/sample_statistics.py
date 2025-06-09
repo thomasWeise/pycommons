@@ -337,7 +337,7 @@ class SampleStatistics:
         """
         Get a string representation of this object.
 
-        :return: the string
+        :returns: the string
         """
         return CSV_SEPARATOR.join(map(str, (
             self.n, self.minimum, self.median, self.mean_arith,
@@ -347,7 +347,7 @@ class SampleStatistics:
         """
         Obtain the smallest of the three mean values.
 
-        :return: the smallest of `mean_arith`, `mean_geom`, and `median`
+        :returns: the smallest of `mean_arith`, `mean_geom`, and `median`
 
         >>> SampleStatistics(1, 0, 0.0, 0, None, 0.0, None).min_mean()
         0
@@ -366,7 +366,7 @@ class SampleStatistics:
         """
         Obtain the largest of the three mean values.
 
-        :return: the largest of `mean_arith`, `mean_geom`, and `median`
+        :returns: the largest of `mean_arith`, `mean_geom`, and `median`
 
         >>> SampleStatistics(1, 0, 0.0, 0, None, 0.0, None).max_mean()
         0
@@ -387,7 +387,7 @@ class SampleStatistics:
         :param needs_n: if this is `True`, the default, then the object is
             only turned into a single number if alsp `n==1`. Otherwise, `n`
             is ignored
-        :return: an integer or float if this objects minimum equals its
+        :returns: an integer or float if this objects minimum equals its
             maximum, the object itself otherwise
 
         >>> s = from_single_value(10, 1)
@@ -437,7 +437,7 @@ class SampleStatistics:
         r"""
         Get a comparison and hash key.
 
-        :return: the comparison key
+        :returns: the comparison key
 
         >>> SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)._SampleStatistics__key()
         (1, 2, 4, 3, 6, 0.2, 2)
@@ -456,7 +456,7 @@ class SampleStatistics:
         Check if this statistics record is less than another one.
 
         :param other: the other sample statistics
-        :return: `True` if this object is less, `False` otherwise
+        :returns: `True` if this object is less, `False` otherwise
 
         >>> s1 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
         >>> s2 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
@@ -483,7 +483,7 @@ class SampleStatistics:
         Check if this statistics record is less than or equal to another one.
 
         :param other: the other sample statistics
-        :return: `True` if this object is less or equal, `False` otherwise
+        :returns: `True` if this object is less or equal, `False` otherwise
 
         >>> s1 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
         >>> s2 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
@@ -510,7 +510,7 @@ class SampleStatistics:
         Check if this statistics record is greater than another one.
 
         :param other: the other sample statistics
-        :return: `True` if this object is greater, `False` otherwise
+        :returns: `True` if this object is greater, `False` otherwise
 
         >>> s1 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
         >>> s2 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
@@ -537,7 +537,7 @@ class SampleStatistics:
         Check if this object is greater than or equal to another one.
 
         :param other: the other sample statistics
-        :return: `True` if this object is greater or equal, `False` otherwise
+        :returns: `True` if this object is greater or equal, `False` otherwise
 
         >>> s1 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
         >>> s2 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
@@ -564,7 +564,7 @@ class SampleStatistics:
         Check if this statistics record equals another object.
 
         :param other: the other obect
-        :return: `True` if this object is equal, `False` otherwise
+        :returns: `True` if this object is equal, `False` otherwise
 
         >>> s1 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
         >>> s2 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
@@ -586,7 +586,7 @@ class SampleStatistics:
         Check if this statistics record does not equal another object.
 
         :param other: the other sample statistics
-        :return: `True` if this object is not equal, `False` otherwise
+        :returns: `True` if this object is not equal, `False` otherwise
 
         >>> s1 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
         >>> s2 = SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2)
@@ -607,7 +607,7 @@ class SampleStatistics:
         """
         Compute the hash code of this statistics record.
 
-        :return: the hash code
+        :returns: the hash code
 
         >>> hash(SampleStatistics(2, 1, 2, 4.0, 3, 6, 0.2))
         1256902036954760112
@@ -622,7 +622,7 @@ class SampleStatistics:
         """
         Get the number :attr:`~n` of samples.
 
-        :return: the number :attr:`~n` of samples.
+        :returns: the number :attr:`~n` of samples.
         :raises TypeError: if an object of the wrong type is passed in as self
 
         >>> SampleStatistics(5, 3, 5, 6, 4, 7, 2).get_n()
@@ -642,7 +642,7 @@ class SampleStatistics:
         """
         Get the :attr:`~minimum` of all the samples.
 
-        :return: the :attr:`~minimum` of all the samples
+        :returns: the :attr:`~minimum` of all the samples
         :raises TypeError: if an object of the wrong type is passed in as self
 
         >>> SampleStatistics(5, 3, 5, 6, 4, 7, 2).get_minimum()
@@ -662,7 +662,7 @@ class SampleStatistics:
         """
         Get the :attr:`~maximum` of all the samples.
 
-        :return: the :attr:`~maximum` of all the samples
+        :returns: the :attr:`~maximum` of all the samples
         :raises TypeError: if an object of the wrong type is passed in as self
 
         >>> SampleStatistics(5, 3, 5, 6, 4, 7, 2).get_maximum()
@@ -682,7 +682,7 @@ class SampleStatistics:
         """
         Get the arithmetic mean (:attr:`~mean_arith`) of all the samples.
 
-        :return: the arithmetic mean (:attr:`~mean_arith`) of all the samples.
+        :returns: the arithmetic mean (:attr:`~mean_arith`) of all the samples.
         :raises TypeError: if an object of the wrong type is passed in as self
 
         >>> SampleStatistics(5, 3, 5, 6, 4, 7, 2).get_mean_arith()
@@ -702,7 +702,7 @@ class SampleStatistics:
         """
         Get the geometric mean (:attr:`~mean_geom`) of all the samples.
 
-        :return: the geometric mean (:attr:`~mean_geom`) of all the samples,
+        :returns: the geometric mean (:attr:`~mean_geom`) of all the samples,
             `None` if the geometric mean is not defined.
         :raises TypeError: if an object of the wrong type is passed in as self
 
@@ -723,7 +723,7 @@ class SampleStatistics:
         """
         Get the :attr:`~median` of all the samples.
 
-        :return: the :attr:`~median` of all the samples.
+        :returns: the :attr:`~median` of all the samples.
         :raises TypeError: if an object of the wrong type is passed in as self
 
         >>> SampleStatistics(5, 3, 5, 6, 4, 7, 2).get_median()
@@ -743,7 +743,7 @@ class SampleStatistics:
         """
         Get the standard deviation mean (:attr:`~stddev`) of all the samples.
 
-        :return: the standard deviation (:attr:`~stddev`) of all the samples,
+        :returns: the standard deviation (:attr:`~stddev`) of all the samples,
             `None` if the standard deviation is not defined, i.e., if there is
             only a single sample
         :raises TypeError: if an object of the wrong type is passed in as self
@@ -859,7 +859,7 @@ def __mean_of_two(a: int | float, b: int | float) -> int | float:
 
     :param a: the first number
     :param b: the second number
-    :return: the mean
+    :returns: the mean
 
     >>> __mean_of_two(1, 1)
     1
@@ -921,7 +921,7 @@ def __almost_le(a: int | float, b: int | float) -> bool:
 
     :param a: the first value
     :param b: the second value
-    :return: `True` if we can say: `a` is approximately less or equal than `b`
+    :returns: `True` if we can say: `a` is approximately less or equal than `b`
         and any deviation from this probably results from numerical issues.
 
     >>> __almost_le(1, 0)
@@ -1025,7 +1025,7 @@ def from_single_value(value: int | float | SampleStatistics, n: int = 1) \
     :param value: the single value
     :param n: the number of samples, i.e., the number of times this value
         occurred
-    :return: the sample statistics
+    :returns: the sample statistics
 
     >>> s = from_single_value(10, 2)
     >>> print(s.stddev)
@@ -1160,7 +1160,7 @@ def __to_frac(a: int | float) -> Fraction:
     Convert a number to a fraction.
 
     :param a: the number
-    :return: the fraction
+    :returns: the fraction
 
     >>> __to_frac(23)
     Fraction(23, 1)
@@ -1175,7 +1175,7 @@ def __from_frac(a: int | float | Fraction) -> int | float:
     Convert a fraction to either an integer or a float.
 
     :param a: the fraction
-    :return: the integer or float value
+    :returns: the integer or float value
 
     >>> __from_frac(1.6)
     1.6
@@ -1217,7 +1217,7 @@ def __int_root_bound_lower(base: int, root: int) -> int:
 
     :param base: the base number
     :param root: the root
-    :return: the lower bound
+    :returns: the lower bound
 
     >>> __int_root_bound_lower(8, 3)
     1
@@ -1238,7 +1238,7 @@ def __int_root_bound_upper(base: int, root: int) -> int:
 
     :param base: the base number
     :param root: the root
-    :return: the upper bound
+    :returns: the upper bound
 
     >>> __int_root_bound_upper(8, 3)
     4
@@ -1259,7 +1259,7 @@ def __frac_root_bound_lower(base: Fraction, root: int) -> Fraction:
 
     :param base: the base number
     :param root: the root
-    :return: the lower bound
+    :returns: the lower bound
 
     >>> __frac_root_bound_lower(Fraction(8), 3)
     Fraction(1, 1)
@@ -1293,7 +1293,7 @@ def __frac_root_bound_upper(base: Fraction, root: int) -> Fraction:
 
     :param base: the base number
     :param root: the root
-    :return: the upper bound
+    :returns: the upper bound
 
     >>> __frac_root_bound_upper(Fraction(8), 3)
     Fraction(4, 1)
@@ -1332,7 +1332,7 @@ def __limited_root(base: Fraction, root: int,
     :param mini: a limit for the smallest possible result
     :param maxi: a maximum value, the limit for the largest possible result,
         or `None` if no upper limit is known
-    :return: the power
+    :returns: the power
 
     >>> from math import sqrt
     >>> sqrt(3)
@@ -1440,7 +1440,7 @@ def from_samples(source: Iterable[int | float]) -> SampleStatistics:
     more accurate.
 
     :param source: the source
-    :return: a statistics representing the statistics over `source`
+    :returns: a statistics representing the statistics over `source`
 
     >>> s = from_samples([0.0])
     >>> s.n
@@ -2193,7 +2193,7 @@ class CsvReader(CsvReaderBase[SampleStatistics]):
         Parse a row of data.
 
         :param data: the data row
-        :return: the sample statistics
+        :returns: the sample statistics
         """
         n: Final[int] = 1 if self.idx_n is None else int(data[self.idx_n])
         mi: int | float | None = csv_val_or_none(
@@ -2244,7 +2244,7 @@ class CsvReader(CsvReaderBase[SampleStatistics]):
         Parse a row of data that may be empty.
 
         :param data: the row of data that may be empty
-        :return: the sample statistic, if the row contains data, else `None`
+        :returns: the sample statistic, if the row contains data, else `None`
 
         >>> print(CsvReader.parse_optional_row(None, ["1"]))
         None
@@ -2471,7 +2471,7 @@ class CsvWriter(CsvWriterBase[SampleStatistics]):
         Render a single sample statistics to a CSV row.
 
         :param data: the data sample statistics
-        :return: the row iterator
+        :returns: the row iterator
         """
         if self.__key_n is not None:
             yield str(data.n)
@@ -2562,7 +2562,7 @@ class CsvWriter(CsvWriterBase[SampleStatistics]):
                 yield ""
             yield f"{self.__key_all}: all{name} samples have this value"
 
-    def get_footer_bottom_comments(self) -> None | Iterable[str]:
+    def get_footer_bottom_comments(self) -> Iterable[str] | None:
         """
         Get the bottom footer comments.
 

@@ -64,7 +64,7 @@ def csv_scope(scope: str | None, key: str | None) -> str:
 
     :param scope: the scope, or `None`
     :param key: the key, or `None`
-    :return: the scope joined with the key
+    :returns: the scope joined with the key
 
     >>> csv_scope("a", "b")
     'a.b'
@@ -534,7 +534,7 @@ def __default_row(s: Iterable[str], t: Any) -> Iterable[str]:
 
     :param s: the setup object: an :class:`Iterable` of string
     :param t: the row object
-    :return: an :class:`Iterable` of string
+    :returns: an :class:`Iterable` of string
 
     >>> list(__default_row(("a", "b"), ("1", "2")))
     ['1', '2']
@@ -544,24 +544,24 @@ def __default_row(s: Iterable[str], t: Any) -> Iterable[str]:
     """
     if isinstance(t, Mapping):
         return (str(t[ss]) if ss in t else "" for ss in s)
-    return map(str, cast(Iterable[Any], t))
+    return map(str, cast("Iterable[Any]", t))
 
 
 def csv_write(
         data: Iterable[T],
         column_titles: Iterable[str] | Callable[[S], Iterable[str]] =
-        lambda t: cast(Iterable[str], t),
+        lambda t: cast("Iterable[str]", t),
         get_row: Callable[[S, T], Iterable[str]] =
-        cast(Callable[[S, T], Iterable[str]], __default_row),
-        setup: Callable[[Iterable[T]], S] = lambda t: cast(S, t),
+        cast("Callable[[S, T], Iterable[str]]", __default_row),
+        setup: Callable[[Iterable[T]], S] = lambda t: cast("S", t),
         separator: str = CSV_SEPARATOR,
         comment_start: str | None = COMMENT_START,
         header_comments:
-        None | Iterable[str] | Callable[[S], Iterable[str] | None] = None,
+        Iterable[str] | Callable[[S], Iterable[str] | None] | None = None,
         footer_comments:
-        None | Iterable[str] | Callable[[S], Iterable[str] | None] = None,
-        footer_bottom_comments: None | Iterable[str] | Callable[[
-            S], Iterable[str] | None] =
+        Iterable[str] | Callable[[S], Iterable[str] | None] | None = None,
+        footer_bottom_comments: Iterable[str] | Callable[[
+            S], Iterable[str] | None] | None =
         pycommons_footer_bottom_comments) -> Generator[str, None, None]:
     r"""
     Produce a sequence of CSV formatted text.
@@ -1188,7 +1188,7 @@ def csv_str_or_none(data: list[str | None] | None,
 
     :param data: the data
     :param index: the index, if any
-    :return: the string or nothing
+    :returns: the string or nothing
 
     >>> ddd = ["a", "b", "", "d"]
     >>> print(csv_str_or_none(ddd, 0))
@@ -1234,7 +1234,7 @@ def csv_val_or_none(data: list[str | None] | None, index: int | None,
     :param data: the data
     :param index: the index
     :param conv: the conversation function
-    :return: the object
+    :returns: the object
 
     >>> ddd = ["11", "22", "", "33"]
     >>> print(csv_val_or_none(ddd, 0, int))
@@ -1266,7 +1266,7 @@ def csv_column(columns: dict[str, int], key: str,
     :param columns: the columns set
     :param key: the key
     :param remove_col: should we remove the column?
-    :return: the column
+    :returns: the column
     :raises TypeError: if any of the parameters is not of the prescribed type
     :raises ValueError: if the column or key are invalid
     :raises KeyError: if no column of the name `key` eixists
@@ -1346,7 +1346,7 @@ def csv_column_or_none(columns: dict[str, int] | None = None,
     :param columns: the columns
     :param key: the key
     :param remove_col: should we remove the column?
-    :return: the column, or `None` if none was found
+    :returns: the column, or `None` if none was found
     :raises TypeError: if any of the parameters is not of the prescribed type
     :raises ValueError: if the column or key are invalid
 
@@ -1888,7 +1888,7 @@ class CsvReader[T]:
         Parse a row of data.
 
         :param data: the data row
-        :return: the object representing the row
+        :returns: the object representing the row
         :raises NotImplementedError: because it must be overridden
         :raises ValueError: should raise a :class:`ValueError` if the row is
             incomplete or invalid
@@ -1905,7 +1905,7 @@ class CsvReader[T]:
         :class:`ValueError`.
 
         :param data: the row of data that may be empty
-        :return: an object constructed from the partial row, if possible,
+        :returns: an object constructed from the partial row, if possible,
             or `None`
         """
         if (self is None) or (data is None):
@@ -1993,7 +1993,7 @@ pycommons.io.csv, version
     ...             f"{self.scope}.{r}" for r in self.rows]
     ...     def get_row(self, row: dict[str, int]) -> Iterable[str]:
     ...         return map(str, (row.get(key, "") for key in self.rows))
-    ...     def get_footer_bottom_comments(self) -> None | Iterable[str]:
+    ...     def get_footer_bottom_comments(self) -> Iterable[str] | None:
     ...         return ["Bla!"]
 
     >>> for p in W2.write(dd, separator="@", comment_start="B"):
@@ -2103,7 +2103,7 @@ pycommons.io.csv, version
         Render a single sample statistics to a CSV row.
 
         :param data: the data sample statistics
-        :return: the row iterator
+        :returns: the row iterator
         """
         raise NotImplementedError
 
@@ -2123,7 +2123,7 @@ pycommons.io.csv, version
         """
         return ()
 
-    def get_footer_bottom_comments(self) -> None | Iterable[str]:
+    def get_footer_bottom_comments(self) -> Iterable[str] | None:
         """
         Get the bottom footer comments.
 

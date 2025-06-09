@@ -21,7 +21,7 @@ import os.path
 import subprocess  # nosec
 import sys
 from os import environ
-from typing import Callable, Final, Mapping, cast
+from typing import Callable, Final, Mapping, cast  # pylint: disable=W0611
 
 from pycommons.ds.immutable_map import immutable_mapping
 from pycommons.io.path import Path, file_path
@@ -87,14 +87,14 @@ del __get_python_interpreter_short
 #: the base paths in which we would search for python modules
 __BASE_PATHS: Final[tuple[Path, ...]] = tuple(sorted((p for p in {
     Path(d) for d in sys.path if str.__len__(d) > 0} if p.is_dir()),
-    key=cast(Callable[[Path], int], str.__len__), reverse=True))
+    key=cast("Callable[[Path], int]", str.__len__), reverse=True))
 
 
 def __get_python_env() -> Mapping[str, str]:
     """
     Get the Python-related environment variables in the current environment.
 
-    :return: A mapping of variable names to values, or `None` if none were
+    :returns: A mapping of variable names to values, or `None` if none were
         specified.
     """
     pienv: Final[str] = "PYTHON_INTERPRETER"
@@ -144,7 +144,7 @@ def python_command(
     :param file: the python script
     :param use_short_interpreter: use the short interpreter path, for
         reabability and maybe portablity, or the full path?
-    :return: a list that can be passed to the shell to run that program, see,
+    :returns: a list that can be passed to the shell to run that program, see,
         e.g., :class:`pycommons.processes.shell.Command`.
 
     >>> python_command(os.__file__)

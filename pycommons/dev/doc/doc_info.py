@@ -260,7 +260,7 @@ class DocInfo:
         """
         Convert this object to a string.
 
-        :return: the string version of this object.
+        :returns: the string version of this object.
 
         >>> print(str(DocInfo(__file__, "a", "b", "c", "1",
         ...                   12, "https://example.com"))[:40])
@@ -278,7 +278,7 @@ def extract_md_infos(readme_md_file: str) -> tuple[str, int | None]:
     Parse a `README.md` file and find the title and last section index.
 
     :param readme_md_file: the path to the `README.md`
-    :return: a tuple of the title (headline starting with `"# "` (but without
+    :returns: a tuple of the title (headline starting with `"# "` (but without
         the `"# "`), and the last section index, if any)
 
     >>> from os.path import join, dirname
@@ -351,7 +351,7 @@ def parse_version_py(version_file: str,
 
     :param version_file: the path to the version file
     :param version_attr: the version attribute
-    :return: the version string
+    :returns: the version string
 
     >>> from os.path import join, dirname
     >>> from contextlib import redirect_stdout
@@ -447,7 +447,7 @@ def load_doc_info_from_setup_cfg(setup_cfg_file: str) -> DocInfo:
     Load the documentation information from the `setup.cfg` file.
 
     :param setup_cfg_file: the path to the `setup.cfg` file.
-    :return: the documentation information
+    :returns: the documentation information
 
     >>> from os.path import dirname, join
     >>> from contextlib import redirect_stdout

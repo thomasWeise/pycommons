@@ -56,7 +56,7 @@ def is_build() -> bool:
     obj: Final[object] = is_build
     key: Final[str] = "_value"
     if hasattr(obj, key):
-        return cast(bool, getattr(obj, key))
+        return cast("bool", getattr(obj, key))
 
     ret: bool = ("BUILD_SCRIPT" in environ) or is_ci_run()
 
@@ -84,7 +84,7 @@ def is_doc_test() -> bool:
     """
     Check if this process was invoked by a unit doctest.
 
-    :return: `True` if this function was called by a unit doctest,
+    :returns: `True` if this function was called by a unit doctest,
         `False` otherwise
 
     >>> is_doc_test()

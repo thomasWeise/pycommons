@@ -232,7 +232,7 @@ class Command:
         security sensitive stuff, so they are not printed. Instead. if an
         environment is specified, this will just be printed as `<env>`.
 
-        :return: A string representing this command
+        :returns: A string representing this command
 
         >>> str(Command("a"))[-50:]
         ' with no stdin, stdout ignored, and stderr ignored'
@@ -259,7 +259,7 @@ class Command:
             written to the `logger`, otherwise nothing is logged.
             Note: The environment, if any, will not be printed for security
             reasons.
-        :return: a tuple with the standard output and standard error, which
+        :returns: a tuple with the standard output and standard error, which
             are only not `None` if they were supposed to be captured
         :raises TypeError: if any argument has the wrong type
         :raises ValueError: if execution of the process failed

@@ -34,7 +34,7 @@ def _check_url_part(part: Any, forbidden: Pattern) -> str:
 
     :param part: the part
     :param forbidden: the pattern of forbidden text
-    :return: the url as str
+    :returns: the url as str
 
     >>> try:
     ...     _check_url_part("", _FORBIDDEN_IN_RELATIVE_URL)
@@ -93,7 +93,7 @@ def _check_url_part(part: Any, forbidden: Pattern) -> str:
     if the_match is not None:
         raise ValueError(f"URL part {part!r} contains the forbidden "
                          f"text {the_match.group()!r}.")
-    urlstr: Final[str] = cast(str, part)
+    urlstr: Final[str] = cast("str", part)
     if not urlstr.isascii():
         raise ValueError(
             f"URL part {urlstr!r} contains non-ASCII characters.")
@@ -120,7 +120,7 @@ _ALLOWED_SCHEMES: Final[set] = {"http", "https"}.union(
     _REQUIRE_USER_NAME_SCHEMES)
 
 
-class URL(str):
+class URL(str):  # noqa: SLOT000
     r"""
     A normalized and expanded URL.
 
@@ -551,7 +551,7 @@ class URL(str):
             `value` is already an absolute URL
         """
         if isinstance(value, URL):
-            return cast(URL, value)
+            return cast("URL", value)
 
         url: str = _check_url_part(
             value, _FORBIDDEN_IN_FULL_URL if base_url is None

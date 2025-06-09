@@ -69,7 +69,7 @@ def _get_text_encoding(filename: str) -> str:
     Adapted from https://stackoverflow.com/questions/13590749.
 
     :param filename: the filename
-    :return: the encoding
+    :returns: the encoding
 
     >>> from tempfile import mkstemp
     >>> from os import close as osxclose
@@ -196,6 +196,9 @@ join(dirname(realpath(getcwd())), "1.txt")
     True
     """
 
+    # see https://docs.astral.sh/ruff/rules/no-slots-in-str-subclass/
+    __slots__ = ()
+
     def __new__(cls, value: Any):  # noqa
         """
         Construct the path object by normalizing the path string.
@@ -242,7 +245,7 @@ join(dirname(realpath(getcwd())), "1.txt")
         Path must not be empty.
         """
         if isinstance(value, Path):
-            return cast(Path, value)
+            return cast("Path", value)
 
         if str.__len__(value) <= 0:
             raise ValueError("Path must not be empty.")
@@ -375,7 +378,7 @@ join(dirname(realpath(getcwd())), "1.txt")
         path does not contain `other`.
 
         :param other: the other path
-        :return: `True` is this path contains the other path, `False` of not
+        :returns: `True` is this path contains the other path, `False` of not
 
         >>> from os.path import dirname
         >>> Path(dirname(__file__)).contains(__file__)
@@ -463,7 +466,7 @@ dirname(__file__)))
         :meth:`enforce_contains` and otherwise an error is raised.
 
         :param relative_path: the path to resolve
-        :return: the resolved child path
+        :returns: the resolved child path
         :raises TypeError: If the `relative_path` is not a string.
         :raises ValueError: If the `relative_path` would resolve to something
             outside of this path and/or if it is empty.
@@ -531,7 +534,7 @@ dirname(__file__)))
         here creates the file if it does not exist. The method can only create
         the file if the directory already exists.
 
-        :return: `True` if the file already existed and
+        :returns: `True` if the file already existed and
             `False` if it was newly and atomically created.
         :raises: ValueError if anything goes wrong during the file creation
 
@@ -617,7 +620,7 @@ dirname(__file__)))
         """
         try:
             osclose(osopen(self, O_CREAT | O_TRUNC))
-        except BaseException as err:  # noqa: B036
+        except BaseException as err:  # noqa
             raise ValueError(
                 f"Error when truncating/creating file {self!r}.") from err
         self.enforce_file()
@@ -753,7 +756,7 @@ dirname(__file__)))
         and take any encoding error serious. If the path does not identify an
         existing file, an exception is thrown.
 
-        :return: the file open for reading
+        :returns: the file open for reading
         :raises ValueError: if the path does not identify a file
 
         >>> with Path(__file__).open_for_read() as rd:
@@ -771,7 +774,7 @@ dirname(__file__)))
         does not identify a file.
         """
         self.enforce_file()
-        return cast(TextIOBase, open(  # noqa: SIM115
+        return cast("TextIOBase", open(  # noqa: SIM115
             self, encoding=_get_text_encoding(self), errors="strict"))
 
     def read_all_str(self) -> str:
@@ -782,7 +785,7 @@ dirname(__file__)))
         is empty, an exception will be raised. No modification is applied to
         the text that is read.
 
-        :return: the single string of text
+        :returns: the single string of text
         :raises ValueError: if the path does not identify a file or if the
             file it identifies is empty
 
@@ -827,7 +830,7 @@ dirname(__file__)))
 
         If the path cannot be opened for writing, some error will be raised.
 
-        :return: the text io wrapper for writing
+        :returns: the text io wrapper for writing
         :raises ValueError: if the path does not identify a file or such a
             file cannot be created
 
@@ -851,7 +854,7 @@ dirname(__file__)))
         True
         """
         self.ensure_file_exists()
-        return cast(TextIOBase, open(  # noqa: SIM115
+        return cast("TextIOBase", open(  # noqa: SIM115
             self, mode="w", encoding="utf-8", errors="strict"))
 
     def write_all_str(self, contents: str) -> None:
@@ -920,7 +923,7 @@ dirname(__file__)))
         Compute a relative path of this path towards the given base path.
 
         :param base_path: the string
-        :return: a relative path
+        :returns: a relative path
         :raises ValueError: if this path is not inside `base_path` or the
             relativization result is otherwise invalid
 
@@ -971,7 +974,7 @@ dirname(__file__)))
         :param levels: the number levels to go up: `1` for getting the
             directly containing directory, `2` for the next higher directory,
             and so on.
-        :return: the resulting path
+        :returns: the resulting path
 
         >>> f = file_path(__file__)
         >>> print(f.up()[-13:])
@@ -1019,7 +1022,7 @@ dirname(__file__)))
         """
         Get the name of the file or directory identified by this path.
 
-        :return: the name of the file or directory
+        :returns: the name of the file or directory
 
         >>> file_path(__file__).basename()
         'path.py'
@@ -1042,7 +1045,7 @@ dirname(__file__)))
         """
         List the files and/or sub-directories in this directory.
 
-        :return: an iterable with the fully-qualified paths
+        :returns: an iterable with the fully-qualified paths
 
         >>> from tempfile import mkstemp, mkdtemp
         >>> from os import close as osxclose
@@ -1119,7 +1122,7 @@ def file_path(pathstr: str) -> "Path":
     :meth:`~Path.enforce_file`.
 
     :param pathstr: the path
-    :return: the file
+    :returns: the file
 
     >>> file_path(__file__)[-20:]
     'pycommons/io/path.py'
@@ -1144,7 +1147,7 @@ def directory_path(pathstr: str) -> "Path":
     :meth:`~Path.enforce_dir`.
 
     :param pathstr: the path
-    :return: the file
+    :returns: the file
 
     >>> from os.path import dirname
     >>> directory_path(dirname(__file__))[-12:]
@@ -1163,7 +1166,7 @@ def directory_path(pathstr: str) -> "Path":
 
 #: the ends-with check
 __ENDSWITH: Final[Callable[[str, str], bool]] = cast(
-    Callable[[str, str], bool], str.endswith)
+    "Callable[[str, str], bool]", str.endswith)
 
 
 def line_writer(output: TextIO | TextIOBase) -> Callable[[str], None]:
@@ -1189,7 +1192,7 @@ def line_writer(output: TextIO | TextIOBase) -> Callable[[str], None]:
     adds the `"\n"` terminator to each of them if necessary.
 
     :param output: the output stream
-    :return: an instance of :class:`typing.Callable` that will write each
+    :returns: an instance of :class:`typing.Callable` that will write each
         string it receives as a properly terminated line to the output
         stream.
     :raises TypeError: if `output` is not an instance of
@@ -1296,7 +1299,7 @@ def line_writer(output: TextIO | TextIOBase) -> Callable[[str], None]:
         if not b:
             __w("\n")
 
-    return cast(Callable[[str], None], __call)
+    return cast("Callable[[str], None]", __call)
 
 
 def __line_iterator(lines: Iterable[str]) -> Generator[str, None, None]:
@@ -1304,7 +1307,7 @@ def __line_iterator(lines: Iterable[str]) -> Generator[str, None, None]:
     Iterate over the given lines, adding newlines where needed.
 
     :param lines: the lines
-    :return: the generator
+    :returns: the generator
 
     >>> list(__line_iterator([]))
     []

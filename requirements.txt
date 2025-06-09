@@ -28,7 +28,7 @@ certifi == 2025.4.26
 # only
 autoflake == 2.3.1
 bandit == 1.8.3
-coverage == 7.8.0
+coverage == 7.8.2
 coverage-badge == 1.1.2
 dlint == 0.16.0
 dodgy == 0.2.1
@@ -36,13 +36,13 @@ flake8 == 7.2.0
 flake8-bugbear == 24.12.12
 flake8-eradicate == 1.5.0
 flake8-use-fstring == 1.4
-mypy == 1.15.0
+mypy == 1.16.0
 pycodestyle == 2.13.0
 pydocstyle == 6.3.0
 pyflakes == 3.3.2
 pylint == 3.3.7
 pyroma == 4.2
-ruff == 0.11.8
+ruff == 0.11.13
 tryceratops == 2.4.1
 unimport == 1.2.1
 vulture == 2.14
@@ -69,7 +69,7 @@ minify_html == 0.16.4
 # errors. But they can at least check whether our code behaves as it should in
 # some usual or border cases. Also, they can help us find out if changes in
 # the code lead to changes in (tested/expected) behavior.
-pytest == 8.3.5
+pytest == 8.4.0
 pytest-timeout == 2.4.0
 
 # for converting the additional markdown files to HTML in the [dev] variant
@@ -77,10 +77,10 @@ markdown == 3.8
 
 # setuptools, testresources, twine, virtualenv, and wheel are needed for
 # generating the installable pip package in the [dev] variant.
-setuptools == 80.3.1
+setuptools == 80.9.0
 testresources == 2.0.2
 twine == 6.1.0
-virtualenv == 20.31.1
+virtualenv == 20.31.2
 wheel == 0.45.1
 
 # psutil is used for getting information about the system configuration.

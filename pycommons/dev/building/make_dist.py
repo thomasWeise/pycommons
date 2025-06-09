@@ -73,7 +73,7 @@ def __get_extras(setup_cfg: Path) -> list[str]:
     Get all package extras.
 
     :param setup_cfg: the `setup.cfg` file
-    :return: the set of extras
+    :returns: the set of extras
 
     >>> root = Path(__file__).up(4)
     >>> from contextlib import redirect_stdout
