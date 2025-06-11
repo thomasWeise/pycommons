@@ -2,7 +2,7 @@
 
 from re import Match, subn
 from re import compile as _compile
-from typing import Callable, Final, Generator, Iterable, Pattern, cast
+from typing import Any, Callable, Final, Generator, Iterable, Pattern, cast
 
 from pycommons.types import type_error
 
@@ -371,3 +371,307 @@ def split_str(source: str, split_by: str) -> Generator[str, None, None]:
         yield source[start:end]
         start = end + split_len
     yield ""  # pattern found at the end of the string
+
+
+def escape(text: str, escapes: Iterable[str]) -> tuple[str, Any]:
+    """
+    Escapes a set of substrings inside a string in a reversible manner.
+
+    A set of character sequences (`escapes`) are to be removed from
+    `text` and to be replaced with characters that do not occur inside
+    `text`. Escaping is a bijection. Since all escaped sequences are replaced
+    with characters that are new to the string, there cannot be any issue with
+    recursively occuring patterns or ambigiuties.
+
+    Replacement is performed iteratively from beginning to end. The first
+    sequence from `escapes` that is discovered is replaced and then the
+    process continues. If two sequences start at the same place, then the
+    longer one is replaced first.
+
+    The same `text` with the same set of escapes will always produce the same
+    output, regardless of the order of the escapes.
+
+    The function returns a tuple containing the escaped string as well as the
+    setup used for the escaping (as the second element). This second element
+    must *only* be used by the function :func:`unescape`, which is the reverse
+    operator of :func:`escape`. You must not make any assumption about its
+    nature.
+
+    :param text: the text
+    :param escapes: the substrings to escape
+    :return: a tuple of an escaped version of the string, together with
+        the escape information.
+        The second part of the tuple must not be accessed.
+
+    >>> s, v = escape("12345", ("12", "X", "5"))
+    >>> print(s)
+    !34"
+    >>> print(v)
+    [('12', '!'), ('5', '"')]
+
+    >>> unescape(s, v)
+    '12345'
+
+    >>> s, v = escape('"123!45', ("12", "X", "5", "!", '"'))
+    >>> print(s)
+    %#3$4&
+    >>> print(v)
+    [('12', '#'), ('!', '$'), ('"', '%'), ('5', '&')]
+
+    >>> unescape(s, v)
+    '"123!45'
+
+    >>> s, v = escape('"123!45', ("X", "5", "12", "!", '"'))
+    >>> print(s)
+    %#3$4&
+    >>> print(v)
+    [('12', '#'), ('!', '$'), ('"', '%'), ('5', '&')]
+
+    >>> unescape(s, v)
+    '"123!45'
+
+    >>> s, v = escape('111111112222233321111212121',
+    ...     ("1", "11", "2", "222", "1", "32", "321", "21", "33"))
+    >>> print(s)
+    ####!((&"#'$$$
+    >>> print(v)
+    [('222', '!'), ('321', '"'), ('11', '#'), ('21', '$'), ('32', '%'), \
+('33', '&'), ('1', "'"), ('2', '(')]
+
+    >>> unescape(s, v)
+    '111111112222233321111212121'
+
+    >>> s, v = escape('111&111112222233321111212X121',
+    ...     ("1", "11", "2", "222", "1", "32", "321", "21", "33"))
+    >>> print(s)
+    #(&##(!))'"#($)X($
+    >>> print(v)
+    [('222', '!'), ('321', '"'), ('11', '#'), ('21', '$'), ('32', '%'), \
+('33', "'"), ('1', '('), ('2', ')')]
+
+    >>> unescape(s, v)
+    '111&111112222233321111212X121'
+
+    >>> s, v = escape('221', ("22", "21"))
+    >>> print(s)
+    "1
+    >>> print(v)
+    [('21', '!'), ('22', '"')]
+
+    >>> s, v = escape('22221', ("2222", "2221", "22", "21"))
+    >>> print(s)
+    "1
+    >>> print(v)
+    [('2221', '!'), ('2222', '"'), ('21', '#'), ('22', '$')]
+
+    >>> unescape(s, v)
+    '22221'
+
+    >>> s, v = escape('222212222122221', ("2222", "2221", "22", "21"))
+    >>> print(s)
+    "1"1"1
+    >>> print(v)
+    [('2221', '!'), ('2222', '"'), ('21', '#'), ('22', '$')]
+
+    >>> unescape(s, v)
+    '222212222122221'
+
+    >>> s, v = escape('222212222122221', ("2222", "2221", "22", "21", '"1'))
+    >>> print(s)
+    #1#1#1
+    >>> print(v)
+    [('2221', '!'), ('2222', '#'), ('21', '$'), ('22', '%')]
+
+    >>> unescape(s, v)
+    '222212222122221'
+
+    >>> try:
+    ...     escape(1, None)
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> try:
+    ...     escape("x", 5)
+    ... except TypeError as te:
+    ...     print(te)
+    'int' object is not iterable
+
+    >>> try:
+    ...     escape("x", (5, ))
+    ... except TypeError as te:
+    ...     print(te)
+    descriptor '__len__' requires a 'str' object but received a 'int'
+
+    >>> s, v = escape("", ("12", ))
+    >>> s == ""
+    True
+    >>> v is None
+    True
+
+    >>> s, v = escape("12", [])
+    >>> s == "12"
+    True
+    >>> v is None
+    True
+
+    >>> s, v = escape("12", ["3", "4", "5"])
+    >>> s == "12"
+    True
+    >>> v is None
+    True
+
+    >>> try:
+    ...     s, v = escape("1" * 1_073_741_826, ("x", ))
+    ... except ValueError as ve:
+    ...     print(ve)
+    We rather not escape a string with 1073741826 characters.
+
+    >>> try:
+    ...     s, v = escape("".join(chr(i) for i in range(524_290)), ("x", ))
+    ... except ValueError as ve:
+    ...     print(ve)
+    524290 different characters and 1 escapes are too many.
+
+    >>> try:
+    ...     s, v = escape("123", ("x", ""))
+    ... except ValueError as ve:
+    ...     print(ve)
+    Cannot escape empty string.
+    """
+    text_len: Final[int] = str.__len__(text)
+    if text_len <= 0:
+        return "", None
+    if text_len > 1_073_741_824:
+        raise ValueError(
+            f"We rather not escape a string with {text_len} characters.")
+
+    # check which of the escapes are actually needed
+    forbidden: Final[list[str | tuple[str, str]]] = []
+    charset: set[str] = set()
+    needs_escaping: bool = False
+    for fb in escapes:
+        if str.__len__(fb) <= 0:
+            raise ValueError("Cannot escape empty string.")
+        if fb in forbidden:
+            continue
+        charset.update(fb)
+        if fb in text:
+            forbidden.append(fb)
+            needs_escaping = True
+
+    forbidden_len: Final[int] = list.__len__(forbidden)
+    if (not needs_escaping) or (forbidden_len <= 0):
+        return text, None
+
+    # always create the same escape sequences
+    forbidden.sort()
+    # make sure to escape long sequences first
+    forbidden.sort(key=str.__len__, reverse=True)  # type: ignore
+
+    # get the set of all characters in this string
+    charset.update(text)
+    char_len: Final[int] = set.__len__(charset)
+    if (char_len + forbidden_len) > 524_288:
+        raise ValueError(
+            f"{char_len} different characters and "
+            f"{forbidden_len} escapes are too many.")
+
+    # get the characters to be used for escaping
+    marker: int = 33
+    for i, esc in enumerate(forbidden):
+        while True:
+            cmarker: str = chr(marker)
+            marker += 1
+            if cmarker not in charset:
+                break
+        forbidden[i] = esc, cmarker  # type: ignore
+        charset.add(cmarker)
+
+    # perform the escaping
+    last: int = 0
+    while True:
+        first: int = 1_073_741_825
+        p1: str | None = None
+        p2: str | None = None
+        for orig, repl in forbidden:  # type: ignore
+            index = text.find(orig, last)
+            if last <= index < first:
+                p1 = orig
+                p2 = repl
+                first = index
+        if (first < 0) or (not p1) or (not p2):
+            break
+
+        # This form of replacement of subsequences is inefficient.
+        text = str.replace(text, p1, p2, 1)  # Must be first occurence...
+        # f"{text[:first]}{p2}{text[first + str.__len__(p1):]}"  # noqa
+        last = first + str.__len__(p2)
+
+    return text, forbidden
+
+
+def unescape(text: str, escapes: Any) -> str:
+    """
+    Revert the operation of the :func:`escape` function.
+
+    See the documentation of the function :func:`escape`.
+
+    :param text: the text
+    :param escapes: the substrings to escape
+    :return: a tuple of an escaped version of the string, together with
+        the escape sequences.
+
+    >>> s, v = escape('2345123123^21123z41vvvbH34Zxgo493244747261',
+    ...     ("1", "11", "45", "v", "vb", "47", "61", "H3"))
+    >>> print(s)
+    23"'23'23^2!23z4'((&%4Zxgo49324##2$
+    >>> print(v)
+    [('11', '!'), ('45', '"'), ('47', '#'), ('61', '$'), ('H3', '%'), \
+('vb', '&'), ('1', "'"), ('v', '(')]
+
+    >>> unescape(s, v)
+    '2345123123^21123z41vvvbH34Zxgo493244747261'
+
+    >>> s, v = escape('23451"23123^2112$3z41#vvvb!H34Zxgo4932%44747261',
+    ...     ("1", "11", "45", "v", "vb", "47", "61", "H3"))
+    >>> print(s)
+    23',"23,23^2&2$3z4,#--+!*4Zxgo4932%4((2)
+    >>> print(v)
+    [('11', '&'), ('45', "'"), ('47', '('), ('61', ')'), ('H3', '*'), \
+('vb', '+'), ('1', ','), ('v', '-')]
+
+    >>> unescape(s, v)
+    '23451"23123^2112$3z41#vvvb!H34Zxgo4932%44747261'
+
+    >>> unescape("", [("a", "b"), ])
+    ''
+
+    >>> unescape("b", [("a", "b"), ])
+    'a'
+
+    >>> unescape("b", None)
+    'b'
+
+    >>> unescape("b", [])
+    'b'
+
+    >>> try:
+    ...     unescape("1" * 1_073_741_825, [("1", "2"), ])
+    ... except ValueError as ve:
+    ...     print(ve)
+    We rather not unescape a string with 1073741825 characters.
+    """
+    text_len: Final[int] = str.__len__(text)
+    if (text_len <= 0) or (escapes is None) or (
+            list.__len__(escapes) <= 0):
+        return text
+    if text_len > 1_073_741_824:
+        raise ValueError(
+            f"We rather not unescape a string with {text_len} characters.")
+
+    # perform the un-escaping
+    for orig, repl in escapes:
+        text = str.replace(text, repl, orig)
+
+    return text

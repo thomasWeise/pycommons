@@ -16,7 +16,7 @@ from urllib3.response import HTTPResponse  # type: ignore
 from pycommons.io.console import logger
 from pycommons.io.path import UTF8, Path, file_path
 from pycommons.net.url import URL
-from pycommons.strings.tools import replace_str
+from pycommons.strings.string_tools import replace_str
 from pycommons.types import check_int_range, type_error
 
 #: The hosts that somtimes are unreachable from my local machine.

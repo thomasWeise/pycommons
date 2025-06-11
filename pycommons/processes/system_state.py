@@ -28,7 +28,7 @@ from pycommons.io.arguments import pycommons_argparser
 from pycommons.io.csv import CSV_SEPARATOR, SCOPE_SEPARATOR
 from pycommons.math.int_math import try_int
 from pycommons.strings.chars import WHITESPACE_OR_NEWLINE
-from pycommons.strings.tools import replace_str
+from pycommons.strings.string_tools import replace_str
 from pycommons.types import check_int_range, type_error
 
 #: the "now" function
