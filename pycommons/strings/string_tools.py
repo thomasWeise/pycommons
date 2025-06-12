@@ -405,27 +405,27 @@ def escape(text: str, escapes: Iterable[str]) -> tuple[str, Any]:
 
     >>> s, v = escape("12345", ("12", "X", "5"))
     >>> print(s)
-    !34"
+    "34!
     >>> print(v)
-    [('12', '!'), ('5', '"')]
+    [('12', '"'), ('5', '!')]
 
     >>> unescape(s, v)
     '12345'
 
     >>> s, v = escape('"123!45', ("12", "X", "5", "!", '"'))
     >>> print(s)
-    %#3$4&
+    $&3#4%
     >>> print(v)
-    [('12', '#'), ('!', '$'), ('"', '%'), ('5', '&')]
+    [('!', '#'), ('"', '$'), ('12', '&'), ('5', '%')]
 
     >>> unescape(s, v)
     '"123!45'
 
     >>> s, v = escape('"123!45', ("X", "5", "12", "!", '"'))
     >>> print(s)
-    %#3$4&
+    $&3#4%
     >>> print(v)
-    [('12', '#'), ('!', '$'), ('"', '%'), ('5', '&')]
+    [('!', '#'), ('"', '$'), ('12', '&'), ('5', '%')]
 
     >>> unescape(s, v)
     '"123!45'
@@ -433,10 +433,10 @@ def escape(text: str, escapes: Iterable[str]) -> tuple[str, Any]:
     >>> s, v = escape('111111112222233321111212121',
     ...     ("1", "11", "2", "222", "1", "32", "321", "21", "33"))
     >>> print(s)
-    ####!((&"#'$$$
+    ####'""&(#!$$$
     >>> print(v)
-    [('222', '!'), ('321', '"'), ('11', '#'), ('21', '$'), ('32', '%'), \
-('33', '&'), ('1', "'"), ('2', '(')]
+    [('1', '!'), ('11', '#'), ('2', '"'), ('21', '$'), ('222', "'"), \
+('321', '('), ('33', '&')]
 
     >>> unescape(s, v)
     '111111112222233321111212121'
@@ -444,10 +444,10 @@ def escape(text: str, escapes: Iterable[str]) -> tuple[str, Any]:
     >>> s, v = escape('111&111112222233321111212X121',
     ...     ("1", "11", "2", "222", "1", "32", "321", "21", "33"))
     >>> print(s)
-    #(&##(!))'"#($)X($
+    #!&##!(""')#!$"X!$
     >>> print(v)
-    [('222', '!'), ('321', '"'), ('11', '#'), ('21', '$'), ('32', '%'), \
-('33', "'"), ('1', '('), ('2', ')')]
+    [('1', '!'), ('11', '#'), ('2', '"'), ('21', '$'), ('222', '('), \
+('321', ')'), ('33', "'")]
 
     >>> unescape(s, v)
     '111&111112222233321111212X121'
@@ -456,31 +456,31 @@ def escape(text: str, escapes: Iterable[str]) -> tuple[str, Any]:
     >>> print(s)
     "1
     >>> print(v)
-    [('21', '!'), ('22', '"')]
+    [('22', '"')]
 
     >>> s, v = escape('22221', ("2222", "2221", "22", "21"))
     >>> print(s)
-    "1
+    $1
     >>> print(v)
-    [('2221', '!'), ('2222', '"'), ('21', '#'), ('22', '$')]
+    [('2222', '$')]
 
     >>> unescape(s, v)
     '22221'
 
     >>> s, v = escape('222212222122221', ("2222", "2221", "22", "21"))
     >>> print(s)
-    "1"1"1
+    $1$1$1
     >>> print(v)
-    [('2221', '!'), ('2222', '"'), ('21', '#'), ('22', '$')]
+    [('2222', '$')]
 
     >>> unescape(s, v)
     '222212222122221'
 
     >>> s, v = escape('222212222122221', ("2222", "2221", "22", "21", '"1'))
     >>> print(s)
-    #1#1#1
+    %1%1%1
     >>> print(v)
-    [('2221', '!'), ('2222', '#'), ('21', '$'), ('22', '%')]
+    [('2222', '%')]
 
     >>> unescape(s, v)
     '222212222122221'
@@ -547,7 +547,7 @@ def escape(text: str, escapes: Iterable[str]) -> tuple[str, Any]:
             f"We rather not escape a string with {text_len} characters.")
 
     # check which of the escapes are actually needed
-    forbidden: Final[list[str | tuple[str, str]]] = []
+    forbidden: Final[list[Any]] = []
     charset: set[str] = set()
     needs_escaping: bool = False
     for fb in escapes:
@@ -560,14 +560,14 @@ def escape(text: str, escapes: Iterable[str]) -> tuple[str, Any]:
             forbidden.append(fb)
             needs_escaping = True
 
-    forbidden_len: Final[int] = list.__len__(forbidden)
+    forbidden_len: int = list.__len__(forbidden)
     if (not needs_escaping) or (forbidden_len <= 0):
         return text, None
 
     # always create the same escape sequences
     forbidden.sort()
     # make sure to escape long sequences first
-    forbidden.sort(key=str.__len__, reverse=True)  # type: ignore
+    forbidden.sort(key=str.__len__)  # type: ignore
 
     # get the set of all characters in this string
     charset.update(text)
@@ -585,30 +585,40 @@ def escape(text: str, escapes: Iterable[str]) -> tuple[str, Any]:
             marker += 1
             if cmarker not in charset:
                 break
-        forbidden[i] = esc, cmarker  # type: ignore
+        forbidden[i] = [esc, cmarker, False]  # type: ignore
         charset.add(cmarker)
 
     # perform the escaping
     last: int = 0
-    while True:
+    used: list[tuple[str, str]] = []
+    forbidden_len -= 1
+    while forbidden_len >= 0:
         first: int = 1_073_741_825
-        p1: str | None = None
-        p2: str | None = None
-        for orig, repl in forbidden:  # type: ignore
-            index = text.find(orig, last)
-            if last <= index < first:
-                p1 = orig
-                p2 = repl
-                first = index
-        if (first < 0) or (not p1) or (not p2):
+        ft: list[Any] | None = None
+        for i in range(forbidden_len, -1, -1):
+            ftx = forbidden[i]
+            index = text.find(ftx[0], last)
+            if index >= last:
+                if index < first:
+                    ft = ftx
+                    first = index
+            else:
+                del forbidden[i]
+                forbidden_len -= 1
+        if (first < 0) or (not ft):
             break
 
         # This form of replacement of subsequences is inefficient.
-        text = str.replace(text, p1, p2, 1)  # Must be first occurence...
+        text = str.replace(text, ft[0], ft[1], 1)  # Must be first occurence...
         # f"{text[:first]}{p2}{text[first + str.__len__(p1):]}"  # noqa
-        last = first + str.__len__(p2)
+        last = first + str.__len__(ft[1])
+        if ft[2]:
+            continue
+        used.append((ft[0], ft[1]))
+        ft[2] = True
 
-    return text, forbidden
+    used.sort()
+    return text, used
 
 
 def unescape(text: str, escapes: Any) -> str:
@@ -625,10 +635,10 @@ def unescape(text: str, escapes: Any) -> str:
     >>> s, v = escape('2345123123^21123z41vvvbH34Zxgo493244747261',
     ...     ("1", "11", "45", "v", "vb", "47", "61", "H3"))
     >>> print(s)
-    23"'23'23^2!23z4'((&%4Zxgo49324##2$
+    23$!23!23^2#23z4!""('4Zxgo49324%%2&
     >>> print(v)
-    [('11', '!'), ('45', '"'), ('47', '#'), ('61', '$'), ('H3', '%'), \
-('vb', '&'), ('1', "'"), ('v', '(')]
+    [('1', '!'), ('11', '#'), ('45', '$'), ('47', '%'), ('61', '&'), \
+('H3', "'"), ('v', '"'), ('vb', '(')]
 
     >>> unescape(s, v)
     '2345123123^21123z41vvvbH34Zxgo493244747261'
@@ -636,10 +646,10 @@ def unescape(text: str, escapes: Any) -> str:
     >>> s, v = escape('23451"23123^2112$3z41#vvvb!H34Zxgo4932%44747261',
     ...     ("1", "11", "45", "v", "vb", "47", "61", "H3"))
     >>> print(s)
-    23',"23,23^2&2$3z4,#--+!*4Zxgo4932%4((2)
+    23)&"23&23^2(2$3z4&#''-!,4Zxgo4932%4**2+
     >>> print(v)
-    [('11', '&'), ('45', "'"), ('47', '('), ('61', ')'), ('H3', '*'), \
-('vb', '+'), ('1', ','), ('v', '-')]
+    [('1', '&'), ('11', '('), ('45', ')'), ('47', '*'), ('61', '+'), \
+('H3', ','), ('v', "'"), ('vb', '-')]
 
     >>> unescape(s, v)
     '23451"23123^2112$3z41#vvvb!H34Zxgo4932%44747261'
