@@ -156,6 +156,19 @@ def setup_doc(doc_dir: str, root_dir: str,
     logger(f"Using extensions {extensions}.")
     global_vars["extensions"] = extensions
 
+    if "sphinx.ext.autodoc" in extensions:  # Only relevant in this case.
+        # Sometimes, we get a strange error that "typing.Union" is not found.
+        # ------------------------------------------------
+        # ---- <unknown>:1: WARNING:
+        # ---- py:data reference target not found: typing.Union [ref.data]
+        # ------------------------------------------------
+        # This fixes it. We mark typing.Union as "known missing" targets.
+        # see https://www.sphinx-doc.org/en/master/usage/configuration.html
+        global_vars["nitpick_ignore"] = {
+            ("py:data", "typing.Union"),
+            ("ref.data", "typing.Union"),
+        }
+
     # inherit docstrings in autodoc
     global_vars["autodoc_inherit_docstrings"] = True
 
