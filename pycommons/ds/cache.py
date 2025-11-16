@@ -1,5 +1,5 @@
 """A factory for functions checking whether argument values are new."""
-from typing import Any, Callable
+from typing import Callable, Final, TypeVar
 
 
 def str_is_new() -> Callable[[str], bool]:
@@ -24,13 +24,65 @@ def str_is_new() -> Callable[[str], bool]:
     >>> print(check("b"))
     False
     """
-    s: dict[Any, int] = {}
-    setdefault = s.setdefault
+    setdefault: Final[Callable] = {}.setdefault
     n = 0  # noqa
 
-    def add(x) -> bool:
+    def __add(x) -> bool:
         nonlocal n
         n += 1
         return setdefault(x, n) == n
 
-    return add
+    return __add
+
+
+#: a type variable for the representation-base cache :func:`repr_cache`.
+T = TypeVar("T")
+
+
+def repr_cache() -> Callable[[T], T]:
+    """
+    Create a cache based on the string representation of an object.
+
+    In this type of cache is that the :func:`repr`-representations of objects
+    are used as keys. The first time an object with a given representation is
+    encountered, it is stored in the cache and returned. The next time an
+    object with the same representation is put into this method, the original
+    object with that representation is returned instead.
+
+    This can be used to still cache and canonically retrieve objects which by
+    themselves are not hashable, like numpy arrays. While the cache itself is
+    not memory-friendly, it can be used to build data structures that re-use
+    the same objects again and again. If these data structures are heavily
+    used, then this can improve the hardware-cache-friendliness of the
+    corresponding code.
+
+    :return: the cache function
+
+    >>> cache: Callable[[object], object] = repr_cache()
+
+    >>> a = f"{1 * 5}"
+    >>> b = "5"
+    >>> a is b
+    False
+
+    >>> cache(a)
+    '5'
+    >>> cache(b) is a
+    True
+
+    >>> x = 5.78
+    >>> y = 578 / 100
+    >>> y is x
+    False
+
+    >>> cache(y)
+    5.78
+    >>> cache(x) is y
+    True
+    """
+    setdefault: Final[Callable] = {}.setdefault
+
+    def __add(x: T) -> T:
+        return setdefault(repr(x), x)
+
+    return __add

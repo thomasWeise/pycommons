@@ -67,6 +67,9 @@ __PYLINT_IGNORE: Final[str] =\
     ("--disable=C0103,C0302,C0325,R0801,R0901,R0902,R0903,R0911,R0912,R0913,"
      "R0914,R0915,R0916,R0917,R1702,R1728,W0212,W0238,W0703")
 
+#: the ruff target version
+__RUF_TARGET_VERSION: Final[str] = "py312"
+
 #: a list of analysis to be applied to the package directory
 __PACKAGE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("pyflakes", "."),
@@ -76,7 +79,7 @@ __PACKAGE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
     ("pycodestyle", "."),
-    ("ruff", "check", "--target-version", "py312", __RUFF_RULES,
+    ("ruff", "check", "--target-version", __RUF_TARGET_VERSION, __RUFF_RULES,
      __RUFF_IGNORE, "--line-length", "79", "--preview", "."),
 )
 
@@ -88,7 +91,7 @@ __TESTS_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
     ("pycodestyle", "."),
-    ("ruff", "check", "--target-version", "py312",
+    ("ruff", "check", "--target-version", __RUF_TARGET_VERSION,
      __RUFF_RULES, f"{__RUFF_IGNORE},INP001", "--preview", "."),
 )
 
@@ -99,7 +102,7 @@ __EXAMPLES_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),
     ("pycodestyle", "--ignore=E731,W503", "."),
-    ("ruff", "check", "--target-version", "py310",
+    ("ruff", "check", "--target-version", __RUF_TARGET_VERSION,
      __RUFF_RULES.replace(",T20", ""), f"{__RUFF_IGNORE},INP001,T201",
      "--line-length", "79", "--preview", "."),
 )
