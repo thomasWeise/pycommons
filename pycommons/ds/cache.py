@@ -1,8 +1,6 @@
 """A factory for functions checking whether argument values are new."""
 from typing import Callable, Final, TypeVar
 
-from pycommons.types import type_error
-
 
 def str_is_new() -> Callable[[str], bool]:
     """
@@ -84,14 +82,20 @@ def repr_cache() -> Callable[[T], T]:
     >>> cache(x) is y
     True
 
-    >>> from pycommons.io.path import Path
-    >>> pt = Path(".")
-    >>> _ = cache(str(pt))
+    >>> class Dummy:
+    ...     def __repr__(self):
+    ...         return "22222"
+    >>> _ = cache(Dummy())
     >>> try:
-    ...     cache(pt)
+    ...     cache(22222)
     ... except TypeError as te:
-    ...     print(str(te)[:60])
-    repr_cache result should be an instance of pycommons.io.path
+    ...     s = str(te)
+    >>> print(s[:34])
+    Cache yields element of wrong type
+    >>> "Dummy" in s
+    True
+    >>> "int" in s
+    True
     """
     setdefault: Final[Callable] = {}.setdefault
 
@@ -99,7 +103,8 @@ def repr_cache() -> Callable[[T], T]:
         z: Final[T] = setdefault(repr(x), x)
         tpe = type(x)
         if not isinstance(z, tpe):
-            raise type_error(z, "repr_cache result", tpe)
+            raise TypeError("Cache yields element of wrong type "
+                            f"{type(z)}, should be {tpe}.")
         return z
 
     return __add
