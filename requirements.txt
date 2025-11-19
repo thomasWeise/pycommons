@@ -22,27 +22,27 @@
 # urllib3 and certifi are used to check the URLs in the [dev] extras variant
 # of our package. They are used to check URL in markdown files.
 urllib3 == 2.5.0
-certifi == 2025.8.3
+certifi == 2025.11.12
 
 # these static analysis tools are also needed for the [dev] extras variant
 # only
 autoflake == 2.3.1
-bandit == 1.8.6
-coverage == 7.10.7
+bandit == 1.9.1
+coverage == 7.12.0
 coverage-badge == 1.1.2
 dlint == 0.16.0
 dodgy == 0.2.1
 flake8 == 7.3.0
-flake8-bugbear == 24.12.12
+flake8-bugbear == 25.10.21
 flake8-eradicate == 1.5.0
 flake8-use-fstring == 1.4
 mypy == 1.18.2
 pycodestyle == 2.14.0
 pydocstyle == 6.3.0
 pyflakes == 3.4.0
-pylint == 3.3.8
+pylint == 4.0.3
 pyroma == 5.0
-ruff == 0.13.2
+ruff == 0.14.5
 tryceratops == 2.4.1
 unimport == 1.3.0
 vulture == 2.14
@@ -52,14 +52,14 @@ vulture == 2.14
 # generates the html files with the documentation. It therefore uses the
 # docstrings and the type hints.
 sphinx == 8.2.3
-sphinx-autodoc-typehints == 3.2.0
+sphinx-autodoc-typehints == 3.5.2
 # myst-parser is needed for including README.md into the documentation
 myst-parser == 4.0.1
 
 # minify_html is needed to minify html output in the [dev] option.
 # Our documentation is fairly large. We apply this tool to try to reduce the
 # file size of the documentation, by, e.g., removing useless white space.
-minify_html == 0.16.4
+minify_html == 0.18.1
 
 # We need pytest to run the unit tests.
 # Unit tests test components of our package, e.g., functions or objects, and
@@ -69,19 +69,19 @@ minify_html == 0.16.4
 # errors. But they can at least check whether our code behaves as it should in
 # some usual or border cases. Also, they can help us find out if changes in
 # the code lead to changes in (tested/expected) behavior.
-pytest == 8.4.2
+pytest == 9.0.1
 pytest-timeout == 2.4.0
 
 # for converting the additional markdown files to HTML in the [dev] variant
-markdown == 3.9
+markdown == 3.10
 
 # setuptools, testresources, twine, virtualenv, and wheel are needed for
 # generating the installable pip package in the [dev] variant.
 setuptools == 80.9.0
 testresources == 2.0.2
 twine == 6.2.0
-virtualenv == 20.34.0
+virtualenv == 20.35.4
 wheel == 0.45.1
 
 # psutil is used for getting information about the system configuration.
-psutil == 7.1.0
+psutil == 7.1.3

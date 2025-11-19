@@ -1,7 +1,7 @@
 """Converting stuff to and from strings."""
 
 from datetime import datetime
-from math import isnan
+from math import isfinite, isnan
 from typing import Callable, Final, cast
 
 from pycommons.math.int_math import __try_int
@@ -79,15 +79,15 @@ def float_to_str(value: float) -> str:
     """
     if not isinstance(value, float):
         raise type_error(value, "value", float)
-    if value == 0.0:
+    if value == 0.0:  # fast track for 0
         return "0"
-    s = str.replace(str.replace(str.replace(
-        float.__repr__(value), "e-0", "e-"), "e+0", "e"), "e+", "e")
-    if isnan(value):
-        raise ValueError(f"{value!r} => {str(s)!r} is not a permitted float.")
-    if str.endswith(s, ".0"):
-        return s[:-2]
-    return s
+    s = float.__repr__(value)
+    if isnan(value):  # nan is not permitted
+        raise ValueError(f"{value!r} => {s!r} is not a permitted float.")
+    if not isfinite(value):  # +/-inf can be returned directly
+        return s
+    return str.replace(str.replace(str.replace(  # simplify/remove clutter
+        s, "e-0", "e-"), "e+0", "e"), "e+", "e").removesuffix(".0")
 
 
 def bool_to_str(value: bool) -> str:

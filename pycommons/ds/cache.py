@@ -1,6 +1,8 @@
 """A factory for functions checking whether argument values are new."""
 from typing import Callable, Final, TypeVar
 
+from pycommons.types import type_error
+
 
 def str_is_new() -> Callable[[str], bool]:
     """
@@ -57,6 +59,8 @@ def repr_cache() -> Callable[[T], T]:
     corresponding code.
 
     :return: the cache function
+    :raises TypeError: if the type of a cached object is incompatible with the
+        type of a requested object
 
     >>> cache: Callable[[object], object] = repr_cache()
 
@@ -79,10 +83,23 @@ def repr_cache() -> Callable[[T], T]:
     5.78
     >>> cache(x) is y
     True
+
+    >>> from pycommons.io.path import Path
+    >>> pt = Path(".")
+    >>> _ = cache(str(pt))
+    >>> try:
+    ...     cache(pt)
+    ... except TypeError as te:
+    ...     print(str(te)[:60])
+    repr_cache result should be an instance of pycommons.io.path
     """
     setdefault: Final[Callable] = {}.setdefault
 
     def __add(x: T) -> T:
-        return setdefault(repr(x), x)
+        z: Final[T] = setdefault(repr(x), x)
+        tpe = type(x)
+        if not isinstance(z, tpe):
+            raise type_error(z, "repr_cache result", tpe)
+        return z
 
     return __add
