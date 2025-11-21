@@ -283,7 +283,7 @@ class SampleStatistics:
             if mean_arith != minimum:
                 raise ValueError(f"mean_arith ({mean_arith}) must equal "
                                  f"minimum ({minimum}) if n=1.")
-        elif not (minimum <= mean_arith <= maximum):
+        elif not minimum <= mean_arith <= maximum:
             raise ValueError("minimum<=mean_arith<=maximum must hold, but "
                              f"got {minimum}, {mean_arith}, and {maximum}.")
 
@@ -304,7 +304,7 @@ class SampleStatistics:
                     raise ValueError(f"mean_geom ({mean_geom}) must equal "
                                      f"minimum ({minimum}) if n=1.")
             else:
-                if not (minimum <= mean_geom <= maximum):
+                if not minimum <= mean_geom <= maximum:
                     raise ValueError(
                         "minimum<=mean_geom<=maximum must hold, but "
                         f"got {minimum}, {mean_geom}, and {maximum}.")
@@ -2524,7 +2524,7 @@ class CsvWriter(CsvWriterBase[SampleStatistics]):
 
         if self.__key_n is not None:
             if first:
-                yield ("")
+                yield ""
                 first = False
             yield f"{self.__key_n}: the number of{name} samples"
             name = short_name

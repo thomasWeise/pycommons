@@ -198,7 +198,7 @@ but is str, namely 'x'.
         # first, we obtain the index range of objects with the same rank
         lo_key = data[lo][0]
         hi: int = lo
-        while (hi < max_hi) and (not (lo_key < data[hi + 1][0])):
+        while (hi < max_hi) and (not lo_key < data[hi + 1][0]):
             hi += 1
 
         r: R = rank_join(lo, hi)  # compute the joint rank

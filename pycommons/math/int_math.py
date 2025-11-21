@@ -1421,7 +1421,7 @@ def try_int_sqrt(value: int) -> int | float:
     #: If we get here, then there is just no way to get useful fractional
     #: parts. We then just check if we should round up the result or return
     #: the rounded-down result.
-    result_up: Final[int] = (result_low + 1)
+    result_up: Final[int] = result_low + 1
     diff_up: int = (result_up * result_up) - value
     return result_up if diff_up <= diff_low else result_low
 
