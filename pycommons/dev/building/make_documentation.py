@@ -1,6 +1,7 @@
 """Create the documentation."""
 
 from argparse import ArgumentParser
+from os import remove as osremove
 from typing import Callable, Final, cast
 
 import minify_html
@@ -527,6 +528,10 @@ def make_documentation(info: BuildInfo) -> None:
             info.command((
                 "coverage-badge", "-o", coverage_dest.resolve_inside(
                     "badge.svg"))).execute()
+            gitignore: Path = coverage_dest.resolve_inside(".gitignore")
+            if gitignore.is_file():  # remove gitignore
+                logger(f"Found .gitignore file {gitignore!r} - deleting it.")
+                osremove(gitignore)
     else:
         logger("No coverage data found.")
 
