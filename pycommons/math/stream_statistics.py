@@ -8,7 +8,7 @@ Things may well change later.
 As basic idea, stream sums and statistics try to return integer values as
 `int` wherever possible.
 """
-from math import inf, nan, sqrt
+from math import inf, sqrt
 from typing import Callable, Final, Iterable
 
 from pycommons.math.int_math import try_int
@@ -98,12 +98,15 @@ class StreamSum(StreamAggregate):
         self.__cs: float | int = 0
         #: the second correction term, another internal variable
         self.__ccs: float | int = 0
+        #: did we record a value?
+        self.__has_value: bool = False
 
     def reset(self) -> None:
         """Reset this sum."""
         self.__sum = 0
         self.__cs = 0
         self.__ccs = 0
+        self.__has_value = False
 
     def add(self, value: int | float) -> None:
         """
@@ -112,8 +115,8 @@ class StreamSum(StreamAggregate):
         :param value: the value to add
 
         >>> ss = StreamSum()
-        >>> ss.result()
-        0
+        >>> print(ss.result())
+        None
         >>> ss.add(1)
         >>> ss.result()
         1
@@ -121,9 +124,24 @@ class StreamSum(StreamAggregate):
         >>> ss.result()
         3
         >>> ss.reset()
-        >>> ss.result()
-        0
+        >>> print(ss.result())
+        None
+
+        >>> try:
+        ...     ss.add("x")
+        ... except TypeError as te:
+        ...     print(te)
+        value should be an instance of any in {float, int} but is str, \
+namely 'x'.
+
+        >>> from math import inf
+        >>> try:
+        ...     ss.add(inf)
+        ... except ValueError as ve:
+        ...     print(ve)
+        Value must be finite, but is inf.
         """
+        value = try_int(value)  # try to sum ints, check type and non-finite
         s: int | float = self.__sum  # Get the current running sum.
         t: int | float = s + value   # Compute the new sum value.
         c: int | float = (((s - t) + value) if abs(s) >= abs(value)
@@ -135,6 +153,7 @@ class StreamSum(StreamAggregate):
                            else ((c - t) + cs))  # 2nd Neumaier tweak.
         self.__cs = t  # Store the updated first-order correction term.
         self.__ccs += cc  # Update the second-order correction.
+        self.__has_value = True
 
     def add_sum(self, ss: "StreamSum") -> None:
         """
@@ -158,17 +177,20 @@ class StreamSum(StreamAggregate):
         """
         if not isinstance(ss, StreamSum):
             raise type_error(ss, "other sum", StreamSum)
-        self.add(ss.__sum)
-        self.add(ss.__cs)
-        self.add(ss.__ccs)
+        if ss.__has_value:
+            self.add(ss.__sum)
+            self.add(ss.__cs)
+            self.add(ss.__ccs)
 
-    def result(self) -> int | float:
+    def result(self) -> int | float | None:
         """
         Get the current result of the summation.
 
-        :return: the current result of the summation
+        :return: the current result of the summation, or `None` if no value
+            was added yet
         """
-        return try_int(self.__sum + self.__cs + self.__ccs)
+        return try_int(self.__sum + self.__cs + self.__ccs) \
+            if self.__has_value else None
 
 
 class StreamStats(StreamAggregate):
@@ -257,6 +279,7 @@ class StreamStats(StreamAggregate):
 
         :param value: the value
         """
+        value = try_int(value)  # try to sum ints, check type and non-finite
         n: Final[int] = self.__n + 1
         self.__n = n
         mean: int | float = self.__mean
@@ -267,15 +290,15 @@ class StreamStats(StreamAggregate):
         self.__min = min(self.__min, value)
         self.__max = max(self.__max, value)
 
-    def mean(self) -> int | float:
+    def mean(self) -> int | float | None:
         """
         Get the arithmetic mean.
 
-        :return: the arithmetic mean
+        :return: the arithmetic mean or `None` if no value was added yet
 
         >>> ss = StreamStats()
-        >>> ss.mean()
-        nan
+        >>> print(ss.mean())
+        None
         >>> ss.add(10)
         >>> ss.mean()
         10
@@ -286,24 +309,25 @@ class StreamStats(StreamAggregate):
         >>> ss.mean()
         20
         >>> ss.reset()
-        >>> ss.mean()
-        nan
+        >>> print(ss.mean())
+        None
         """
-        return nan if self.__n <= 0 else try_int(max(self.__min, min(
+        return None if self.__n <= 0 else try_int(max(self.__min, min(
             self.__max, self.__mean)))
 
-    def sd(self) -> float:
+    def sd(self) -> int | float | None:
         """
         Get the standard deviation.
 
-        :return: the standard deviation.
+        :return: the standard deviation or `None` if less than two values
+            were added yet
 
         >>> ss = StreamStats()
-        >>> ss.sd()
-        nan
+        >>> print(ss.sd())
+        None
         >>> ss.add(5)
-        >>> ss.sd()
-        nan
+        >>> print(ss.sd())
+        None
         >>> ss.add(7)
         >>> ss.sd()
         1.4142135623730951
@@ -317,11 +341,11 @@ class StreamStats(StreamAggregate):
         >>> ss.sd()
         2.6076809620810595
         >>> ss.reset()
-        >>> ss.sd()
-        nan
+        >>> print(ss.sd())
+        None
         """
         n: Final[int] = self.__n
-        return nan if n <= 1 else try_int(sqrt(self.__var / (n - 1)))
+        return None if n <= 1 else try_int(sqrt(self.__var / (n - 1)))
 
     def n(self) -> int:
         """
@@ -344,15 +368,15 @@ class StreamStats(StreamAggregate):
         """
         return self.__n
 
-    def minimum(self) -> int | float:
+    def minimum(self) -> int | float | None:
         """
         Get the recorded minimum.
 
-        :return: the recorded minimum
+        :return: the recorded minimum or `None` if no value was added yet
 
         >>> ss = StreamStats()
-        >>> ss.minimum()
-        nan
+        >>> print(ss.minimum())
+        None
         >>> ss.add(23)
         >>> ss.minimum()
         23
@@ -363,20 +387,20 @@ class StreamStats(StreamAggregate):
         >>> ss.minimum()
         12
         >>> ss.reset()
-        >>> ss.minimum()
-        nan
+        >>> print(ss.minimum())
+        None
         """
-        return nan if self.__n <= 0 else try_int(self.__min)
+        return None if self.__n <= 0 else try_int(self.__min)
 
-    def maximum(self) -> int | float:
+    def maximum(self) -> int | float | None:
         """
         Get the recorded maximum.
 
-        :return: the recorded maximum
+        :return: the recorded maximum or `None` if no value was added yet
 
         >>> ss = StreamStats()
-        >>> ss.maximum()
-        nan
+        >>> print(ss.maximum())
+        None
         >>> ss.add(23)
         >>> ss.maximum()
         23
@@ -387,7 +411,7 @@ class StreamStats(StreamAggregate):
         >>> ss.maximum()
         112
         >>> ss.reset()
-        >>> ss.minimum()
-        nan
+        >>> print(ss.maximum())
+        None
         """
-        return nan if self.__n <= 0 else try_int(self.__max)
+        return None if self.__n <= 0 else try_int(self.__max)
