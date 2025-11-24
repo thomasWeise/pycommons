@@ -5,11 +5,71 @@ The classes here try to offer a balance between accuracy and speed.
 This is currently an early stage of development.
 Things may well change later.
 """
-from math import nan, sqrt
+from math import inf, nan, sqrt
 from typing import Callable, Final, Iterable
 
+from pycommons.types import type_error
 
-class StreamSum:
+
+class StreamAggregate:
+    """
+    The base class for stream aggregates.
+
+    This class provides a basic API for stream data aggregation.
+    It is implemented by :class:`StreamSum` and :class:`StreamStats`.
+    """
+
+    def reset(self) -> None:
+        """
+        Reset this stream aggregate.
+
+        :raises NotImplementedError: because it is an abstract method
+
+        >>> ag = StreamAggregate()
+        >>> try:
+        ...     ag.reset()
+        ... except NotImplementedError:
+        ...     print("not implemented")
+        not implemented
+        """
+        raise NotImplementedError
+
+    def add(self, value: int | float) -> None:
+        """
+        Add a value to the aggregate.
+
+        :param value: the value to aggregate
+
+        :raises NotImplementedError: because it is an abstract method
+
+        >>> ag = StreamAggregate()
+        >>> try:
+        ...     ag.add(1)
+        ... except NotImplementedError:
+        ...     print("not implemented")
+        not implemented
+        """
+        raise NotImplementedError
+
+    def update(self, data: Iterable[int | float]) -> None:
+        """
+        Perform a stream update.
+
+        :param data: the data
+
+        >>> ag = StreamAggregate()
+        >>> ag.add = lambda d: print(str(d))
+        >>> ag.update((1, 2, 3))
+        1
+        2
+        3
+        """
+        ad: Final[Callable[[int | float], None]] = self.add  # fast calls!
+        for v in data:
+            ad(v)
+
+
+class StreamSum(StreamAggregate):
     """
     The second-order Kahan-Babuška-Neumaier-Summation by Klein.
 
@@ -46,6 +106,19 @@ class StreamSum:
         Add a value to the sum.
 
         :param value: the value to add
+
+        >>> ss = StreamSum()
+        >>> ss.result()
+        0
+        >>> ss.add(1)
+        >>> ss.result()
+        1
+        >>> ss.add(2.0)
+        >>> ss.result()
+        3.0
+        >>> ss.reset()
+        >>> ss.result()
+        0
         """
         s: int | float = self.__sum  # Get the current running sum.
         t: int | float = s + value   # Compute the new sum value.
@@ -59,15 +132,31 @@ class StreamSum:
         self.__cs = t  # Store the updated first-order correction term.
         self.__ccs += cc  # Update the second-order correction.
 
-    def update(self, data: Iterable[int | float]) -> None:
+    def add_sum(self, ss: "StreamSum") -> None:
         """
-        Perform a stream update.
+        Add another stream sum to this one.
 
-        :param data: the data
+        :param ss: the other stream sum
+
+        >>> ss1 = StreamSum()
+        >>> ss1.update((1, 1e20))
+        >>> ss2 = StreamSum()
+        >>> ss2.update((5, -1e20))
+        >>> ss1.add_sum(ss2)
+        >>> ss1.result()
+        6.0
+
+        >>> try:
+        ...     ss1.add_sum("x")
+        ... except TypeError as te:
+        ...     print(str(te)[:31])
+        other sum should be an instance
         """
-        ad: Final[Callable[[int | float], None]] = self.add
-        for v in data:
-            ad(v)
+        if not isinstance(ss, StreamSum):
+            raise type_error(ss, "other sum", StreamSum)
+        self.add(ss.__sum)
+        self.add(ss.__cs)
+        self.add(ss.__ccs)
 
     def result(self) -> int | float:
         """
@@ -78,7 +167,7 @@ class StreamSum:
         return self.__sum + self.__cs + self.__ccs
 
 
-class StreamStats:
+class StreamStats(StreamAggregate):
     """
     The stream statistics.
 
@@ -87,7 +176,7 @@ class StreamStats:
 
     1. Donald E. Knuth (1998). The Art of Computer Programming, volume 2:
        Seminumerical Algorithms, 3rd edn., p. 232. Boston: Addison-Wesley.
-    2. B. P. Welford (1962)."Note on a method for calculating corrected sums
+    2. B. P. Welford (1962). "Note on a method for calculating corrected sums
        of squares and products". Technometrics 4(3):419-420.
 
     >>> ss = StreamStats()
@@ -101,6 +190,10 @@ class StreamStats:
     5.477225575051661
     >>> ss.n()
     4
+    >>> ss.minimum()
+    4
+    >>> ss.maximum()
+    16
 
     >>> data2 = [1e8 + z for z in data1]
     >>> ss.reset()
@@ -141,12 +234,18 @@ class StreamStats:
         self.__mean: int | float = 0
         #: the running sum for the variance
         self.__var: int | float = 0
+        #: the minimum
+        self.__min: int | float = inf
+        #: the maximum
+        self.__max: int | float = -inf
 
     def reset(self) -> None:
         """Reset the sample statistics."""
         self.__n = 0
         self.__mean = 0
         self.__var = 0
+        self.__min = inf
+        self.__max = -inf
 
     def add(self, value: int | float) -> None:
         """
@@ -161,22 +260,30 @@ class StreamStats:
         mean += delta / n
         self.__mean = mean
         self.__var += delta * (value - mean)
-
-    def update(self, data: Iterable[int | float]) -> None:
-        """
-        Perform a stream update.
-
-        :param data: the data
-        """
-        ad: Final[Callable[[int | float], None]] = self.add
-        for v in data:
-            ad(v)
+        self.__min = min(self.__min, value)
+        self.__max = max(self.__max, value)
 
     def mean(self) -> int | float:
         """
         Get the arithmetic mean.
 
         :return: the arithmetic mean
+
+        >>> ss = StreamStats()
+        >>> ss.mean()
+        nan
+        >>> ss.add(10)
+        >>> ss.mean()
+        10.0
+        >>> ss.add(20)
+        >>> ss.mean()
+        15.0
+        >>> ss.add(30)
+        >>> ss.mean()
+        20.0
+        >>> ss.reset()
+        >>> ss.mean()
+        nan
         """
         return nan if self.__n <= 0 else self.__mean
 
@@ -185,6 +292,28 @@ class StreamStats:
         Get the standard deviation.
 
         :return: the standard deviation.
+
+        >>> ss = StreamStats()
+        >>> ss.sd()
+        nan
+        >>> ss.add(5)
+        >>> ss.sd()
+        nan
+        >>> ss.add(7)
+        >>> ss.sd()
+        1.4142135623730951
+        >>> ss.add(3)
+        >>> ss.sd()
+        2.0
+        >>> ss.add(7)
+        >>> ss.sd()
+        1.9148542155126762
+        >>> ss.add(10)
+        >>> ss.sd()
+        2.6076809620810595
+        >>> ss.reset()
+        >>> ss.sd()
+        nan
         """
         n: Final[int] = self.__n
         return nan if n <= 1 else sqrt(self.__var / (n - 1))
@@ -194,5 +323,66 @@ class StreamStats:
         Get the number of observed samples.
 
         :return: the number of observed samples
+
+        >>> ss = StreamStats()
+        >>> ss.n()
+        0
+        >>> ss.add(12)
+        >>> ss.n()
+        1
+        >>> ss.add(132)
+        >>> ss.n()
+        2
+        >>> ss.reset()
+        >>> ss.n()
+        0
         """
         return self.__n
+
+    def minimum(self) -> int | float:
+        """
+        Get the recorded minimum.
+
+        :return: the recorded minimum
+
+        >>> ss = StreamStats()
+        >>> ss.minimum()
+        nan
+        >>> ss.add(23)
+        >>> ss.minimum()
+        23
+        >>> ss.add(12)
+        >>> ss.minimum()
+        12
+        >>> ss.add(112)
+        >>> ss.minimum()
+        12
+        >>> ss.reset()
+        >>> ss.minimum()
+        nan
+        """
+        return nan if self.__n <= 0 else self.__min
+
+    def maximum(self) -> int | float:
+        """
+        Get the recorded maximum.
+
+        :return: the recorded maximum
+
+        >>> ss = StreamStats()
+        >>> ss.maximum()
+        nan
+        >>> ss.add(23)
+        >>> ss.maximum()
+        23
+        >>> ss.add(12)
+        >>> ss.maximum()
+        23
+        >>> ss.add(112)
+        >>> ss.maximum()
+        112
+        >>> ss.reset()
+        >>> ss.minimum()
+        nan
+        """
+        return nan if self.__n <= 0 else self.__max
