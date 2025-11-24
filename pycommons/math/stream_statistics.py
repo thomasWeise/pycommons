@@ -4,10 +4,14 @@ Tools for computing statistic over a stream.
 The classes here try to offer a balance between accuracy and speed.
 This is currently an early stage of development.
 Things may well change later.
+
+As basic idea, stream sums and statistics try to return integer values as
+`int` wherever possible.
 """
 from math import inf, nan, sqrt
 from typing import Callable, Final, Iterable
 
+from pycommons.math.int_math import try_int
 from pycommons.types import type_error
 
 
@@ -79,11 +83,11 @@ class StreamSum(StreamAggregate):
     >>> stream_sum = StreamSum()
     >>> stream_sum.update([1e18, 1, 1e36, -1e36, -1e18])
     >>> stream_sum.result()
-    1.0
+    1
     >>> stream_sum.reset()
     >>> stream_sum.update([1e18, 1, 1e36, -1e36, -1e18])
     >>> stream_sum.result()
-    1.0
+    1
     """
 
     def __init__(self) -> None:
@@ -115,7 +119,7 @@ class StreamSum(StreamAggregate):
         1
         >>> ss.add(2.0)
         >>> ss.result()
-        3.0
+        3
         >>> ss.reset()
         >>> ss.result()
         0
@@ -144,7 +148,7 @@ class StreamSum(StreamAggregate):
         >>> ss2.update((5, -1e20))
         >>> ss1.add_sum(ss2)
         >>> ss1.result()
-        6.0
+        6
 
         >>> try:
         ...     ss1.add_sum("x")
@@ -164,7 +168,7 @@ class StreamSum(StreamAggregate):
 
         :return: the current result of the summation
         """
-        return self.__sum + self.__cs + self.__ccs
+        return try_int(self.__sum + self.__cs + self.__ccs)
 
 
 class StreamStats(StreamAggregate):
@@ -183,7 +187,7 @@ class StreamStats(StreamAggregate):
     >>> data1 = [4, 7, 13, 16]
     >>> ss.update(data1)
     >>> ss.mean()
-    10.0
+    10
     >>> ss.sd()
     5.477225575051661
     >>> sqrt(30)
@@ -199,7 +203,7 @@ class StreamStats(StreamAggregate):
     >>> ss.reset()
     >>> ss.update(data2)
     >>> ss.mean()
-    100000010.0
+    100000010
     >>> ss.sd()
     5.477225575051661
     >>> ss.n()
@@ -209,7 +213,7 @@ class StreamStats(StreamAggregate):
     >>> ss.reset()
     >>> ss.update(data3)
     >>> ss.mean()
-    100000000000010.0
+    100000000000010
     >>> ss.sd()
     5.477225575051661
     >>> ss.n()
@@ -219,7 +223,7 @@ class StreamStats(StreamAggregate):
     >>> ss.reset()
     >>> ss.update(data3)
     >>> ss.mean()
-    500.0
+    500
     >>> ss.sd()
     289.10811126635656
     >>> ss.n()
@@ -274,18 +278,19 @@ class StreamStats(StreamAggregate):
         nan
         >>> ss.add(10)
         >>> ss.mean()
-        10.0
+        10
         >>> ss.add(20)
         >>> ss.mean()
-        15.0
+        15
         >>> ss.add(30)
         >>> ss.mean()
-        20.0
+        20
         >>> ss.reset()
         >>> ss.mean()
         nan
         """
-        return nan if self.__n <= 0 else self.__mean
+        return nan if self.__n <= 0 else try_int(max(self.__min, min(
+            self.__max, self.__mean)))
 
     def sd(self) -> float:
         """
@@ -304,7 +309,7 @@ class StreamStats(StreamAggregate):
         1.4142135623730951
         >>> ss.add(3)
         >>> ss.sd()
-        2.0
+        2
         >>> ss.add(7)
         >>> ss.sd()
         1.9148542155126762
@@ -316,7 +321,7 @@ class StreamStats(StreamAggregate):
         nan
         """
         n: Final[int] = self.__n
-        return nan if n <= 1 else sqrt(self.__var / (n - 1))
+        return nan if n <= 1 else try_int(sqrt(self.__var / (n - 1)))
 
     def n(self) -> int:
         """
@@ -351,7 +356,7 @@ class StreamStats(StreamAggregate):
         >>> ss.add(23)
         >>> ss.minimum()
         23
-        >>> ss.add(12)
+        >>> ss.add(12.0)
         >>> ss.minimum()
         12
         >>> ss.add(112)
@@ -361,7 +366,7 @@ class StreamStats(StreamAggregate):
         >>> ss.minimum()
         nan
         """
-        return nan if self.__n <= 0 else self.__min
+        return nan if self.__n <= 0 else try_int(self.__min)
 
     def maximum(self) -> int | float:
         """
@@ -385,4 +390,4 @@ class StreamStats(StreamAggregate):
         >>> ss.minimum()
         nan
         """
-        return nan if self.__n <= 0 else self.__max
+        return nan if self.__n <= 0 else try_int(self.__max)
