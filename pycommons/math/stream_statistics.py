@@ -8,9 +8,12 @@ Things may well change later.
 As basic idea, stream sums and statistics try to return integer values as
 `int` wherever possible.
 """
-from math import inf, sqrt
+from math import inf, isfinite, sqrt
 from typing import Callable, Final, Iterable
 
+from pycommons.math.int_math import __DBL_INT_LIMIT_N_F as _DILNF
+from pycommons.math.int_math import __DBL_INT_LIMIT_P_F as _DILPF
+from pycommons.math.int_math import __try_int as _ti
 from pycommons.math.int_math import try_int
 from pycommons.types import type_error
 
@@ -92,6 +95,8 @@ class StreamSum(StreamAggregate):
 
     def __init__(self) -> None:
         """Create the summation object."""
+        #: the running integer sum
+        self.__i_sum: int = 0
         #: the running sum, an internal variable invisible from outside
         self.__sum: float | int = 0
         #: the first correction term, another internal variable
@@ -106,6 +111,7 @@ class StreamSum(StreamAggregate):
         self.__sum = 0
         self.__cs = 0
         self.__ccs = 0
+        self.__i_sum = 0
         self.__has_value = False
 
     def add(self, value: int | float) -> None:
@@ -121,6 +127,12 @@ class StreamSum(StreamAggregate):
         >>> ss.result()
         1
         >>> ss.add(2.0)
+        >>> ss.result()
+        3
+        >>> ss.add(1e43)
+        >>> ss.result()
+        1e+43
+        >>> ss.add(-1e43)
         >>> ss.result()
         3
         >>> ss.reset()
@@ -141,7 +153,19 @@ namely 'x'.
         ...     print(ve)
         Value must be finite, but is inf.
         """
-        value = try_int(value)  # try to sum ints, check type and non-finite
+        self.__has_value = True
+        if isinstance(value, int):
+            self.__i_sum += value
+            return
+        if not isinstance(value, float):
+            raise type_error(value, "value", (float, int))
+        if not isfinite(value):
+            raise ValueError(f"Value must be finite, but is {value}.")
+        if _DILNF <= value <= _DILPF:
+            iv: Final[int] = int(value)
+            if value == iv:
+                self.__i_sum += iv
+                return
         s: int | float = self.__sum  # Get the current running sum.
         t: int | float = s + value   # Compute the new sum value.
         c: int | float = (((s - t) + value) if abs(s) >= abs(value)
@@ -153,7 +177,6 @@ namely 'x'.
                            else ((c - t) + cs))  # 2nd Neumaier tweak.
         self.__cs = t  # Store the updated first-order correction term.
         self.__ccs += cc  # Update the second-order correction.
-        self.__has_value = True
 
     def add_sum(self, ss: "StreamSum") -> None:
         """
@@ -178,6 +201,7 @@ namely 'x'.
         if not isinstance(ss, StreamSum):
             raise type_error(ss, "other sum", StreamSum)
         if ss.__has_value:
+            self.add(ss.__i_sum)
             self.add(ss.__sum)
             self.add(ss.__cs)
             self.add(ss.__ccs)
@@ -189,7 +213,7 @@ namely 'x'.
         :return: the current result of the summation, or `None` if no value
             was added yet
         """
-        return try_int(self.__sum + self.__cs + self.__ccs) \
+        return self.__i_sum + _ti(self.__sum + self.__cs + self.__ccs) \
             if self.__has_value else None
 
 
@@ -312,7 +336,7 @@ class StreamStats(StreamAggregate):
         >>> print(ss.mean())
         None
         """
-        return None if self.__n <= 0 else try_int(max(self.__min, min(
+        return None if self.__n <= 0 else _ti(max(self.__min, min(
             self.__max, self.__mean)))
 
     def sd(self) -> int | float | None:
@@ -345,7 +369,7 @@ class StreamStats(StreamAggregate):
         None
         """
         n: Final[int] = self.__n
-        return None if n <= 1 else try_int(sqrt(self.__var / (n - 1)))
+        return None if n <= 1 else _ti(sqrt(self.__var / (n - 1)))
 
     def n(self) -> int:
         """
@@ -390,7 +414,7 @@ class StreamStats(StreamAggregate):
         >>> print(ss.minimum())
         None
         """
-        return None if self.__n <= 0 else try_int(self.__min)
+        return None if self.__n <= 0 else self.__min
 
     def maximum(self) -> int | float | None:
         """
@@ -414,4 +438,4 @@ class StreamStats(StreamAggregate):
         >>> print(ss.maximum())
         None
         """
-        return None if self.__n <= 0 else try_int(self.__max)
+        return None if self.__n <= 0 else self.__max
