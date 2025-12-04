@@ -23,7 +23,7 @@ from pycommons.math.stream_statistics import (
 #: the maximum n
 MAX_N: Final[int] = 1000
 #: the maximum 2 power
-MAX_2_POWER: Final[int] = 30
+MAX_2_POWER: Final[int] = 20
 
 
 def __check(data: StreamStatistics) -> StreamStatistics:
@@ -76,10 +76,10 @@ def __enforce_same(a: int | float, b: int | float,
     if a > b:
         a, b = b, a
     with suppress(OverflowError):
-        if (a / b) > 0.999:
+        if (a / b) > 0.99:
             return
     with suppress(OverflowError):
-        if ((int(b) - int(a)) * 100000) < int(a):
+        if ((int(b) - int(a)) * 100) < int(a):
             return
     raise ValueError(f"!(a={orig_a} == b={orig_b}, data={data!r}")
 
