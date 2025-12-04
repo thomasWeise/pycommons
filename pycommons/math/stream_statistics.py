@@ -56,7 +56,6 @@ class StreamStatisticsAggregate[T](StreamAggregate):
 
         :return: the result
 
-
         >>> try:
         ...     StreamStatisticsAggregate().result()
         ... except NotImplementedError:
@@ -705,6 +704,20 @@ class StreamStatistics:
         Get an aggregate suitable for this statistics type.
 
         :return: the aggregate
+
+        >>> ag = StreamStatistics.aggregate()
+        >>> ag.update((1, 2, 3, 4))
+        >>> ag.result()
+        StreamStatistics(n=4, minimum=1, mean_arith=2.5, maximum=4, \
+stddev=1.2909944487358056)
+        >>> ag.reset()
+        >>> ag.add(4)
+        >>> ag.add(5)
+        >>> ag.add(6)
+        >>> ag.add(7)
+        >>> ag.result()
+        StreamStatistics(n=4, minimum=4, mean_arith=5.5, maximum=7, \
+stddev=1.2909944487358056)
         """
         return _StreamStats()
 
@@ -715,6 +728,10 @@ class StreamStatistics:
         Create a statistics record from a stream of samples.
 
         :return: the statistics record.
+
+        >>> StreamStatistics.from_samples((1, 2, 3, 4))
+        StreamStatistics(n=4, minimum=1, mean_arith=2.5, maximum=4, \
+stddev=1.2909944487358056)
         """
         agg: Final[StreamStatisticsAggregate] = cls.aggregate()
         agg.update(source)
@@ -730,6 +747,9 @@ class StreamStatistics:
         :param n: the number of samples, i.e., the number of times this value
             occurred
         :returns: the sample statistics
+
+        >>> print(str(StreamStatistics.from_single_value(23)))
+        1;23;23;23;None
 
         >>> s = StreamStatistics.from_single_value(10, 2)
         >>> print(s.stddev)
@@ -1170,6 +1190,14 @@ class CsvReader(CsvReaderBase[StreamStatistics]):
 
         :param data: the data row
         :returns: the sample statistics
+
+        >>> cc = CsvReader({KEY_MINIMUM: 0, KEY_MEAN_ARITH: 1, KEY_MAXIMUM: 2,
+        ...                 KEY_STDDEV: 3, KEY_N: 4})
+        >>> try:
+        ...     cc.parse_row([None, None, None, None, "5"])
+        ... except ValueError as ve:
+        ...     print(str(ve)[:20])
+        No value defined for
         """
         n: Final[int] = 1 if self.idx_n is None else int(data[self.idx_n])
         mi: int | float | None = csv_val_or_none(
@@ -1258,6 +1286,12 @@ class CsvWriter(CsvWriterBase[T]):
         n_not_needed should be an instance of bool but is None.
 
         >>> try:
+        ...     CsvWriter([], clazz=str)
+        ... except TypeError as te:
+        ...     print(str(te)[:20])
+        clazz should be an i
+
+        >>> try:
         ...     CsvWriter([])
         ... except ValueError as ve:
         ...     s = str(ve)
@@ -1300,12 +1334,9 @@ class CsvWriter(CsvWriterBase[T]):
         # the number of samples seen
         seen: int = 0
 
-        uc: type[StreamStatistics] | None = clazz
         for i, d in enumerate(data):  # Iterate over the data.
             if not isinstance(d, clazz):
                 raise type_error(d, f"data[{i}]", clazz)
-            if type(d) is not uc:  # pylint: disable=C0123
-                uc = None
             seen += 1
             if n_really_not_needed and (d.n != 1):
                 n_really_not_needed = False
@@ -1333,7 +1364,7 @@ class CsvWriter(CsvWriterBase[T]):
                 f"{type_name(self.__cls)} CsvWriter did not see any data.")
 
         # stream statistics do not have geometric means or medians
-        if uc is StreamStatistics:
+        if self.__cls is StreamStatistics:
             has_no_geom = has_no_median = True
 
         n_not_needed = n_really_not_needed or n_not_needed

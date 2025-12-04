@@ -2,17 +2,17 @@
 
 from contextlib import suppress
 from itertools import product
-from math import inf, log2, nextafter, sqrt
+from math import inf, nextafter
 from random import expovariate, randint, shuffle, uniform
 from statistics import mean as statmean
 from statistics import stdev as statstddev
-from sys import float_info
 from typing import Final, Iterable
 
 import pytest
 
 from pycommons.io.csv import CsvReader as CsvReaderBase
 from pycommons.io.csv import CsvWriter as CsvWriterBase
+from pycommons.math.sample_statistics import SampleStatistics
 from pycommons.math.stream_statistics import (
     KEY_N,
     CsvReader,
@@ -23,7 +23,7 @@ from pycommons.math.stream_statistics import (
 #: the maximum n
 MAX_N: Final[int] = 1000
 #: the maximum 2 power
-MAX_2_POWER: Final[int] = int(log2(sqrt(float_info.max) / (MAX_N + 1)))
+MAX_2_POWER: Final[int] = 30
 
 
 def __check(data: StreamStatistics) -> StreamStatistics:
@@ -686,3 +686,17 @@ def test_csv_4() -> None:
     optional.clear()
     optional.extend(writer.get_optional_row(data_1[0], None))
     assert reader.parse_optional_row(optional) == data_1[0]
+
+
+def test_mixed_csv() -> None:
+    """Test what happens if mixed data is written."""
+    data: list[StreamStatistics] = [
+        StreamStatistics(10, 1, 5, 20, 0.5),
+        StreamStatistics(6, 2, 2, 2, 0),
+        SampleStatistics(9, 0.1, 5, 6, 5.6, 12, 3)]
+    text: list[str] = []
+    text.extend(CsvWriter.write(data))
+    assert text[0] == "n;min;mean;max;sd"
+    assert text[1] == "10;1;5;20;0.5"
+    assert text[2] == "6;2;2;2;0"
+    assert text[3] == "9;0.1;6;12;3"

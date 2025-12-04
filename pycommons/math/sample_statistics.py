@@ -1030,6 +1030,20 @@ class SampleStatistics(StreamStatistics):
         Get an aggregate suitable for this statistics type.
 
         :return: the aggregate
+
+        >>> ag = SampleStatistics.aggregate()
+        >>> ag.update((1, 2, 3, 4))
+        >>> ag.result()
+        SampleStatistics(n=4, minimum=1, mean_arith=2.5, maximum=4, \
+stddev=1.2909944487358056, median=2.5, mean_geom=2.213363839400643)
+        >>> ag.reset()
+        >>> ag.add(4)
+        >>> ag.add(5)
+        >>> ag.add(6)
+        >>> ag.add(7)
+        >>> ag.result()
+        SampleStatistics(n=4, minimum=4, mean_arith=5.5, maximum=7, \
+stddev=1.2909944487358056, median=5.5, mean_geom=5.383563270955295)
         """
         return _SampleStats()
 
@@ -1809,6 +1823,15 @@ class CsvReader(CsvReaderBase[SampleStatistics]):
 
         :param data: the data row
         :returns: the sample statistics
+
+        >>> cc = CsvReader({KEY_MINIMUM: 0, KEY_MEAN_ARITH: 1, KEY_MAXIMUM: 2,
+        ...                 KEY_STDDEV: 3, KEY_MEDIAN: 4, KEY_MEAN_GEOM: 5,
+        ...                 KEY_N: 6})
+        >>> try:
+        ...     cc.parse_row([None, None, None, None, None, None, "5"])
+        ... except ValueError as ve:
+        ...     print(str(ve)[:20])
+        No value defined for
         """
         n: Final[int] = 1 if self.idx_n is None else int(data[self.idx_n])
         mi: int | float | None = csv_val_or_none(
