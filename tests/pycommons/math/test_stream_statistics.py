@@ -700,3 +700,19 @@ def test_mixed_csv() -> None:
     assert text[1] == "10;1;5;20;0.5"
     assert text[2] == "6;2;2;2;0"
     assert text[3] == "9;0.1;6;12;3"
+
+
+def test_csv_all_same_cmt() -> None:
+    """Test what happens if mixed data is written."""
+    data: list[StreamStatistics] = [
+        StreamStatistics(1, 1, 1, 1, None),
+        StreamStatistics(1, 2, 2, 2, None)]
+    w = CsvWriter(data, n_not_needed=True)
+    text: list[str] = []
+    text.extend(w.get_header_comments())
+    text.append(";".join(w.get_column_titles()))
+    text.extend(";".join(w.get_row(r)) for r in data)
+    text.extend(w.get_footer_comments())
+
+    assert text == ["value", "1", "2", "",
+                    "value: all samples have this value"]
