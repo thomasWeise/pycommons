@@ -157,6 +157,111 @@ def try_int(value: int | float) -> int | float:
     raise type_error(value, "value", (int, float))
 
 
+def __choose_frac(num1: int, denom1: int, num2: int, denom2: int) \
+        -> tuple[int, int]:
+    """
+    Choose the more compact one of two fractions.
+
+    :param num1: the first numerator
+    :param denom1: the first denominator
+    :param num2: the second numerator
+    :param denom2: the second denominator
+    :return: the numerator, denominator
+
+    >>> __choose_frac(10, 100, 1, 10)
+    (1, 10)
+    >>> __choose_frac(1, 10, 10, 100)
+    (1, 10)
+    >>> __choose_frac(1, 10, 1, 11)
+    (1, 10)
+    >>> __choose_frac(1, 11, 1, 10)
+    (1, 10)
+    >>> __choose_frac(1, 11, 2, 10)
+    (2, 10)
+    >>> __choose_frac(2, 10, 1, 11)
+    (2, 10)
+    >>> __choose_frac(2, 10, 1, 10)
+    (1, 10)
+    >>> __choose_frac(1, 10, 2, 10)
+    (1, 10)
+    """
+    return (num1, denom1) if (denom1 < denom2) or (
+        (num1 + denom1) < (num2 + denom2)) else (num2, denom2)
+
+
+def __minimize_frac(value: float, num: int, denom: int) -> tuple[int, int]:
+    """
+    Try to find a more compact equivalent representation of a given fraction.
+
+    If you convert `1/7` directly from the `float` format to an integer
+    fraction via `(1/7).as_integer_ratio()`, you get
+    `(2573485501354569, 18014398509481984)`. This is a precise conversion,
+    as `2573485501354569/18014398509481984 - 1/7 == 0`
+    However, `2573485501354569 * 7 = 18014398509481983`. Thus, the chosen
+    denominator is just 1 off the perfect one, because
+    `18014398509481983` divided by `2573485501354569` would give us exactly
+    `7`. Therefore, in this function, we try to check some adjacent
+    denominators for a given fraction. If they have a :func:`gcd` greater than
+    `1` with the numerator, then we choose them instead.
+
+    :param value: the floating point value
+    :param num: the numerator
+    :param denom: the denominator
+    :return: the fraction
+
+    >>> (1/7).as_integer_ratio()
+    (2573485501354569, 18014398509481984)
+    >>> 2573485501354569/18014398509481984 - 1/7
+    0.0
+
+    >>> __minimize_frac(1/7, 2573485501354569, 18014398509481984)
+    (1, 7)
+
+    >>> __minimize_frac(1/3, 6004799503160661, 18014398509481984)
+    (1, 3)
+
+    >>> __minimize_frac(1/3, 1, 3)
+    (1, 3)
+
+    >>> __minimize_frac(1/7, 1, 7)
+    (1, 7)
+
+    >>> __minimize_frac(1/7, 10, 70)
+    (1, 7)
+
+    >>> __minimize_frac(1e-20, 1, 1_0000_0000_0000_0000_0000)
+    (1, 100000000000000000000)
+    >>> __minimize_frac(1e-20, 1, 1_0000_0000_0000_0000_0001)
+    (1, 100000000000000000001)
+    >>> __minimize_frac(1e-20, 12, 12_0000_0000_0000_0000_0001)
+    (1, 100000000000000000000)
+    """
+    # First, we reduce with the GCD to simplify the fraction
+    g: int = gcd(num, denom)  # the greatest common divisor
+    num //= g  # simplify the fraction
+    denom //= g
+    best_num = num
+    best_denom = denom
+    min_gcd: int = 1
+
+    for num_add in range(-5, 5):
+        use_num = num + num_add
+        if use_num <= 0:
+            continue
+        for denom_add in range(-5, 5):
+            use_denom = denom + denom_add
+            if use_denom <= 0:
+                continue
+            if (use_num / use_denom) != value:
+                continue
+            g = gcd(use_num, use_denom)
+            if g > min_gcd:
+                min_gcd = g
+                best_num, best_denom = __choose_frac(
+                    best_num, best_denom, use_num // g, use_denom // g)
+    return best_num, best_denom
+
+
 def float_to_frac(value: int | float) -> tuple[int, int]:
     """
     Turn a floating point number into an integer fraction.
@@ -239,6 +344,15 @@ def float_to_frac(value: int | float) -> tuple[int, int]:
     >>> 4 / 1
     4.0
 
+    >>> float_to_frac(1 / 7)
+    (1, 7)
+
+    >>> float_to_frac(1 / 11)
+    (1, 11)
+
+    >>> float_to_frac(1 / 10000)
+    (1, 10000)
+
     >>> float_to_frac(-21844.45693689149)
     (-2184445693689149, 100000000000)
     >>> -2184445693689149 / 100000000000
@@ -250,8 +364,8 @@ def float_to_frac(value: int | float) -> tuple[int, int]:
     -3010907.436657168
 
     >>> float_to_frac(13660.023207762431)
-    (1877419294078101, 137438953472)
-    >>> 1877419294078101 / 137438953472
+    (26679732827661, 1953125000)
+    >>> 26679732827661 / 1953125000
     13660.023207762431
 
     >>> float_to_frac(438027.68586526066)
@@ -270,8 +384,8 @@ def float_to_frac(value: int | float) -> tuple[int, int]:
     -32835294.95774138
 
     >>> float_to_frac(-0.8436071305882418)
-    (-3799268758964299, 4503599627370496)
-    >>> -3799268758964299 / 4503599627370496
+    (-1054508913235303, 1250000000000001)
+    >>> -1054508913235303 / 1250000000000001
     -0.8436071305882418
 
     >>> float_to_frac(-971533.786640197)
@@ -428,62 +542,56 @@ def float_to_frac(value: int | float) -> tuple[int, int]:
     (10000000000000000000000000000000000000000, 1)
     >>> 10000000000000000000000000000000000000000 / 1
     1e+40
+
+    >>> float_to_frac(1.6152587208080178e+161)
+    (16152587208080177786162779887253130808505244217290853753086392891829620\
+1092892491941055809815064259587161746312711311289043311353137951968371237523\
+928335253504000, 1)
     """
     value = try_int(value)
     if isinstance(value, int):
         return value, 1
 
+    minus: Final[bool] = value < 0.0
+    if minus:
+        value = -value
+
+    # Get the minimized fraction.
+    num1, denom1 = __minimize_frac(value, *value.as_integer_ratio())
+
     # First, we convert the floating point number to a string, which
     # necessarily exactly represents the value. Then we will go and turn
     # the string into a fraction.
     value_str: Final[str] = float.__repr__(value)
-    minus: Final[bool] = value_str[0] == "-"
 
-    start_idx: int = 1 if minus else 0
     end_idx: int = str.__len__(value_str)
     dot_idx: Final[int] = str.find(value_str, ".")
     exp_idx: Final[int] = str.find(value_str, "e")
 
-    int_denominator: int = 1
-    int_multiplier: int = 1
+    denom2: int = 1
+    multiplier: int = 1
     if exp_idx > 0:
         int_exp = int(value_str[exp_idx + 1:end_idx])
         if int_exp < 0:
-            int_denominator = 10 ** (-int_exp)
+            denom2 = 10 ** (-int_exp)
         else:
-            int_multiplier = 10 ** int_exp
+            multiplier = 10 ** int_exp
         end_idx = exp_idx
 
-    int_numerator: int = 0
+    num2: int = 0
     if dot_idx >= 0:
         int_denom_2 = 10 ** (end_idx - dot_idx - 1)
-        int_numerator = ((int(value_str[start_idx:dot_idx]) * int_denom_2)
-                         + int(value_str[dot_idx + 1:end_idx]))
-        int_denominator *= int_denom_2
+        num2 = ((int(value_str[:dot_idx]) * int_denom_2)
+                + int(value_str[dot_idx + 1:end_idx]))
+        denom2 *= int_denom_2
     else:
-        int_numerator = int(value_str[start_idx:end_idx])
+        num2 = int(value_str[:end_idx])
 
-    int_numerator *= int_multiplier
-    divi: Final[int] = gcd(int_numerator, int_denominator)
-    int_numerator //= divi
-    int_denominator //= divi
-
-    int_denom_2 = int_denominator
-    if minus:  # pack the minus back into the numerator, if needed
-        int_numerator = -int_numerator
-
-    # This is the default way that produces exact fractional representations
-    # based on the binary layout. We will prefer this way, unless the
-    # string-based approach delivers a more compact fraction.
-    alt_numer, alt_denom = value.as_integer_ratio()
-    if ((int_numerator / int_denominator) != value) or (
-            (alt_denom <= int_denominator) and (
-            (alt_denom < int_denominator) or (abs(
-            alt_numer) < int_denom_2))):
-        # We stick with the default, unless it leads to verbose fractions.
-        return alt_numer, alt_denom
-
-    return int_numerator, int_denominator
+    num2 *= multiplier
+    if num2 / denom2 == value:
+        num1, denom1 = __choose_frac(*__minimize_frac(
+            value, num2, denom2), num1, denom1)
+    return (-num1 if minus else num1), denom1
 
 
 def try_int_div(a: int, b: int) -> int | float:
@@ -1811,15 +1919,15 @@ def try_int_mul(a: int, b: int | float) -> int | float:
 31234444965574888174813926197455099511160764637390234826490840919289969902451\
 19032766058028744
     >>> try_int_mul(a, 1.6152587208080178e+161)
-    -918641914177607297827455991165295995836557166831605550508325736176299541\
-25010211147428340193055785106681257889474710879610768609064675870154966345681\
-26449034000026631687248880284694987083010601085095100350470698767695524042980\
-42911001628323193080493646299015542596054871017084303004624332857182391257042\
-52801685333053155075946721706578407082236529399950593562831974178899888856652\
-93388328544269797554613495534930019750820141133495887308100045109322649359377\
-82349254851477073806364320000000000000000000000000000000000000000000000000000\
-00000000000000000000000000000000000000000000000000000000000000000000000000000\
-0000000000000000
+    -91864191417760728566594708387860610684587465634907240089126522260899489\
+4868393273335550289848260675410562832758047321131061871920910825594187776263\
+3813438746416917351911213760538943029477664003307403545581300547688099127531\
+5980188627547208265662112980855054467534738906286741579697000621904552812416\
+9446067183418151530080010856381487158544646128107795979443668739119314808361\
+7661789396847122441264057280246286323595226375142154153566223973380730500186\
+0346809116255685129263413549101637215712126487779567515862772796494902477027\
+4283909310368263635531679756438464790102625606997105530169121933171318181638\
+719123552835758718976000
 
     >>> a = 3765608478313035700785399638168771339557519363527174997097642640\
 6101495713891805694367423527904175961734525627539554843115375392781571623329\
@@ -1829,16 +1937,16 @@ def try_int_mul(a: int, b: int | float) -> int | float:
 1572821101974821796182780210158355368107881592427373376547394885537235348770\
 037983728077456443610490231815763426207048140659081123096064113083255321
     >>> try_int_mul(a, 3.4397561272117625e+192)
-    1295277483595782584113508134012218246618268914040678972148674688561811055\
-62545645638406847972665826258090260136864511189660481257690662245650013258245\
-87407098713534544479908700377722686202681649709236855552895540002411099678400\
-34930596196955500638683411789710844172886586592715303399853135479663325522628\
-18566899383275992198837024474126244312079099847486179805861514713317955269085\
-29746017598066404007065119460848331815196502119813180662866870212988690952959\
-01261701816146501989018193091814958202143246046408892578628261894621913262500\
-00000000000000000000000000000000000000000000000000000000000000000000000000000\
-00000000000000000000000000000000000000000000000000000000000000000000000000000\
-00000000000000000000
+    129527748359578257806492201438402698334484205908662618646067106845154998\
+2115342535199421721007878815369298874224123455721441548991298088516366970587\
+6954884520363675490158067710598514210872880348223211816340777337079830796450\
+1538806420032828931583145759690145309074737296451653410762104587461282286330\
+5613446806304563553562786109972723062095583351926917494446975708601932868972\
+8706300360490387733148782540598727225279861244661365412091714003810616131531\
+4481842956460108582107814498584521025354908493431977057047306288665587544613\
+6391274648488448957696316691763417067525251280127682030399365602278708061765\
+1082290234901228437827481292269177791129383042667337751797004896760132865057\
+19242926784445427888800399360
 
     >>> a = 129139500057625933922412781529753661193714022177289159193286727\
 341869510538391068183373334814894358463049932698275602586001788553855337370\
@@ -1853,11 +1961,11 @@ def try_int_mul(a: int, b: int | float) -> int | float:
 38619836809751492028454165243512720617990761805723389
 
     >>> try_int_mul(1202489289292969, 2.1583639585424923e+306)
-    2595409542543320772685210126638700000000000000000000000000000000000000000\
-00000000000000000000000000000000000000000000000000000000000000000000000000000\
-00000000000000000000000000000000000000000000000000000000000000000000000000000\
-00000000000000000000000000000000000000000000000000000000000000000000000000000\
-000000000000000000
+    259540954254332074038246669681477283939748496620440148998643367300751188\
+2740876153253237092741716795754997976766921219000512012754932543147420651232\
+5520218655906535605653525109031074378131051185629676951714011087271116671446\
+0899827404105545452888405653019460560445425746060708059494631661799648373661\
+5341276121474415984640
 
     # exact result: -7952338024951495584.4756757
     >>> try_int_mul(-131722798246, 60371766.54947795)

@@ -20,7 +20,6 @@ from pycommons.math.sample_statistics import (
     CsvReader,
     CsvWriter,
     SampleStatistics,
-    from_samples,
 )
 
 #: the maximum n
@@ -244,7 +243,8 @@ def __make_sample_statistics(
     use_data: Final[tuple[int | float, ...]] = tuple(data)
     if tuple.__len__(use_data) != n_samples:
         raise ValueError(f"{tuple.__len__(use_data)} != {n_samples}")
-    result: Final[SampleStatistics] = __check(from_samples(use_data))
+    result: Final[SampleStatistics] = __check(SampleStatistics.from_samples(
+        use_data))
 
     if has_geometric_mean != (result.mean_geom is not None):
         raise ValueError(f"{has_geometric_mean} -> {result.mean_geom}")
@@ -857,7 +857,8 @@ def test_special_cases() -> None:
              int("319667051552357604493475556330820229708656449808893"
                  "045847977672665638066055143999500319344953701577846"
                  "7662777468320381844938727095591204153641140225"))]:
-        __check_with_data(from_samples(case), case)
+        __check_with_data(SampleStatistics.from_samples(
+            case), case)
 
 
 class _TCR(CsvReaderBase):
