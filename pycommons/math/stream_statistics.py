@@ -61,6 +61,16 @@ stddev=1.5811388300841898)'
 >>> r2 = StreamStatistics.from_samples((1, 2, 3, 4, 5))
 >>> r1 == r2
 True
+
+>>> ag.reset()
+>>> try:
+...     ag.result()
+... except ValueError as ve:
+...     print(ve)
+n=0 is invalid, must be in 1..9223372036854775808.
+
+>>> print(ag.result_or_none())
+None
 """
 
 from dataclasses import dataclass
@@ -118,10 +128,40 @@ class StreamStatisticsAggregate[T](StreamAggregate):
         """
         Get the stream statistics result.
 
+        The result is guaranteed to be a valid instance of
+        :class:`~pycommons.math.stream_statistics.StreamStatistics`.
+        It has :attr:`~pycommons.math.stream_statistics.StreamStatistics.n`
+        greater than zero.
+
+        If no data was collected, a `ValueError` is raised.
+        If you want to get `None` if no data was collected, use
+        :meth:`~StreamStatisticsAggregate.result_or_none` instead.
+
         :return: the result
+        :raises ValueError: if no data was collected
 
         >>> try:
         ...     StreamStatisticsAggregate().result()
+        ... except NotImplementedError:
+        ...     print("Not implemented!")
+        Not implemented!
+        """
+        raise NotImplementedError
+
+    def result_or_none(self) -> T | None:
+        """
+        Get the result if any data was collected, otherwise `None`.
+
+        This method returns the same result as
+        :meth:`~StreamStatisticsAggregate.result`, with the exception of the
+        case where no data was collected at all. In this case,
+        :meth:`~StreamStatisticsAggregate.result` will raise a `ValueError`,
+        whereas this method here just returns `None`.
+
+        :return: the result, or `None` if no data was collected.
+
+        >>> try:
+        ...     StreamStatisticsAggregate().result_or_none()
         ... except NotImplementedError:
         ...     print("Not implemented!")
         Not implemented!
@@ -935,6 +975,14 @@ stddev=1.2909944487358056)
         """
         Get a function returning the dimension from :class:`StreamStatistics`.
 
+        The returned getter function expects that it receives a valid
+        :class:`StreamStatistics` instance as parameter, or an instance of the
+        subclass you called :meth:`StreamStatistics.getter` on. If you pass in
+        `None`, then ths will raise a `TypeError`. If you are in a situation
+        where `None` is possible, use the function
+        :meth:`StreamStatistics.getter_or_none` instead, which will return
+        `None` in such a case.
+
         :param dimension: the dimension
         :returns: a :class:`Callable` that returns the value corresponding to
             the dimension
@@ -977,6 +1025,12 @@ stddev=1.2909944487358056)
         2
         >>> print(StreamStatistics.getter(KEY_MEDIAN)(s))
         None
+
+        >>> try:
+        ...     StreamStatistics.getter(KEY_N)(None)
+        ... except TypeError as te:
+        ...     print(str(te)[:20])
+        self should be an in
 
         >>> try:
         ...     StreamStatistics.getter(None)
@@ -1022,6 +1076,58 @@ object
         if result is None:
             raise ValueError(f"Unknown {cls} dimension {dimension!r}.")
         return result
+
+    @classmethod
+    def getter_or_none(cls, dimension: str) -> Callable[[
+            Union["StreamStatistics", None]], int | float | None]:
+        """
+        Obtain a getter that returns `None` if the statistics is `None`.
+
+        With this method, you can get a function which returns a value from a
+        statistics object if the object is not `None`. If `None` is provided,
+        then the function also returns `None`.
+
+        This is especially useful if you work with something like
+        :meth:`~StreamStatisticsAggregate.result_or_none`.
+
+        If your data should never be `None`, the better use
+        :meth:`StreamStatistics.getter` instead, which returns getter
+        functions that raise `TypeError`s if their input is `None`.
+
+        :param dimension: the dimension
+        :return: the getter
+
+        >>> ss = StreamStatistics(10, 1, 2, 3, 4)
+        >>> g = StreamStatistics.getter_or_none(KEY_MINIMUM)
+        >>> g(ss)
+        1
+        >>> print(g(None))
+        None
+        >>> StreamStatistics.getter_or_none(KEY_MINIMUM) is g
+        True
+
+        >>> g = StreamStatistics.getter_or_none(KEY_MAXIMUM)
+        >>> g(ss)
+        3
+        >>> print(g(None))
+        None
+        """
+        tbl_name: Final[str] = "___cls_getters_or_none"
+        if hasattr(cls, tbl_name):
+            getters = cast("dict", getattr(cls, tbl_name))
+        else:
+            getters = {}
+            setattr(cls, tbl_name, getters)
+
+        dimension = str.strip(dimension)
+        if dimension in getters:
+            return getters[dimension]
+
+        def __getter(x, _y=cls.getter(dimension)) -> int | float | None:
+            return None if x is None else _y(x)
+
+        getters[dimension] = __getter
+        return cast("Callable", __getter)
 
 
 class _StreamStats(StreamStatisticsAggregate[StreamStatistics]):
@@ -1116,6 +1222,15 @@ stddev=289.10811126635656)
             n, mi, max(mi, min(ma, self.__mean)), ma,
             None if n <= 1 else (0 if ma <= mi else sqrt(
                 try_float_int_div(self.__var, n - 1))))
+
+    def result_or_none(self) -> StreamStatistics | None:
+        """
+        Get the result if any data was collected, otherwise `None`.
+
+        :return: The return value of :meth:`result` if any data was collected,
+            otherwise `None`
+        """
+        return self.result() if self.__n > 0 else None
 
 
 class CsvReader(CsvReaderBase[StreamStatistics]):

@@ -53,6 +53,16 @@ stddev=1.5811388300841898, median=3, mean_geom=2.6051710846973517)'
 >>> r2 = SampleStatistics.from_samples((1, 2, 3, 4, 5))
 >>> r1 == r2
 True
+
+>>> ag.reset()
+>>> try:
+...     ag.result()
+... except ValueError as ve:
+...     print(ve)
+Data source cannot be empty.
+
+>>> print(ag.result_or_none())
+None
 """
 
 from contextlib import suppress
@@ -2040,3 +2050,12 @@ class _SampleStats(StreamStatisticsAggregate[SampleStatistics]):
         :return: the arithmetic mean or `None` if no value was added yet
         """
         return SampleStatistics.from_samples(self.__lst)
+
+    def result_or_none(self) -> SampleStatistics | None:
+        """
+        Get the result if any data was collected, otherwise `None`.
+
+        :return: The return value of :meth:`result` if any data was collected,
+            otherwise `None`
+        """
+        return self.result() if list.__len__(self.__lst) > 0 else None
