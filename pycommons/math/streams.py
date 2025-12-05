@@ -1,11 +1,31 @@
-"""A simple and immutable basic statistics record."""
+"""
+Tools for numerical data aggregation over streams.
+
+This module provides tools that can be used to aggregate data over streams of
+numerical data.
+Such tools should extend the class
+:class:`~pycommons.math.streams.StreamAggregate`, which provides the tools to
+:meth:`~pycommons.math.streams.StreamAggregate.add` data to the aggregation
+procedure as well as to include whole sequence of data (via
+:meth:`~pycommons.math.streams.StreamAggregate.update`) or to
+:meth:`~pycommons.math.streams.StreamAggregate.reset` the computation.
+It is recommended that subclasses should implement a method `result`
+returning the current result.
+
+The class :class:`~pycommons.math.streams.StreamSum` is such a subclass of
+:class:`~pycommons.math.streams.StreamAggregate`. It provides a running sum of
+values over a stream of data, using a Kahan summation algorithm of the second
+order. Its method
+:meth:`~pycommons.math.streams.StreamSum.result` returns the current running
+sum value.
+"""
 
 from math import isfinite
 from typing import Callable, Final, Iterable
 
 from pycommons.math.int_math import __DBL_INT_LIMIT_N_F as _DILNF
 from pycommons.math.int_math import __DBL_INT_LIMIT_P_F as _DILPF
-from pycommons.math.int_math import __try_int as _ti
+from pycommons.math.int_math import try_int_add
 from pycommons.types import type_error
 
 
@@ -216,5 +236,6 @@ namely 'x'.
         :return: the current result of the summation, or `None` if no value
             was added yet
         """
-        return self.__i_sum + _ti(self.__sum + self.__cs + self.__ccs) \
+        return try_int_add(
+            self.__i_sum, self.__sum + self.__cs + self.__ccs) \
             if self.__has_value else None

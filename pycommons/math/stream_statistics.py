@@ -1,4 +1,67 @@
-"""An immutable record for statistics computed over a stream of data."""
+"""
+An immutable record for statistics computed over a stream of data.
+
+Stream statistics, represented by class
+:class:`~pycommons.math.stream_statistics.StreamStatistics` are statistics
+that are computed over a stream of data. During the computation, only a
+minimal amount of data is actually kept in memory, such as a running sum,
+the overall minimum and maximum, etc.
+This makes these statistics suitable
+
+- if the amount of data is large and
+- the required accuracy is not very high and/or
+- the available computational budget or memory are limited.
+
+In this case, using the
+:class:`~pycommons.math.stream_statistics.StreamStatistics` routines are
+very suitable.
+You could, e.g., use the method
+:meth:`~pycommons.math.stream_statistics.StreamStatistics.aggregate` to
+obtain an aggregation object. This object allows you to iteratively append
+data to the current statistics computation via its `add` method and to obtain
+the current (or final) statistics result via the `result` method.
+
+Such a result is an instance of the class
+:class:`~pycommons.math.stream_statistics.StreamStatistics`.
+It stores the
+:attr:`~pycommons.math.stream_statistics.StreamStatistics.minimum` and the
+:attr:`~pycommons.math.stream_statistics.StreamStatistics.maximum` of the
+data, as well as the number
+:attr:`~pycommons.math.stream_statistics.StreamStatistics.n` of observed data
+samples.
+It also offers the approximations of the arithmetic mean as attribute
+:attr:`~pycommons.math.stream_statistics.StreamStatistics.mean_arith` and
+the approximation of the standard deviation as attribute
+:attr:`~pycommons.math.stream_statistics.StreamStatistics.stddev`.
+
+There is an absolute order defined upon these records.
+They are hashable and immutable.
+We provide methods to store them to CSV format via the class
+:class:`~pycommons.math.stream_statistics.CsvWriter`
+and to load them from CSV data via the class
+:class:`~pycommons.math.stream_statistics.CsvReader`.
+Functions that access attributes can be obtained via
+:meth:`~pycommons.math.stream_statistics.StreamStatistics.getter`.
+
+If you require high-accuracy statistics or values such as the median, you
+should use
+:class:`~pycommons.math.sample_statistics.SampleStatistics` instead.
+
+>>> ag = StreamStatistics.aggregate()
+>>> ag.update((1, 2, 3))
+>>> ag.add(4)
+>>> ag.add(5)
+>>> r1 = ag.result()
+>>> repr(r1)
+'StreamStatistics(n=5, minimum=1, mean_arith=3, maximum=5, \
+stddev=1.5811388300841898)'
+>>> str(r1)
+'5;1;3;5;1.5811388300841898'
+
+>>> r2 = StreamStatistics.from_samples((1, 2, 3, 4, 5))
+>>> r1 == r2
+True
+"""
 
 from dataclasses import dataclass
 from math import inf, isfinite, sqrt
@@ -16,6 +79,7 @@ from pycommons.io.csv import (
 from pycommons.io.csv import CsvReader as CsvReaderBase
 from pycommons.io.csv import CsvWriter as CsvWriterBase
 from pycommons.math.int_math import (
+    try_float_int_div,
     try_int,
 )
 from pycommons.math.streams import StreamAggregate
@@ -344,7 +408,7 @@ class StreamStatistics:
         This key is composed of the values for
         :attr:`~StreamStatistics.minimum`, `inf` (for the geometric mean),
         :attr:`~StreamStatistics.mean_arith`, `inf` (for the median),
-        :attr:`~StreamStatistics.maximum`, :attr:`~StreamStatistics.sd`,
+        :attr:`~StreamStatistics.maximum`, :attr:`~StreamStatistics.stddev`,
         and :attr:`~StreamStatistics.n`. Any statistics value that is
         undefined will be turned to `inf`. The last value is a unique
         identifier of the object type. This is to prevent objects of type
@@ -1051,7 +1115,7 @@ stddev=289.10811126635656)
         return StreamStatistics(
             n, mi, max(mi, min(ma, self.__mean)), ma,
             None if n <= 1 else (0 if ma <= mi else sqrt(
-                self.__var / (n - 1))))
+                try_float_int_div(self.__var, n - 1))))
 
 
 class CsvReader(CsvReaderBase[StreamStatistics]):

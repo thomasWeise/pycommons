@@ -1,4 +1,59 @@
-"""A simple and immutable basic statistics record."""
+"""
+A simple and immutable basic statistics record computed over a data sample.
+
+Here we provide records of statistics that are computed over a fully available
+sample of data.
+Such records are instances of class
+:class:`~pycommons.math.sample_statistics.SampleStatistics`.
+They offer the
+:attr:`~pycommons.math.stream_statistics.StreamStatistics.minimum` and
+:attr:`~pycommons.math.stream_statistics.StreamStatistics.maximum` of the data
+as well as the number
+:attr:`~pycommons.math.stream_statistics.StreamStatistics.n` of observed
+samples.
+They also offer approximations of the arithmetic mean as attribute
+:attr:`~pycommons.math.stream_statistics.StreamStatistics.mean_arith` and
+the approximation of the standard deviation as attribute
+:attr:`~pycommons.math.stream_statistics.StreamStatistics.stddev`.
+Additionally, they provide the sample
+:attr:`~pycommons.math.sample_statistics.SampleStatistics.median`
+and an approximation
+:attr:`~pycommons.math.sample_statistics.SampleStatistics.mean_geom` of the
+geometric mean.
+
+This class is an extension of class
+:class:`~pycommons.math.stream_statistics.StreamStatistics`.
+Stream statistics are less accurate and do not provide the median or geometric
+mean.
+They, however, can be applied to a stream of data and do not require that all
+the data be available as a complete chunk at once.
+Sample statistics require access to the full data, but also offer higher
+accuracy.
+
+There is an absolute order defined upon these records.
+They are hashable and immutable.
+We provide methods to store them to CSV format via the class
+:class:`~pycommons.math.sample_statistics.CsvWriter`
+and to load them from CSV data via the class
+:class:`~pycommons.math.sample_statistics.CsvReader`.
+Functions that access attributes can be obtained via
+:meth:`~pycommons.math.stream_statistics.StreamStatistics.getter`.
+
+>>> ag = SampleStatistics.aggregate()
+>>> ag.update((1, 2, 3))
+>>> ag.add(4)
+>>> ag.add(5)
+>>> r1 = ag.result()
+>>> repr(r1)
+'SampleStatistics(n=5, minimum=1, mean_arith=3, maximum=5, \
+stddev=1.5811388300841898, median=3, mean_geom=2.6051710846973517)'
+>>> str(r1)
+'5;1;3;3;2.6051710846973517;5;1.5811388300841898'
+
+>>> r2 = SampleStatistics.from_samples((1, 2, 3, 4, 5))
+>>> r1 == r2
+True
+"""
 
 from contextlib import suppress
 from dataclasses import dataclass
@@ -1943,8 +1998,8 @@ class CsvWriter(CsvWriterBase[SampleStatistics]):
         >>> try:
         ...     CsvWriter([1])
         ... except TypeError as te:
-        ...     print(str(te)[:60])
-        data[0] should be an instance of pycommons.math.sample_stati
+        ...     print(str(te)[:32])
+        data[0] should be an instance of
         """
         super().__init__(data, scope, n_not_needed, what_short, what_long,
                          SampleStatistics)
