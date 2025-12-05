@@ -63,10 +63,16 @@ def __enforce_same(a: int | float, b: int | float,
     if a == b:
         return
     if a == 0:
+        if abs(b) < 1e-15:
+            return
         raise ValueError(f"a={a}=0, b={b}, data={data!r}")
     if b == 0:
+        if abs(a) < 1e-15:
+            return
         raise ValueError(f"a={a}, b={b}=0, data={data!r}")
     if (a < 0) != (b < 0):
+        if (abs(a) < 1e-15) and (abs(b) < 1e-15):
+            return
         raise ValueError(f"a={a}<0 != b={b}<0, data={data!r}")
     orig_a: Final[int | float] = a
     orig_b: Final[int | float] = b
