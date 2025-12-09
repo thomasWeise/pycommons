@@ -35,7 +35,8 @@ def str_is_new() -> Callable[[str], bool]:
     return __add
 
 
-#: a type variable for the representation-base cache :func:`repr_cache`.
+#: a type variable for the representation-base cache
+#: :func:`pycommons.ds.cache.repr_cache`.
 T = TypeVar("T")
 
 
@@ -43,7 +44,7 @@ def repr_cache() -> Callable[[T], T]:
     """
     Create a cache based on the string representation of an object.
 
-    In this type of cache is that the :func:`repr`-representations of objects
+    In this type of cache is that the `repr`-representations of objects
     are used as keys. The first time an object with a given representation is
     encountered, it is stored in the cache and returned. The next time an
     object with the same representation is put into this method, the original

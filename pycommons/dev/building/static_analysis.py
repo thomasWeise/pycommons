@@ -74,7 +74,8 @@ __RUF_TARGET_VERSION: Final[str] = "py312"
 __PACKAGE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("pyflakes", "."),
     ("pylint", ".", __PYLINT_IGNORE),
-    ("mypy", ".", "--no-strict-optional", "--check-untyped-defs"),
+    ("mypy", ".", "--no-strict-optional", "--check-untyped-defs",
+     "--explicit-package-bases"),
     ("bandit", "-r", ".", "-s", "B311"),
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
     ("unimport", "."),

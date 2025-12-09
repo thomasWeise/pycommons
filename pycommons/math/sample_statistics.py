@@ -1624,7 +1624,7 @@ int("7588550360256754183279148073529370729071901715047420004889892225\
         # The median function of statistics would do this anyway, so we may as
         # well do it now.
         data: Final[list[int | float]] = sorted(map(try_int, (
-            _s for _s in source if _s is not None)))
+            xs for xs in source if xs is not None)))
         n: Final[int] = list.__len__(data)
         if n <= 0:
             raise ValueError("Data source cannot be empty.")
@@ -2041,7 +2041,7 @@ class _SampleStats(StreamStatisticsAggregate[SampleStatistics]):
 
         :param data: the data stream
         """
-        self.__lst.extend(_s for _s in data if _s is not None)
+        self.__lst.extend(xs for xs in data if xs is not None)
 
     def result(self) -> SampleStatistics:
         """
