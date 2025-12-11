@@ -512,11 +512,13 @@ def str_to_num(value: str) -> int | float:
     ... except ValueError as ve:
     ...     print(ve)
     NaN is not permitted, but got 'nan'.
+
     >>> try:
     ...     str_to_num("12-3")
     ... except ValueError as ve:
     ...     print(ve)
     Invalid numerical value '12-3'.
+
     >>> str_to_num("1e34423")
     inf
     >>> str_to_num("-1e34423")
@@ -530,16 +532,19 @@ def str_to_num(value: str) -> int | float:
     ... except ValueError as ve:
     ...     print(ve)
     Invalid numerical value '-1e-34e4423'.
+
     >>> try:
     ...     str_to_num("T")
     ... except ValueError as ve:
     ...     print(ve)
     Invalid numerical value 'T'.
+
     >>> try:
     ...     str_to_num("F")
     ... except ValueError as ve:
     ...     print(ve)
     Invalid numerical value 'F'.
+
     >>> try:
     ...     str_to_num(None)
     ... except TypeError as te:
@@ -591,11 +596,13 @@ def str_to_num_or_none(value: str | None) -> int | float | None:
     ... except ValueError as ve:
     ...     print(ve)
     NaN is not permitted, but got 'nan'.
+
     >>> try:
     ...     str_to_num_or_none("12-3")
     ... except ValueError as ve:
     ...     print(ve)
     Invalid numerical value '12-3'.
+
     >>> str_to_num_or_none("1e34423")
     inf
     >>> str_to_num_or_none("-1e34423")
@@ -609,16 +616,19 @@ def str_to_num_or_none(value: str | None) -> int | float | None:
     ... except ValueError as ve:
     ...     print(ve)
     Invalid numerical value '-1e-34e4423'.
+
     >>> try:
     ...     str_to_num_or_none("T")
     ... except ValueError as ve:
     ...     print(ve)
     Invalid numerical value 'T'.
+
     >>> try:
     ...     str_to_num_or_none("F")
     ... except ValueError as ve:
     ...     print(ve)
     Invalid numerical value 'F'.
+
     >>> print(str_to_num_or_none(""))
     None
     >>> print(str_to_num_or_none(None))
@@ -661,6 +671,7 @@ def str_to_int_or_none(value: str | None) -> int | None:
     ... except TypeError as te:
     ...     print(te)
     value should be an instance of str but is float, namely 1.3.
+
     >>> try:
     ...     print(str_to_int_or_none("1.3"))
     ... except ValueError as ve:
@@ -701,6 +712,7 @@ def datetime_to_date_str(date: datetime) -> str:
     ... except TypeError as te:
     ...     print(te)
     date should be an instance of datetime.datetime but is None.
+
     >>> try:
     ...     datetime_to_date_str(1)
     ... except TypeError as te:
@@ -732,6 +744,7 @@ def datetime_to_datetime_str(dateandtime: datetime) -> str:
     ... except TypeError as te:
     ...     print(te)
     dateandtime should be an instance of datetime.datetime but is None.
+
     >>> try:
     ...     datetime_to_datetime_str(1)
     ... except TypeError as te:

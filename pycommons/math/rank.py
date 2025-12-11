@@ -57,6 +57,7 @@ def rank(source: Iterable[T],
     The `key` function must compute a key for each element of `source` which
     can be used for sorting. By default, it returns the element itself.
     But it can be customized.
+
     >>> rank((6, 5, 3, 4, 0, 7))
     [(0, 0), (2, 3), (4, 4), (6, 5), (8, 6), (10, 7)]
 
