@@ -36,11 +36,13 @@ def rank(source: Iterable[T],
     objects that would have the same rank are resolved by averaging their
     ranks. This is why we increment ranks in steps of `2`: This way, the mean
     of two ranks is always an integer:
+
     >>> rank([3, 6, 6, 12])
     [(0, 3), (3, 6), (3, 6), (6, 12)]
 
     This averaging can be modified by providing a `rank_join` function that
     computes a joint rank for objects as well as a `rank_offset`:
+
     >>> rank([3, 6, 6, 12], rank_join=lambda a, b: 0.5 * (a + b))
     [(0.0, 3), (1.5, 6), (1.5, 6), (3.0, 12)]
 
@@ -69,6 +71,7 @@ def rank(source: Iterable[T],
     list returned by this function. Its input are the rank, the object, and
     its computed key. By default, it creates tuples of the rank and the object
     obtained from `source`. You can customize this as well:
+
     >>> rank([5, 7, 4, 9, 2, 1])
     [(0, 1), (2, 2), (4, 4), (6, 5), (8, 7), (10, 9)]
 

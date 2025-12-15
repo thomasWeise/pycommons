@@ -250,6 +250,7 @@ def log_system_state(interval_seconds: int = 300,
     :param lock: a shared lock for the console access
 
     # Example:
+
     >>> from contextlib import redirect_stdout
     >>> from io import StringIO
     >>> sio = StringIO()

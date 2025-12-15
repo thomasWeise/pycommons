@@ -18,7 +18,7 @@ from pycommons.dev.doc.doc_info import (
 from pycommons.dev.url_replacer import make_url_replacer
 from pycommons.io.arguments import pycommons_argparser
 from pycommons.io.console import logger
-from pycommons.io.path import Path, delete_path
+from pycommons.io.path import UTF8, Path, delete_path
 from pycommons.processes.shell import STREAM_CAPTURE, STREAM_FORWARD, Command
 from pycommons.types import type_error
 
@@ -223,6 +223,12 @@ __PYGMENTIZE_DEFAULT: Final[tuple[str, ...]] = (
 
 #: the possible styles
 __STYLES: Final[tuple[str, ...]] = ("bizstyle.css", )
+
+#: additions that should be included in the styles
+__STYLE_ADDITIONS: Final[tuple[tuple[str, str], ...]] = (
+    ("bizstyle.css",
+     "\n\n.sphinxsidebarwrapper span.pre{white-space:wrap;-epub-hyphens:auto;"
+     "-webkit-hyphens:auto;-moz-hyphens:auto;hyphens: auto;}\n"), )
 
 #: the html header
 __HTML_HEADER: Final[str] = "<!DOCTYPE html><html><title>"
@@ -543,6 +549,13 @@ def make_documentation(info: BuildInfo) -> None:
             css_path: Path = static.resolve_inside(sst)
             if css_path.is_file():
                 css = css_path.relative_to(dest)
+                # To some styles, we need to add minor modifications.
+                for add_style, add_text in __STYLE_ADDITIONS:
+                    if add_style == sst:
+                        logger(f"Improving style {css_path!r}.")
+                        with open(css_path, "a", encoding=UTF8) as stream:
+                            stream.write(add_text)
+                        break
                 break
     if css is None:
         logger("Found no static css style.")
