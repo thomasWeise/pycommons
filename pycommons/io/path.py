@@ -369,7 +369,7 @@ join(dirname(realpath(getcwd())), "1.txt")
             raise ValueError(f"Path {self!r} does not identify a directory.")
 
     def contains(self, other: str) -> bool:
-        """
+        r"""
         Check whether this path is a directory and contains another path.
 
         A file can never contain anything else. A directory contains itself as
@@ -389,8 +389,8 @@ join(dirname(realpath(getcwd())), "1.txt")
         True
         >>> Path(__file__).contains(dirname(__file__))
         False
-        >>> Path(join(dirname(__file__), "a")).contains(\
-join(dirname(__file__), "b"))
+        >>> Path(join(dirname(__file__), "a")).contains(
+        ...     join(dirname(__file__), "b"))
         False
 
         >>> try:
@@ -410,9 +410,17 @@ join(dirname(__file__), "b"))
         ... except ValueError as ve:
         ...     print(ve)
         Path must not be empty.
+
+        >>> Path("E:\\").contains("C:\\")
+        False
         """
-        return self.is_dir() and (
-            commonpath([self]) == commonpath([self, Path(other)]))
+        if not self.is_dir():
+            return False
+        other_path: Final[Path] = Path(other)
+        try:
+            return commonpath([self]) == commonpath([self, other_path])
+        except ValueError:  # this happens if paths are on different drives
+            return False    # This cannot be reached on Linux systems.
 
     def enforce_contains(self, other: str) -> None:
         """

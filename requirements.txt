@@ -21,8 +21,8 @@
 
 # urllib3 and certifi are used to check the URLs in the [dev] extras variant
 # of our package. They are used to check URL in markdown files.
-urllib3 == 2.6.1
-certifi == 2025.11.12
+urllib3 == 2.6.3
+certifi == 2026.1.4
 
 # these static analysis tools are also needed for the [dev] extras variant
 # only
