@@ -45,7 +45,7 @@ def __get_python_interpreter_short() -> str:
             text=True, timeout=10, capture_output=True)  # nosec # noqa
         inter_version = retval.stdout
         del retval
-    except subprocess.SubprocessError as se:
+    except (subprocess.SubprocessError, FileNotFoundError) as se:
         raise ValueError(f"Interpreter {inter!r} is invalid?") from se
     if (str.__len__(inter_version) <= 0) or (
             not inter_version.startswith("Python 3.")):
@@ -58,7 +58,7 @@ def __get_python_interpreter_short() -> str:
             rv = subprocess.run(  # nosec # noqa
                 args=(s, "--version"), check=True, text=True,  # nosec # noqa
                 timeout=10, capture_output=True)  # nosec # noqa
-        except subprocess.SubprocessError:
+        except (subprocess.SubprocessError, FileNotFoundError):
             return False
         return rv.stdout == __c
 
