@@ -20,9 +20,9 @@ def make_index_rst(info: DocInfo, collector: Callable[[str], Any]) -> None:
     :param info: The documentation information
     :param collector: the collector to receive the information.
 
+    >>> from contextlib import redirect_stdout
     >>> di = DocInfo(__file__, "a", "b", "bla", "1.2", 12,
     ...              "https://example.com")
-    >>> from contextlib import redirect_stdout
     >>> l = []
     >>> with redirect_stdout(None):
     ...     make_index_rst(di, l.append)

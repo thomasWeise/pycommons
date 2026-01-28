@@ -8,7 +8,7 @@ of scope.
 """
 from os import close as osclose
 from tempfile import mkdtemp, mkstemp
-from typing import Final
+from typing import Final, Self
 
 from pycommons.io.path import Path, delete_path, directory_path
 
@@ -29,7 +29,7 @@ class TempPath(Path):
         ret.__is_open = True  # noqa:SLF001
         return ret
 
-    def __enter__(self) -> "TempPath":
+    def __enter__(self) -> Self:
         """
         Nothing, just exists for `with`.
 

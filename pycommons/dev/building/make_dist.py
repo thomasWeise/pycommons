@@ -43,28 +43,28 @@ __SUFFIX: Final[tuple[str, ...]] = (
 __VENV_CMD: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("gz distribution with extras", (
         'echo "Installing {GZ_DIST}{EXTRAS} and capturing {REQUIREMENTS}."',
-        'python3 -m pip --no-input --timeout {TIMEOUT} --retries 100 '
-        '--require-virtualenv install "{GZ_DIST}{EXTRAS}"',
+        ('python3 -m pip --no-input --timeout {TIMEOUT} --retries 100 '
+         '--require-virtualenv install "{GZ_DIST}{EXTRAS}"'),
         'echo "Freezing requirements to {REQUIREMENTS}."',
-        'pip freeze --all --require-virtualenv '
-        '--no-input > "{REQUIREMENTS}"')),
+        ('pip freeze --all --require-virtualenv '
+         '--no-input > "{REQUIREMENTS}"'))),
     ("wheel distribution with extras", (
         'echo "Installing {WHEEL_DIST}{EXTRAS}."',
-        'python3 -m pip --no-input --timeout {TIMEOUT} --retries 100 '
-        '--require-virtualenv install "{WHEEL_DIST}{EXTRAS}"')),
+        ('python3 -m pip --no-input --timeout {TIMEOUT} --retries 100 '
+         '--require-virtualenv install "{WHEEL_DIST}{EXTRAS}"'))),
     ("gz distribution without extras", (
         'echo "Installing {GZ_DIST} without extras."',
-        'python3 -m pip --no-input --timeout {TIMEOUT} --retries 100 '
-        '--require-virtualenv install "{GZ_DIST}"')),
+        ('python3 -m pip --no-input --timeout {TIMEOUT} --retries 100 '
+         '--require-virtualenv install "{GZ_DIST}"'))),
     ("wheel distribution without extras", (
         'echo "Installing {WHEEL_DIST} without extras."',
-        'python3 -m pip --no-input --timeout {TIMEOUT} --retries 100 '
-        '--require-virtualenv install "{WHEEL_DIST}{EXTRAS}"')))
+        ('python3 -m pip --no-input --timeout {TIMEOUT} --retries 100 '
+         '--require-virtualenv install "{WHEEL_DIST}{EXTRAS}"'))))
 
 #: the prefix commands
 __XZ: Final[tuple[str, ...]] = (
-    'tar --dereference --exclude=".nojekyll" -c --transform '
-    '"s,^,{BASE}/," * | xz -v -9e -c > "{DEST}"',
+    ('tar --dereference --exclude=".nojekyll" -c --transform '
+     '"s,^,{BASE}/," * | xz -v -9e -c > "{DEST}"'),
 )
 
 

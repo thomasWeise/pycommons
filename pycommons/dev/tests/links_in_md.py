@@ -30,8 +30,8 @@ __SOMETIMES_UNREACHABLE_HOSTS: Final[set[str]] = \
 __CORRECT_URLS: Final[set[str]] = {
     "https://example.com", "http://example.com",
     "https://github.com", "http://github.com",
-    "https://www.acm.org/publications/policies/artifact-review"
-    "-and-badging-current"}
+    ("https://www.acm.org/publications/policies/artifact-review"
+     "-and-badging-current")}
 
 
 def __ve(msg: str, text: str, idx: int) -> ValueError:
@@ -115,36 +115,37 @@ def __make_headers() -> tuple[dict[str, str] | None, ...]:
     headers: list[dict[str, str] | None] = [None]
     headers.extend(
         {"User-Agent": ua} for ua in (
-            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:138.0) Gecko/20100101"
-            " Firefox/138.0",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ("
-            "KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like"
-            " Gecko) Chrome/136.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:106.0) Gecko/20100101"
-            " Firefox/106.0",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like "
-            "Gecko) Chrome/109.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0."
-            "1518.55",
-            "Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 "
-            "Version/12.16.2",
-            "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) "
-            "like Gecko",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/"
-            "537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A",
+            ("Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:138.0) "
+             "Gecko/20100101 Firefox/138.0"),
+            ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ("
+             "KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
+             " Edg/136.0.0.0"),
+            ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like"
+             " Gecko) Chrome/136.0.0.0 Safari/537.36"),
+            ("Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:106.0) "
+             "Gecko/20100101 Firefox/106.0"),
+            ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like"
+             " Gecko) Chrome/109.0.0.0 Safari/537.36"),
+            ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+             "(KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0."
+             "1518.55"),
+            ("Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 "
+             "Version/12.16.2"),
+            ("Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) "
+             "like Gecko"),
+            ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/"
+             "537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A"),
             "Mozilla/5.0 (PLAYSTATION 3; 3.55)",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ("
-            "KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/114.0.1823"
-            ".901",
-            "mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/537.36 ("
-            "khtml, like gecko) chrome/80.0.3987.87 safari/537.36 edg/80.0."
-            "361.502",
+            ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ("
+             "KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/114.0."
+             "1823.901"),
+            ("mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/537.36 ("
+             "khtml, like gecko) chrome/80.0.3987.87 safari/537.36 edg/80.0."
+             "361.502"),
             "Mozilla/5.0 (X11; Linux i686; rv:13.0) Gecko/13.0 Firefox/13.0",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like "
-            "Gecko) Ubuntu Chromium/80.0.3987.149 HeadlessChrome/80.0.3987."
-            "149 Safari/537.36"))
+            ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML"
+             ", like Gecko) Ubuntu Chromium/80.0.3987.149 HeadlessChrome/"
+             "80.0.3987.149 Safari/537.36")))
     return tuple(headers)
 
 

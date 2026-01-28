@@ -2,6 +2,7 @@
 [![pypi version](https://img.shields.io/pypi/v/pycommons)](https://pypi.org/project/pycommons)
 [![pypi downloads](https://img.shields.io/pypi/dw/pycommons.svg)](https://pypistats.org/packages/pycommons)
 [![coverage report](https://thomasweise.github.io/pycommons/tc/badge.svg)](https://thomasweise.github.io/pycommons/tc/index.html)
+[![https://thomasweise.github.io](https://shields.io/badge/home-thomasweise.github.io-009000)](https://thomasweise.github.io)
 
 # *pycommons:* Common Utility Functions for Python Projects.
 
@@ -111,7 +112,6 @@ If you have any concerns regarding security, please visit our [security policy](
 
 If you have any questions or suggestions, please contact
 Prof. Dr. Thomas Weise (汤卫思教授) of the 
-Institute of Applied Optimization (应用优化研究所, IAO) of the
 School of Artificial Intelligence and Big Data ([人工智能与大数据学院](http://www.hfuu.edu.cn/aibd/)) at
 [Hefei University](http://www.hfuu.edu.cn/english/) ([合肥大学](http://www.hfuu.edu.cn/)) in
 Hefei, Anhui, China (中国安徽省合肥市) via

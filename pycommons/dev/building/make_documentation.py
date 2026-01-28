@@ -227,8 +227,8 @@ __STYLES: Final[tuple[str, ...]] = ("bizstyle.css", )
 #: additions that should be included in the styles
 __STYLE_ADDITIONS: Final[tuple[tuple[str, str], ...]] = (
     ("bizstyle.css",
-     "\n.sphinxsidebarwrapper span.pre{white-space:wrap;-epub-hyphens:auto;"
-     "-webkit-hyphens:auto;-moz-hyphens:auto;hyphens: auto;}\n"), )
+     ("\n.sphinxsidebarwrapper span.pre{white-space:wrap;-epub-hyphens:auto;"
+      "-webkit-hyphens:auto;-moz-hyphens:auto;hyphens: auto;}\n")), )
 
 #: the html header
 __HTML_HEADER: Final[str] = "<!DOCTYPE html><html><title>"
