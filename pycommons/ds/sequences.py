@@ -35,7 +35,7 @@ class __Reiterator(Iterable[T]):
         nexter: Final[Callable[[], T]] = self.__source.__next__
         pos: int = 0  # The next position in __more.
         skip: int = -1  # The last element in __more we took from __source.
-        try:  # We always get to the StopITeration of __source.
+        try:  # We always get to the StopIteration of __source.
             while True:  # Until we reached the end of list and end of iter.
                 ll: int = get_length()  # Get length (may have changed).
                 while pos < ll:  # First, return all elements from __more.
@@ -103,6 +103,20 @@ def reiterable(source: Iterable[T] | Iterator[T]) -> Iterable[T]:
     :returns: the resulting re-iterable iterator
     :raises TypeError: if `source` is neither an :class:`Iterable` nor an
         :class:`Iterator`.
+
+    >>> ri = reiterable(iter(range(4)))
+    >>> for i in ri:
+    ...     print(i)
+    0
+    1
+    2
+    3
+    >>> for i in ri:
+    ...     print(i)
+    0
+    1
+    2
+    3
 
     >>> g = (i ** 2 for i in range(5))
     >>> r = reiterable(g)
@@ -217,7 +231,7 @@ def reiterable(source: Iterable[T] | Iterator[T]) -> Iterable[T]:
         return __Reiterator(source)  # solidify iterators into tuples
     if not isinstance(source, Iterable):
         raise type_error(source, "source", (Iterable, Iterator))
-    return source  # iterables can be returned as-is
+    return source  # other iterables can be returned as-is
 
 
 def merge_sorted_and_return_unique(

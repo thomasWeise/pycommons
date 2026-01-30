@@ -61,10 +61,15 @@ All dependencies for using and running `pycommons` are listed at [here](https://
 
 ### 3.1. Data Structures
 
-```python
-from pycommons.ds.cache import str_is_new
+Some very simple datastructures are provided, but nothing special.
+The function `is_new` creates a new function which returns `True` if it sees its argument for the first time, and `False` otherwise. 
+The code below prints `True`, `True`, `False`, `True`, and `False`.
 
-cache = str_is_new()
+```python
+from typing import Callable
+from pycommons.ds.cache import is_new
+
+cache: Callable[[str], bool] = is_new()
 print(cache("1"))
 print(cache("2"))
 print(cache("1"))
@@ -72,12 +77,33 @@ print(cache("3"))
 print(cache("2"))
 ```
 
-prints `True`, `True`, `False`, `True`, and `False`.
+The function `repr_cache` uses the `repr`-string representation of objects as keys to store the objects.
+When an object is passed to it for the first time, it returns the object.
+If an object with the same string `repr`-representation is passed to it, it returns the object originally stored under that string representation.
+The code below prints `{1: '1', 3: '3', 7: '7'}`, `True`, `True`, and `False`.
 
 ```python
+from typing import Callable
+from pycommons.ds.cache import repr_cache
+
+cache: Callable[[dict[int, str]], dict[int, str]] = repr_cache()
+a = {1: '1', 3: '3', 7: '7'}
+b = {1: '1', 3: '3', 7: '7'}
+print(cache(a))
+print(cache(a) is a)
+print(cache(b) is a)
+print(cache(b) is b)
+```
+
+The function `immutable_mapping` creates and `Mapping` which wraps some other mapping, such as a dictionary, and provides an immutable view on it.
+This can be used in cases where you want to create global variables that hold dictionaries or pass dictionaries to functions but want to prevent these dictionaries from being changed.
+The code below prints `'mappingproxy' object does not support item assignment` and `2`.
+
+```python
+from typing import Mapping
 from pycommons.ds.immutable_map import immutable_mapping
 
-imap = immutable_mapping({1: 2, 3: 4})
+imap: Mapping[int, int] = immutable_mapping({1: 2, 3: 4})
 try:
     imap[1] = 3
 except TypeError as te:
@@ -86,7 +112,21 @@ except TypeError as te:
 print(imap[1])
 ```
 
-prints `'mappingproxy' object does not support item assignment` and `2`.
+The function `reiterable` takes an `Iterator`, i.e., a sequence that can be processed exactly once, and turns it into a sequence that can be processed multiple times, i.e., a fully-fledged `Iterable`.
+It does so by caching the values returned by the original `Iterator` when we pass over it for the first time.
+The `iter` function of Python turns a sequence into an `Iterator` which can be passed over exactly once.
+However, by wrapping the result of `iter(range(4))` into a `reiterable` named `ri`, we can go over `ri` twice (and, actually, as many times as we want) in the code below.
+It will therefore print the numbers from `0` to `4` multiple times.
+
+```python
+from pycommons.ds.sequences import reiterable
+
+ri = reiterable(iter(range(4)))
+for i in ri:
+    print(i)
+for i in ri:
+    print(i)
+```
 
 ## 4. License
 

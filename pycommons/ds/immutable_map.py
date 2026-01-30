@@ -19,7 +19,7 @@ def immutable_mapping(a: Mapping[K, V]) -> Mapping[K, V]:
         if `a` is changed, but you cannot change `a` via the view)
 
     >>> x = {1: 1, 2: 7, 3: 8}
-    >>> y = immutable_mapping(x)
+    >>> y: Mapping[int, int] = immutable_mapping(x)
     >>> x is y
     False
     >>> x == y
@@ -30,14 +30,14 @@ def immutable_mapping(a: Mapping[K, V]) -> Mapping[K, V]:
     True
     >>> x[3] == y[3]
     True
-    >>> z = immutable_mapping(x)
+    >>> z: Mapping[int, int] = immutable_mapping(x)
     >>> x is z
     False
     >>> x == z
     True
     >>> y is z
     False
-    >>> z = immutable_mapping(y)
+    >>> z: Mapping[int, int] = immutable_mapping(y)
     >>> x is z
     False
     >>> y is z

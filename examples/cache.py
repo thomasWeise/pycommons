@@ -1,8 +1,10 @@
 """Demonstrate the use of the cache function."""
 
-from pycommons.ds.cache import str_is_new
+from typing import Callable
 
-checker = str_is_new()
+from pycommons.ds.cache import is_new
+
+checker: Callable[[str], bool] = is_new()
 print(f"{checker('a')=}")  # True
 print(f"{checker('a')=}")  # False
 print(f"{checker('b')=}")  # True
