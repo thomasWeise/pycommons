@@ -218,3 +218,5 @@ dist
 .idea
 .ruff_cache
 .pytype
+
+PYCOMMONS_NO_RECURSIVE_TESTS

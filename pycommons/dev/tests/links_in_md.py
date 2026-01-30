@@ -338,7 +338,19 @@ def __check_url(urlstr: str, valid_urls: dict[str, str | None],
     >>> __check_url("mailto:tweise@hfuu.edu.cn", vu)
     >>> __check_url("tweise@hfuu.edu.cn", vu)
 
+    >>> __check_url("https://thomasweise.github.io/pycommons/#introduction",
+    ...             {})
+
     >>> from contextlib import redirect_stdout
+    >>> with redirect_stdout(None):   # check __SOMETIMES_UNREACHABLE
+    ...     __check_url("https://fsf.org/111111111111111", vu)
+
+    >>> try:
+    ...     with redirect_stdout(None):
+    ...         __check_url("https://github.io.github.io/111111111", vu)
+    ... except ValueError as ve:
+    ...     print(str(ve))
+    Could not load url 'https://github.io.github.io/111111111'.
 
     >>> with redirect_stdout(None):
     ...     __check_url("https://thomasweise.github.io/pycommons", vu)
@@ -539,6 +551,18 @@ def check_links_in_md(file: str) -> None:
     Test all the links in the given file.
 
     :param file: the file to check
+
+    >>> from pycommons.io.temp import temp_file
+    >>> with temp_file() as tf:
+    ...     tf.write_all_str("[test](https://example.com)")
+    ...     check_links_in_md(tf)
+
+    >>> with temp_file() as tf:
+    ...     try:
+    ...         check_links_in_md(tf)
+    ...     except ValueError as ve:
+    ...         print(str(ve)[-19:])
+    ' contains no text.
     """
     # First, we load the file as a single string
     readme: Final[Path] = file_path(file)

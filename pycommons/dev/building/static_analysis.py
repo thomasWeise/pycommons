@@ -189,8 +189,9 @@ def static_analysis(info: BuildInfo) -> None:
     raise ValueError(f"Failed to do {text}:\n{'\n'.join(errors)}")
 
 
-# Run static analysis program if executed as script
-if __name__ == "__main__":
+# Run static analysis program if executed as script.
+# This part cannot appear in unit test coverage, but we do test it.
+if __name__ == "__main__":  # pragma: no cover
     parser: Final[ArgumentParser] = pycommons_argparser(
         __file__,
         "Apply Static Code Analysis Tools",

@@ -75,8 +75,9 @@ def run_tests(info: BuildInfo) -> None:
     logger(f"Finished doing unit tests for {info}.")
 
 
-# Run conversion if executed as script
-if __name__ == "__main__":
+# Run tests if executed as script.
+# This part cannot appear in unit test coverage, but we do test it.
+if __name__ == "__main__":  # pragma: no cover
     parser: Final[ArgumentParser] = pycommons_argparser(
         __file__,
         "Run the unit tests for a Python Project.",

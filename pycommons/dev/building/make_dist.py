@@ -222,8 +222,9 @@ def make_dist(info: BuildInfo) -> None:
     logger("Finished building distribution.")
 
 
-# Run conversion if executed as script
-if __name__ == "__main__":
+# Run distribution creation if executed as script.
+# This part cannot appear in unit test coverage, but we do test it.
+if __name__ == "__main__":  # pragma: no cover
     parser: Final[ArgumentParser] = pycommons_argparser(
         __file__,
         "Build the Distribution Files.",

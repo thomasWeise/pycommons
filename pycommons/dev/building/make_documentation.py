@@ -585,8 +585,9 @@ def make_documentation(info: BuildInfo) -> None:
     logger(f"Finished building documentation with setup {info}.")
 
 
-# Run documentation generation process if executed as script
-if __name__ == "__main__":
+# Run documentation generation process if executed as script.
+# This part cannot appear in unit test coverage, but we do test it.
+if __name__ == "__main__":  # pragma: no cover
     parser: Final[ArgumentParser] = pycommons_argparser(
         __file__,
         "Build the Documentation",
