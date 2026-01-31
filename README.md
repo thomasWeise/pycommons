@@ -82,7 +82,42 @@ Let's say your package's name is `mypackage`, then you can do:
   The files that it puts into this folder are suitable as attachment for a GitHub release.
 
 
-### 3.2. Data Structures: `pycommons.ds`
+### 3.2. The Package: `pycommons.io`
+The package [`pycommons.io`](/pycommons/pycommons.io.html) offers several utilities to deal with input and output, most importantly with files and text streams.
+
+The class [`Path`](/pycommons/pycommons.io.html#pycommons.io.path.Path) represents canonical, absolute, and fully-qualified paths in the file system.
+It inherits from `str`, which means that you can use it in case of normal strings.
+It is also constructed from a string, meaning that you can do `Path("my_path")` and get a canonical path.
+The class offers some tools for checking whether a path is a file or directory, reading and writing of data, enforcing that one path contains another one&nbsp(and raising an error otherwise), resolving relative paths inside another directory&nbsp;(and raising an error if the result is not actually "inside"), etc.
+Such paths are very convenient, as they are very convenient and always give the canonical information.
+
+The module [`pycommons.io.temp`](/pycommons/pycommons.io.html#module-pycommons.io.temp) builds upon [`Path`](/pycommons/pycommons.io.html#pycommons.io.path.Path) and offers two functions: `temp_dir` and `temp_fil`.
+Both return an object which is both a `Path` and a `ContextManager`.
+The former returns a path to a newly created temporary directory and the latter a path to a newly created temporary file.
+Both can be used inside a `with` statement and their correpsonding directory/file will be deleted automatically at the end of the `with` block.
+Below, you can see an example for working with both.
+Notice that you can create arbitrary many files and sub-folders inside a temporary directory.
+All of them will automatically be deleted recursively when the `with` ends.
+
+```python
+from pycommons.io.temp import temp_dir, temp_file
+
+with temp_dir() as td:
+    print(f"This is a temporary directory: {td!r}.")
+    # Inside this block, you can use the temporary directory.
+    # Its fully-qualified path is stored in "td".
+
+# Now the temporary directory and everything inside has been deleted.
+
+with temp_file() as tf:
+    print(f"This is a temporary file: {tf!r}.")
+    # Inside this block, you can use the temporary file.
+    # Its fully-qualified path is stored in "tf".
+    
+# Now the temporary file has been deleted.
+```
+
+### 3.3. Data Structures: `pycommons.ds`
 Some very simple datastructures are provided in the package [`pycommons.ds`](/pycommons/pycommons.ds.html), but nothing special.
 The function `is_new` creates a new function which returns `True` if it sees its argument for the first time, and `False` otherwise. 
 The code below prints `True`, `True`, `False`, `True`, and `False`.
