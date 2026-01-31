@@ -1,0 +1,34 @@
+pycommons.ds package
+====================
+
+.. automodule:: pycommons.ds
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Submodules
+----------
+
+pycommons.ds.cache module
+-------------------------
+
+.. automodule:: pycommons.ds.cache
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.ds.immutable\_map module
+----------------------------------
+
+.. automodule:: pycommons.ds.immutable_map
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.ds.sequences module
+-----------------------------
+
+.. automodule:: pycommons.ds.sequences
+   :members:
+   :show-inheritance:
+   :undoc-members:
