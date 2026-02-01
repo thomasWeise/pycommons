@@ -117,6 +117,124 @@ with temp_file() as tf:
 # Now the temporary file has been deleted.
 ```
 
+The module [`pycommons.io.csv`](https://thomasweise.github.io/pycommons/pycommons.io.html#module-pycommons.io.csv) offers support for reading and writing comma-separated-values&nbsp;(CSV) data.
+The API it provides uses generators, i.e., produces iterable streams of either CSV data or of objects parsed from CSV.
+It is designed to be extensible:
+You can create an implementation for one CSV format and then plug on top an implementation for a CSV format that adds additional columns and so on.
+You can also have optional columns.
+
+
+```python
+from pycommons.io.csv import CsvReader
+
+class Reader(CsvReader):
+    """
+    A little parser that creates dictionaries of rows.
+  
+    You can, of course, return arbitrary datastructures in
+    method `parse_row`.    
+    """
+    def __init__(self, columns: dict[str, int]) -> None:
+        """
+        Create the csv reader.
+
+        :param columns: the column name + column index pairs
+        """
+        super().__init__(columns)
+        self.cols = columns
+       
+    def parse_row(self, data: list[str]) -> dict:
+        """
+        Parse one row of data.
+     
+        :param data: the list of column values for the current row
+        :returns: the data structured generated to represent the row;
+            here: a simple dictionary
+        """
+        return {x: data[y] for x, y in self.cols.items()}
+
+# Let's test this with some data.
+text = ["a;b;c;d", "# test comment", " 1; 2;3;4", " 5 ;6 ", ";8;;9",
+        "", "10", "# 11;12"]
+
+# Iterate over the data produced from CSV.
+for p in Reader.read(text):
+    print(p)
+```
+
+The code above will print the following output:
+
+```python
+{'a': '1', 'b': '2', 'c': '3', 'd': '4'}
+{'a': '5', 'b': '6', 'c': '', 'd': ''}
+{'a': '', 'b': '8', 'c': '', 'd': '9'}
+{'a': '10', 'b': '', 'c': '', 'd': ''}
+```
+
+Now let's test the CSV writing ability:
+
+```python
+from typing import Iterable
+from pycommons.io.csv import CsvWriter
+
+class Writer(CsvWriter):    
+    """A little CSV writer that turns dictionaries into CSV rows."""
+    
+    def __init__(self, data: Iterable[dict[str, int]],
+                 scope: str | None = None) -> None:
+        """
+        Create the writer for an `Iterable` of data.
+        
+        :param data: in this case, the data items are dictionaries mapping
+            integers to strings, but they could also be other things
+        :param scope: an optional column name prefix
+        """
+        super().__init__(data, scope)
+        self.rows = sorted({dkey for datarow in data
+                                 for dkey in datarow})
+    
+    def get_column_titles(self) -> Iterable[str]:
+        """Get the column titles."""
+        return self.rows
+    
+    def get_row(self, data: dict[str, int]) -> Iterable[str]:
+        """Turn a data item into a string iterable with the column data."""
+        return map(str, (data.get(key, "") for key in self.rows))
+    
+    def get_header_comments(self) -> list[str]:
+        """Get comments to be printed at the head."""
+        return ["This is a header comment.", " We have two of it. "]
+
+    def get_footer_comments(self) -> list[str]:
+        """Get comments for the foot of the document."""
+        return [" This is a footer comment."]
+
+
+# The raw data: Dictionaries to be turned into CSV data.
+dd = [{"a": 1, "c": 2}, {"b": 6, "c": 8},
+      {"a": 4, "d": 12, "b": 3}, {}]
+
+# Iterate over the produced CSV data and print it.
+for p in Writer.write(dd):
+    print(p)
+```
+
+This will print something like
+
+```
+# This is a header comment.
+# We have two of it.
+a;b;c;d
+1;;2
+;6;8
+4;3;;12
+;
+# This is a footer comment.
+#
+# This CSV output has been created using the versatile CSV API of pycommons.io.csv, version 0.8.85.
+# You can find pycommons at https://thomasweise.github.io/pycommons.
+```
+
 ### 3.3. Data Structures: `pycommons.ds`
 Some very simple datastructures are provided in the package [`pycommons.ds`](/pycommons/pycommons.ds.html), but nothing special.
 The function `is_new` creates a new function which returns `True` if it sees its argument for the first time, and `False` otherwise. 
