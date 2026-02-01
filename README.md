@@ -235,7 +235,49 @@ a;b;c;d
 # You can find pycommons at https://thomasweise.github.io/pycommons.
 ```
 
-### 3.3. Data Structures: `pycommons.ds`
+### 3.3. The Package: `pycommons.math`
+The package [`pycommons.math`](/pycommons/pycommons.math.html) offers several utilities for mathematics.
+Most of them are either centered around combinations of integer and floating point mathematics or statistics.
+
+In the module [`pycommons.math.int_math`](https://thomasweise.github.io/pycommons/pycommons.math.html#module-pycommons.math.int_math), for instance, you can find several routines performing such integer/float related computations.
+Take the function [`float_to_frac`](https://thomasweise.github.io/pycommons/pycommons.math.html#pycommons.math.int_math.float_to_frac) for example:
+Python's [`float.as_integer_ration`](https://docs.python.org/3/library/stdtypes.html#float.as_integer_ratio) converts a floating point number to a ratio of two integer values by working directly on the binary representation of the `float`.
+Therefore, `0.1.as_integer_ratio()` will produce `(3602879701896397, 36028797018963968)`, because `0.1` cannot exactly be represented in the dual system and this is what its binary approximation corresponds to.
+`float_to_frac(0.1)` however produces `(1, 10)`, because it attempts several different avenues to convert the floating point value and chooses the most compact equivalent representation.
+It is slower, but more natural.
+
+There are several routines like [`try_int_add`](https://thomasweise.github.io/pycommons/pycommons.math.html#pycommons.math.int_math.try_int_add), [`try_int_mul`](https://thomasweise.github.io/pycommons/pycommons.math.html#pycommons.math.int_math.try_int_mul), and [`try_int_div`](https://thomasweise.github.io/pycommons/pycommons.math.html#pycommons.math.int_math.try_int_div), which attempt to perform arithmetics as precisely as possible if one (the second) of the two operands is a `float`.
+You see, in Python, if you add an `int` and a `float`, the result is always a `float`.
+But consider this:
+
+```python
+from pycommons.math.int_math import try_int_add
+
+big_int = 1_234_567_890_123_456_789_012_345_678_901_234_567_890_123_456_789
+
+print(f"{big_int + 0.5 = }")
+print(f"{try_int_add(big_int, 0.5) = }")
+```
+
+This code prints:
+
+```
+big_int + 0.5 = 1.2345678901234568e+48
+try_int_add(big_int, 0.5) = 1234567890123456789012345678901234567890123456790
+```
+
+The expression in the first `print` converted the integer to a floating point number.
+`1.2345678901234568e+48` is as exact as a `float` can represent the big integer number.
+But it clearly cuts off a lot of decimals.
+Actually, because of that, the exact value of that `float` is much much farther away from the "true" value that `big_int + 0.5` really has than `big_int` itself.
+However, the function `try_int_add` does realize this.
+It returns the integer value shown above, which is only `0.5` away from the "true" value.
+Sometimes, if we just discard the fractional part of a `float` and instead only work with the (rounded) integer values, we can be more accurate than trying to do all computations in the `float` domain.
+Well, such approaches might be frowned upon by real mathematicians.
+But I use it as foundation for some of my other maths-related tools.
+
+
+### 3.4. Data Structures: `pycommons.ds`
 Some very simple datastructures are provided in the package [`pycommons.ds`](/pycommons/pycommons.ds.html), but nothing special.
 The function `is_new` creates a new function which returns `True` if it sees its argument for the first time, and `False` otherwise. 
 The code below prints `True`, `True`, `False`, `True`, and `False`.
