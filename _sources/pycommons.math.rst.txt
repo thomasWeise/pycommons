@@ -1,0 +1,58 @@
+pycommons.math package
+======================
+
+.. automodule:: pycommons.math
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Submodules
+----------
+
+pycommons.math.int\_math module
+-------------------------------
+
+.. automodule:: pycommons.math.int_math
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.math.primes module
+----------------------------
+
+.. automodule:: pycommons.math.primes
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.math.rank module
+--------------------------
+
+.. automodule:: pycommons.math.rank
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.math.sample\_statistics module
+----------------------------------------
+
+.. automodule:: pycommons.math.sample_statistics
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.math.stream\_statistics module
+----------------------------------------
+
+.. automodule:: pycommons.math.stream_statistics
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.math.streams module
+-----------------------------
+
+.. automodule:: pycommons.math.streams
+   :members:
+   :show-inheritance:
+   :undoc-members:

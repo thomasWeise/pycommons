@@ -1,0 +1,49 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01//EN"
+   "http://www.w3.org/TR/html4/strict.dtd"><title></title><meta content="text/html; charset=utf-8"http-equiv=content-type><style>pre{line-height:125%}td.linenos .normal,span.linenos{color:inherit;background-color:#0000;padding-left:5px;padding-right:5px}td.linenos .special,span.linenos.special{color:#000;background-color:#ffffc0;padding-left:5px;padding-right:5px}body .hll{background-color:#ffc}body{background:#f8f8f8}body .c{color:#3d7b7b;font-style:italic}body .err{border:1px solid red}body .k{color:green;font-weight:700}body .o{color:#666}body .ch,body .cm{color:#3d7b7b;font-style:italic}body .cp{color:#9c6500}body .cpf,body .c1,body .cs{color:#3d7b7b;font-style:italic}body .gd{color:#a00000}body .ge{font-style:italic}body .ges{font-style:italic;font-weight:700}body .gr{color:#e40000}body .gh{color:navy;font-weight:700}body .gi{color:#008400}body .go{color:#717171}body .gp{color:navy;font-weight:700}body .gs{font-weight:700}body .gu{color:purple;font-weight:700}body .gt{color:#04d}body .kc,body .kd,body .kn{color:green;font-weight:700}body .kp{color:green}body .kr{color:green;font-weight:700}body .kt{color:#b00040}body .m{color:#666}body .s{color:#ba2121}body .na{color:#687822}body .nb{color:green}body .nc{color:#00f;font-weight:700}body .no{color:#800}body .nd{color:#a2f}body .ni{color:#717171;font-weight:700}body .ne{color:#cb3f38;font-weight:700}body .nf{color:#00f}body .nl{color:#767600}body .nn{color:#00f;font-weight:700}body .nt{color:green;font-weight:700}body .nv{color:#19177c}body .ow{color:#a2f;font-weight:700}body .w{color:#bbb}body .mb,body .mf,body .mh,body .mi,body .mo{color:#666}body .sa,body .sb,body .sc,body .dl{color:#ba2121}body .sd{color:#ba2121;font-style:italic}body .s2{color:#ba2121}body .se{color:#aa5d1f;font-weight:700}body .sh{color:#ba2121}body .si{color:#a45a77;font-weight:700}body .sx{color:green}body .sr{color:#a45a77}body .s1{color:#ba2121}body .ss{color:#19177c}body .bp{color:green}body .fm{color:#00f}body .vc,body .vg,body .vi,body .vm{color:#19177c}body .il{color:#666}</style><body><h2></h2><div class=highlight><pre><span></span><span class=sd>"""An example of CSV writers."""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Iterable</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.csv</span><span class=w> </span><span class=kn>import</span> <span class=n>CsvWriter</span>
+
+
+<span class=k>class</span><span class=w> </span><span class=nc>Writer</span><span class=p>(</span><span class=n>CsvWriter</span><span class=p>):</span>
+<span class=w>    </span><span class=sd>"""A little CSV writer that turns dictionaries into CSV rows."""</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>data</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>int</span><span class=p>]],</span>
+                 <span class=n>scope</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Create the writer for an `Iterable` of data.</span>
+
+<span class=sd>        :param data: in this case, the data items are dictionaries mapping</span>
+<span class=sd>            integers to strings, but they could also be other things</span>
+<span class=sd>        :param scope: an optional column name prefix</span>
+<span class=sd>        """</span>
+        <span class=nb>super</span><span class=p>()</span><span class=o>.</span><span class=fm>__init__</span><span class=p>(</span><span class=n>data</span><span class=p>,</span> <span class=n>scope</span><span class=p>)</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>rows</span> <span class=o>=</span> <span class=nb>sorted</span><span class=p>({</span><span class=n>dkey</span> <span class=k>for</span> <span class=n>datarow</span> <span class=ow>in</span> <span class=n>data</span>
+                            <span class=k>for</span> <span class=n>dkey</span> <span class=ow>in</span> <span class=n>datarow</span><span class=p>})</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>get_column_titles</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""Get the column titles."""</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>rows</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>get_row</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>data</span><span class=p>:</span> <span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>int</span><span class=p>])</span> <span class=o>-></span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""Turn a data item into a string iterable with the column data."""</span>
+        <span class=k>return</span> <span class=nb>map</span><span class=p>(</span><span class=nb>str</span><span class=p>,</span> <span class=p>(</span><span class=n>data</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>key</span><span class=p>,</span> <span class=s2>""</span><span class=p>)</span> <span class=k>for</span> <span class=n>key</span> <span class=ow>in</span> <span class=bp>self</span><span class=o>.</span><span class=n>rows</span><span class=p>))</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>get_header_comments</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""Get comments to be printed at the head."""</span>
+        <span class=k>return</span> <span class=p>[</span><span class=s2>"This is a header comment."</span><span class=p>,</span> <span class=s2>" We have two of it. "</span><span class=p>]</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>get_footer_comments</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""Get comments for the foot of the document."""</span>
+        <span class=k>return</span> <span class=p>[</span><span class=s2>" This is a footer comment."</span><span class=p>]</span>
+
+
+<span class=c1># The raw data: Dictionaries to be turned into CSV data.</span>
+<span class=n>dd</span> <span class=o>=</span> <span class=p>[{</span><span class=s2>"a"</span><span class=p>:</span> <span class=mi>1</span><span class=p>,</span> <span class=s2>"c"</span><span class=p>:</span> <span class=mi>2</span><span class=p>},</span> <span class=p>{</span><span class=s2>"b"</span><span class=p>:</span> <span class=mi>6</span><span class=p>,</span> <span class=s2>"c"</span><span class=p>:</span> <span class=mi>8</span><span class=p>},</span>
+      <span class=p>{</span><span class=s2>"a"</span><span class=p>:</span> <span class=mi>4</span><span class=p>,</span> <span class=s2>"d"</span><span class=p>:</span> <span class=mi>12</span><span class=p>,</span> <span class=s2>"b"</span><span class=p>:</span> <span class=mi>3</span><span class=p>},</span> <span class=p>{}]</span>
+
+<span class=c1># Iterate over the produced CSV data and print it.</span>
+<span class=k>for</span> <span class=n>p</span> <span class=ow>in</span> <span class=n>Writer</span><span class=o>.</span><span class=n>write</span><span class=p>(</span><span class=n>dd</span><span class=p>):</span>
+    <span class=nb>print</span><span class=p>(</span><span class=n>p</span><span class=p>)</span>
+</pre></div>
