@@ -1,6 +1,5 @@
 """The `logger` routine for writing a log string to stdout."""
 import datetime
-from contextlib import AbstractContextManager, nullcontext
 from typing import Callable, Final
 
 from pycommons.processes.caller import is_doc_test
@@ -10,7 +9,6 @@ __DTN: Final[Callable[[], datetime.datetime]] = datetime.datetime.now
 
 
 def logger(message: str, note: str = "",
-           lock: AbstractContextManager = nullcontext(),
            do_print: bool = not is_doc_test()) -> None:
     """
     Write a message to the console log.
@@ -22,8 +20,6 @@ def logger(message: str, note: str = "",
 
     :param message: the message
     :param note: a note to put between the time and the message
-    :param lock: the lock to prevent multiple threads to write log
-        output at the same time
     :param do_print: really print the output, by default `False` if this
         method is called from a "doctest", `True` otherwise
 
@@ -48,45 +44,9 @@ def logger(message: str, note: str = "",
     >>> print(line[line.index("n"):])
     note: hello world!
 
-    >>> from contextlib import AbstractContextManager
-    >>> class T:
-    ...     def __enter__(self):
-    ...         print("x")
-    ...     def __exit__(self, exc_type, exc_val, exc_tb):
-    ...         print("y")
-
-    >>> sio = StringIO()
-    >>> with redirect_stdout(sio):
-    ...     logger("hello world!", "", T(), do_print=True)
-    >>> sio.seek(0)
-    0
-    >>> lines = sio.readlines()
-    >>> print(lines[0].rstrip())
-    x
-    >>> l = lines[1]
-    >>> print(l[l.index(" ", l.index(" ") + 1) + 1:].rstrip())
-    hello world!
-    >>> print(lines[2].rstrip())
-    y
-
-    >>> sio = StringIO()
-    >>> with redirect_stdout(sio):
-    ...     logger("hello world!", "note", T(), do_print=True)
-    >>> sio.seek(0)
-    0
-    >>> lines = sio.readlines()
-    >>> print(lines[0].rstrip())
-    x
-    >>> l = lines[1]
-    >>> print(l[l.index("n"):].rstrip())
-    note: hello world!
-    >>> print(lines[2].rstrip())
-    y
-
     >>> logger("hello world")  # not printed in doctests
     >>> logger("hello world", do_print=False)  # not printed anyway
     """
     if do_print:
         text: Final[str] = f"{__DTN()}{note}: {message}"
-        with lock:
-            print(text, flush=True)  # noqa
+        print(text, flush=True)  # noqa
