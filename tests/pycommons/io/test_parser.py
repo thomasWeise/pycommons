@@ -152,7 +152,7 @@ class CorrectParser(Parser[object]):
 
     def _should_parse_file(self, file: Path) -> bool:
         """
-        A correct start file parsing method always returning `True`.
+        Check whether the start file parsing method always returns `True`.
 
         :param file: the current directory path
         :returns: the result

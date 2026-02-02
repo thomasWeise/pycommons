@@ -27,8 +27,8 @@ Our functions raise descriptive errors as soon as they detect something strange.
 
 ## 2. Installation
 
-In order to use this package, you need to first install it using [`pip`](https://pypi.org/project/pip/) or some other tool that can install packages from [PyPi](https://pypi.org).
-You can install the newest version of this library from [PyPi](https://pypi.org/project/pycommons/) using [`pip`](https://pypi.org/project/pip/) by doing
+In order to use this package, you need to first install it using [`pip`](https://pypi.org/project/pip) or some other tool that can install packages from [PyPi](https://pypi.org).
+You can install the newest version of this library from [PyPi](https://pypi.org/project/pycommons) using [`pip`](https://pypi.org/project/pip) by doing
 
 ```shell
 pip install pycommons
@@ -65,16 +65,46 @@ After you have installed `pycommons`, the following build steps become available
 You would execute them inside the directory where your Python package's code is.
 Let's say your package's name is `mypackage`, then you can do:
 
-- `python3 -m pycommons.dev.building.run_tests --package mypackage` to run the pytest unit tests and the doctests.
-  This execution uses a time limit and also collects coverage data.
+- `python3 -m pycommons.dev.building.run_tests --package mypackage` to run the [pytest](https://pytest.org) unit tests and the [doctests](https://docs.python.org/3/library/doctest.html).
+  This execution uses a time limit and also collects [coverage](https://coverage.readthedocs.io/en/7.13.2) data.
+  The test coverage is rendered to HTML using the documentation generation step&nbsp;(two keypoints down from here).
 - `python3 -m pycommons.dev.building.static_analysis --package mypackage` performs a wide range of strict static analyses.
-  It uses tools such as autoflake, bandit, dlint, dodgy, flake8, flake8-bugbear, flake8-eradicate, flake8-use-fstring, mypy, pycodestyle, pydocstyle, pyflakes, pylint, pyroma, ruff, tryceratops, unimport, and vulture.
   All of them are used in rather strict settings.
   Thus, if this step succeeds, your code should be quite clean and nice.
+  We use tools such as:
+  + [`autoflake`](https://pypi.org/project/autoflake), a tool for finding unused imports and variables,
+  + [`bandit`](https://pypi.org/project/bandit), a linter for finding security issues,
+  + [`dodgy`](https://pypi.org/project/dodgy), for checking for dodgy looking values in the code,
+  + [`flake8`](https://pypi.org/project/flake8), a collection of linters,
+  + [`flake8-2020`](https://pypi.org/project/flake8-2020), which checks misuse of things like `sys.version`,
+  + [`flake8-absolute-import`](https://pypi.org/project/flake8-absolute-import`), which enforces absolute imports,
+  + [`flake8-bugbear`](https://pypi.org/project/flake8-bugbear), for finding likely bugs and design problems,
+  + [`flake8-builtins`](https://pypi.org/project/flake8-builtins), which checks name clashes with builtins,
+  + [`flake8-commas`](https://pypi.org/project/flake8-commas), which checks that commas are put in proper places,
+  + [`flake8-comprehensions`](https://pypi.org/project/flake8-comprehensions), a plugin for enforcing proper list/dict/set comprehension,
+  + [`flake8-docstrings`](https://pypi.org/project/flake8-docstrings), which applies [`pydocstyle`](https://pypi.org/project/pydocstyle), for checking the format of the docstrings, 
+  + [`flake8-eradicate`](https://pypi.org/project/flake8-eradicate), for searching for dead code,
+  + [`flake8-length`](https://pypi.org/project/flake8-length), which performs line length validation,
+  + [`flake8-mutable`](https://pypi.org/project/flake8-mutable), which checks for mutable default arguments,
+  + [`flake8-pie`](https://pypi.org/project/flake8-pie), which searches for miscellaneous errors,
+  + [`flake8-printf-formatting`](https://pypi.org/project/flake8-printf-formatting), which detects outdated printf-style formatting,
+  + [`flake8-pyi`](https://pypi.org/project/flake8-pyi) for linting type-hinting stub files,
+  + [`flake8-pytest-style`](https://pypi.org/project/flake8-pytest-style), for checking common style issues or inconsistencies with pytest-based tests,
+  + [`flake8-use-fstring`](https://pypi.org/project/flake8-use-fstring), for checking the correct use of f-strings,
+  + [`mypy`](https://pypi.org/project/mypy), for checking types and type annotations,
+  + [`pycodestyle`](https://pypi.org/project/pycodestyle), for checking the formatting and coding style of the source,
+  + [`pydocstyle`](https://pypi.org/project/pydocstyle), for checking the format of the docstrings,
+  + [`pyflakes`](https://pypi.org/project/pyflakes), for detecting some errors in the code,
+  + [`pylint`](https://pypi.org/project/pylint), another static analysis tool,
+  + [`pyroma`](https://pypi.org/project/pyroma), for checking whether the code complies with various best practices,
+  + [`ruff`](https://pypi.org/project/ruff), a static analysis tool checking a wide range of coding conventions,
+  + [`tryceratops`](https://pypi.org/project/tryceratops), for checking against exception handling anti-patterns,
+  + [`unimport`](https://pypi.org/project/unimport), for checking against unused import statements, and
+  + [`vulture`](https://pypi.org/project/vulture), for finding dead code.
 - `python3 -m pycommons.dev.building.make_documentation --package mypackage` will build the documentation and documentation website.
-  It will use Sphinx for this and automatically links also to external Python libraries if need be.
-  It will also render files such as LICENSE.md and requirements.txt to HTML, include the coverage data (generated by the tests build step) as a subdirectory, will include all source codes as HTML, and will include a list of required packages.
-  It uses the same style as the [pycommons](https://thomasweise.github.io/pycommons) website.
+  It will use [Sphinx](https://www.sphinx-doc.org) for this and automatically links also to external Python libraries if need be.
+  It will also render files such as `LICENSE.md` and `requirements.txt` to HTML, include the coverage data&nbsp;(generated by the tests build step) as a subdirectory, will include all source codes as HTML, and will include a list of required packages.
+  It uses the same style as the [pycommons](https://thomasweise.github.io/pycommons), [moptipy](https://thomasweise.github.io/moptipy), [moptipyapps](https://thomasweise.github.io/moptipyapps), and [texgit_py](https://thomasweise.github.io/texgit_py) websites.
   It uses the folder `docs/sources` as input and `docs/build` as output.
 - `python3 -m pycommons.dev.building.make_dist --package mypackage` will build the distribution file that can be installed with `pip`.
   It will also offer a requirements file with the list of actually used requirements and generate a `tar.xz` archive with the documentation.
@@ -346,12 +376,11 @@ for i in ri:
 ```
 
 ## 4. License
-
 [`pycommons`](https://thomasweise.github.io/pycommons) is a library with utilities for Python projects.
 
-Copyright (C) 2024  Thomas Weise (汤卫思教授)
+Copyright (C) 2024-2026 [Thomas Weise](https://thomasweise.github.io)&nbsp;(汤卫思教授)
 
-Dr. Thomas Weise (see [Contact](#5-contact)) holds the copyright of this package.
+Dr. [Thomas Weise](https://thomasweise.github.io)&nbsp;(see [Contact](#5-contact)) holds the copyright of this package.
 
 `pycommons` is provided to the public as open source software under the [GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007](https://thomasweise.github.io/pycommons/LICENSE.html).
 Terms for other licenses, e.g., for specific industrial applications, can be negotiated with Dr. Thomas Weise (who can be reached via the [contact information](#5-contact) below).
@@ -366,10 +395,9 @@ If you have any concerns regarding security, please visit our [security policy](
 
 
 ## 5. Contact
-
 If you have any questions or suggestions, please contact
-Prof. Dr. Thomas Weise (汤卫思教授) of the 
-School of Artificial Intelligence and Big Data ([人工智能与大数据学院](http://www.hfuu.edu.cn/aibd/)) at
-[Hefei University](http://www.hfuu.edu.cn/english/) ([合肥大学](http://www.hfuu.edu.cn/)) in
-Hefei, Anhui, China (中国安徽省合肥市) via
+Prof. Dr. [Thomas Weise](https://thomasweise.github.io) (汤卫思教授) of the 
+School of Artificial Intelligence and Big Data&nbsp;([人工智能与大数据学院](http://www.hfuu.edu.cn/aibd)) at
+[Hefei University](http://www.hfuu.edu.cn/english)&nbsp;([合肥大学](http://www.hfuu.edu.cn)) in
+Hefei, Anhui, China&nbsp;(中国安徽省合肥市) via
 email to [tweise@hfuu.edu.cn](mailto:tweise@hfuu.edu.cn) with CC to [tweise@ustc.edu.cn](mailto:tweise@ustc.edu.cn).

@@ -40,7 +40,7 @@ __EXCLUDES: Final[str] =\
 #: a list of analysis to be applied to the base directory
 __BASE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("flake8", ".", "--exclude", __EXCLUDES,
-     "--ignore=B008,B009,B010,DUO102,TRY003,TRY101,W503"),
+     "--ignore=A005,B008,B009,B010,DUO102,PIE799,PT011,TRY003,TRY101,W503"),
     ("pyroma", "."),
     ("pydocstyle", ".", "--convention=pep257"),
     ("vulture", ".", "--exclude", __EXCLUDES, "--min-confidence", "61"),
