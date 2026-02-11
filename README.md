@@ -1,7 +1,7 @@
 [![make build](https://github.com/thomasWeise/pycommons/actions/workflows/build.yml/badge.svg)](https://github.com/thomasWeise/pycommons/actions/workflows/build.yml)
 [![pypi version](https://img.shields.io/pypi/v/pycommons)](https://pypi.org/project/pycommons)
 [![pypi downloads](https://img.shields.io/pypi/dw/pycommons.svg)](https://pypistats.org/packages/pycommons)
-[![coverage report](https://thomasweise.github.io/pycommons/tc/badge.svg)](https://thomasweise.github.io/pycommons/tc/index.html)
+[![coverage report](https://shields.io/badge/pytest-coverage-009000)](https://thomasweise.github.io/pycommons/tc/index.html)
 [![https://thomasweise.github.io](https://shields.io/badge/home-thomasweise.github.io-009000)](https://thomasweise.github.io)
 
 # *pycommons:* Common Utility Functions for Python Projects.
