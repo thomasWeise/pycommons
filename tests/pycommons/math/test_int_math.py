@@ -1,6 +1,5 @@
 """Test the integer mathmatics."""
 
-
 from math import gcd
 from random import randint
 

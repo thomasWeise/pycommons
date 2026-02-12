@@ -1,4 +1,9 @@
-"""The tool for invoking shell commands."""
+r"""
+The tool for invoking shell commands.
+
+>>> Command(("echo", "123"), stdout=STREAM_CAPTURE).execute(False)
+('123\n', None)
+"""
 
 import subprocess  # nosec
 from dataclasses import dataclass
@@ -151,8 +156,8 @@ class Command:
     >>> try:
     ...     Command("x", env=1)
     ... except TypeError as te:
-    ...     print(str(te))
-    env should be an instance of typing.Mapping but is int, namely 1.
+    ...     print(str(te)[:-20])
+    env should be an instance of any in {typing.Iterable, typing.Mapping} b
 
     >>> str(Command("x", env=dict()))[0:10]
     "('x',) in "
@@ -179,7 +184,8 @@ class Command:
                  stdin: str | None = None,
                  stdout: int = STREAM_IGNORE,
                  stderr: int = STREAM_IGNORE,
-                 env: Mapping[str, str] | None = None) -> None:
+                 env: Mapping[str, str] | Iterable[tuple[
+                     str, str]] | None = None) -> None:
         """
         Create the command.
 
@@ -216,11 +222,14 @@ class Command:
 
         the_env: tuple[tuple[str, str], ...] | None = None
         if env is not None:
-            if not isinstance(env, Mapping):
-                raise type_error(env, "env", Mapping)
-            if len(env) > 0:
-                the_env = tuple(sorted((str.strip(k), str.strip(v))
-                                       for k, v in env.items()))
+            if isinstance(env, Mapping):
+                env = env.items()
+            elif not isinstance(env, Iterable):
+                raise type_error(env, "env", (Mapping, Iterable))
+            the_env = tuple(sorted((str.strip(k), str.strip(v))
+                                   for k, v in env))
+            if tuple.__len__(the_env) <= 0:
+                the_env = None
         object.__setattr__(self, "env", the_env)
 
     def __str__(self) -> str:
