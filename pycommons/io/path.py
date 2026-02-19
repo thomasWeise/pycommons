@@ -14,6 +14,9 @@ with paths pointing to security-sensitive locations or something due to
 strange `.` and `..` trickery.
 If you try to resolve a path inside a directory and the resulting canonical
 path is outside that directory, you get an error raised, for example.
+
+>>> Path("/tmp/x/../1.txt")
+'/tmp/1.txt'
 """
 
 import codecs

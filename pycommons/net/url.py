@@ -1,4 +1,40 @@
-"""Come string splitting and processing routines."""
+"""
+A string class representing a URL.
+
+Like the class :class:`~pycommons.io.path.Path` in
+:mod:`pycommons.io.path` does for paths in the file system, the class
+:class:`~pycommons.net.url.URL` offers some sort of canonical and very
+conservative representation of URLs, which, at the same time, is also a
+string.
+This makes it convenient pass the instances of this class into functions
+that otherwise expect strings.
+It also allows you to write functions that expect strings and URLs as
+parameter.
+
+>>> u = URL("https://thomasweise.github.io/contact/#address-in-english")
+>>> u
+'https://thomasweise.github.io/contact/#address-in-english'
+>>> u.scheme
+'https'
+>>> u.host
+'thomasweise.github.io'
+>>> u.path
+'/contact/'
+>>> u.fragment
+'address-in-english'
+
+>>> u = URL("http://thomasweise.github.io/contact/")
+>>> u
+'http://thomasweise.github.io/contact'
+>>> u.scheme
+'http'
+>>> u.host
+'thomasweise.github.io'
+>>> u.path
+'/contact'
+>>> print(u.fragment)
+None
+"""
 
 from re import Match, search
 from re import compile as _compile
