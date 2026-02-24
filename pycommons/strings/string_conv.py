@@ -79,7 +79,7 @@ def float_to_str(value: float) -> str:
     """
     if not isinstance(value, float):
         raise type_error(value, "value", float)
-    if value == 0.0:  # fast track for 0
+    if value == 0.0:  # fast track for 0  # noqa: RUF069
         return "0"
     s = float.__repr__(value)
     if isnan(value):  # nan is not permitted

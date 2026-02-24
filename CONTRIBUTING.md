@@ -31,7 +31,7 @@ If your contribution concerns the *security* of `pycommons`, please consider our
 ## 2. License
 
 `pycommons` is provided to the public as open source software under the [GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007](https://thomasweise.github.io/pycommons/LICENSE.html).
-Terms for other licenses, e.g., for specific industrial applications, can be negotiated with Dr. Thomas Weise (who can be reached via the [contact information](#3-contact) below).
+Terms for other licenses, e.g., for specific industrial applications, can be negotiated with Dr. [Thomas Weise](https://thomasweise.github.io) (who can be reached via the [contact information](#3-contact) below).
 Dr. Thomas Weise holds the copyright of this package *except* for the JSSP instance data in file [`pycommons/examples/jssp/instances.txt`](https://github.com/thomasWeise/pycommons/blob/main/pycommons/examples/jssp/instances.txt).
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in `pycommons` by you shall be under the above license, terms, and conditions, without any additional terms or conditions.
@@ -40,11 +40,9 @@ This also means that they grant Dr. Thomas Weise non-exclusive copyright of thei
 
 
 ## 3. Contact
-
 If you have any questions or suggestions, please contact
-Prof. Dr. Thomas Weise (汤卫思教授) of the 
-Institute of Applied Optimization (应用优化研究所, IAO) of the
-School of Artificial Intelligence and Big Data ([人工智能与大数据学院](http://www.hfuu.edu.cn/aibd/)) at
-[Hefei University](http://www.hfuu.edu.cn/english/) ([合肥大学](http://www.hfuu.edu.cn/)) in
-Hefei, Anhui, China (中国安徽省合肥市) via
+Prof. Dr. [Thomas Weise](https://thomasweise.github.io) (汤卫思教授) of the 
+School of Artificial Intelligence and Big Data&nbsp;([人工智能与大数据学院](http://www.hfuu.edu.cn/aibd)) at
+[Hefei University](http://www.hfuu.edu.cn/english)&nbsp;([合肥大学](http://www.hfuu.edu.cn)) in
+Hefei, Anhui, China&nbsp;(中国安徽省合肥市) via
 email to [tweise@hfuu.edu.cn](mailto:tweise@hfuu.edu.cn) with CC to [tweise@ustc.edu.cn](mailto:tweise@ustc.edu.cn).
