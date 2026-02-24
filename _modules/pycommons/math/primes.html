@@ -1,0 +1,164 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.math.primes — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/math/primes.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.math.primes</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.math.primes</h1><div class=highlight><pre>
+<span></span><span class=sd>"""Tools for working with prime numbers."""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>collections</span><span class=w> </span><span class=kn>import</span> <span class=n>deque</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Generator</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>type_error</span>
+
+
+<div class=viewcode-block id=primes>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.primes.primes>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>primes</span><span class=p>(</span><span class=n>maximum</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>2</span> <span class=o>**</span> <span class=mi>32</span><span class=p>)</span> <span class=o>-></span> <span class=n>Generator</span><span class=p>[</span><span class=nb>int</span><span class=p>,</span> <span class=kc>None</span><span class=p>,</span> <span class=kc>None</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Provide a sequence of prime numbers.</span>
+
+<span class=sd>    This function is a generator that returns the prime numbers in their</span>
+<span class=sd>    natural order starting at `2`. It will return numbers at most up to</span>
+<span class=sd>    the given `maximum` value. For this purpose, it iteratively builds</span>
+<span class=sd>    something like the Sieve of Eratosthenes.</span>
+
+<span class=sd>    :param maximum: the maximum number to consider</span>
+<span class=sd>    :returns: the prime numbers</span>
+
+<span class=sd>    >>> list(primes(-1))</span>
+<span class=sd>    []</span>
+
+<span class=sd>    >>> list(primes(0))</span>
+<span class=sd>    []</span>
+
+<span class=sd>    >>> list(primes(1))</span>
+<span class=sd>    []</span>
+
+<span class=sd>    >>> list(primes(2))</span>
+<span class=sd>    [2]</span>
+
+<span class=sd>    >>> list(primes(3))</span>
+<span class=sd>    [2, 3]</span>
+
+<span class=sd>    >>> list(primes(4))</span>
+<span class=sd>    [2, 3]</span>
+
+<span class=sd>    >>> list(primes(5))</span>
+<span class=sd>    [2, 3, 5]</span>
+
+<span class=sd>    >>> list(primes(6))</span>
+<span class=sd>    [2, 3, 5]</span>
+
+<span class=sd>    >>> list(primes(7))</span>
+<span class=sd>    [2, 3, 5, 7]</span>
+
+<span class=sd>    >>> list(primes(8))</span>
+<span class=sd>    [2, 3, 5, 7]</span>
+
+<span class=sd>    >>> list(primes(9))</span>
+<span class=sd>    [2, 3, 5, 7]</span>
+
+<span class=sd>    >>> list(primes(10))</span>
+<span class=sd>    [2, 3, 5, 7]</span>
+
+<span class=sd>    >>> list(primes(11))</span>
+<span class=sd>    [2, 3, 5, 7, 11]</span>
+
+<span class=sd>    >>> list(primes(12))</span>
+<span class=sd>    [2, 3, 5, 7, 11]</span>
+
+<span class=sd>    >>> list(primes(13))</span>
+<span class=sd>    [2, 3, 5, 7, 11, 13]</span>
+
+<span class=sd>    >>> list(primes(14))</span>
+<span class=sd>    [2, 3, 5, 7, 11, 13]</span>
+
+<span class=sd>    >>> list(primes(15))</span>
+<span class=sd>    [2, 3, 5, 7, 11, 13]</span>
+
+<span class=sd>    >>> list(primes(16))</span>
+<span class=sd>    [2, 3, 5, 7, 11, 13]</span>
+
+<span class=sd>    >>> list(primes(17))</span>
+<span class=sd>    [2, 3, 5, 7, 11, 13, 17]</span>
+
+<span class=sd>    >>> list(primes(18))</span>
+<span class=sd>    [2, 3, 5, 7, 11, 13, 17]</span>
+
+<span class=sd>    >>> list(primes(19))</span>
+<span class=sd>    [2, 3, 5, 7, 11, 13, 17, 19]</span>
+
+<span class=sd>    >>> list(primes(20))</span>
+<span class=sd>    [2, 3, 5, 7, 11, 13, 17, 19]</span>
+
+<span class=sd>    >>> list(primes(199))</span>
+<span class=sd>    [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, \</span>
+<span class=sd>71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, \</span>
+<span class=sd>151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199]</span>
+
+<span class=sd>    >>> list(primes(200))</span>
+<span class=sd>    [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, \</span>
+<span class=sd>71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, \</span>
+<span class=sd>151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199]</span>
+
+<span class=sd>    >>> list(primes(201))</span>
+<span class=sd>    [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, \</span>
+<span class=sd>71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, \</span>
+<span class=sd>151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199]</span>
+
+<span class=sd>    >>> list(primes(1000))</span>
+<span class=sd>    [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, \</span>
+<span class=sd>71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, \</span>
+<span class=sd>151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, \</span>
+<span class=sd>233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, \</span>
+<span class=sd>317, 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, \</span>
+<span class=sd>419, 421, 431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499, \</span>
+<span class=sd>503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593, 599, 601, \</span>
+<span class=sd>607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683, 691, \</span>
+<span class=sd>701, 709, 719, 727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797, 809, \</span>
+<span class=sd>811, 821, 823, 827, 829, 839, 853, 857, 859, 863, 877, 881, 883, 887, 907, \</span>
+<span class=sd>911, 919, 929, 937, 941, 947, 953, 967, 971, 977, 983, 991, 997]</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     for t in primes(1.0):</span>
+<span class=sd>    ...         pass</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    maximum should be an instance of int but is float, namely 1.0.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>maximum</span><span class=p>,</span> <span class=nb>int</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>maximum</span><span class=p>,</span> <span class=s2>"maximum"</span><span class=p>,</span> <span class=nb>int</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>maximum</span> <span class=o><=</span> <span class=mi>1</span><span class=p>:</span>
+        <span class=k>return</span>
+
+    <span class=k>yield</span> <span class=mi>2</span>
+    <span class=k>if</span> <span class=n>maximum</span> <span class=o><=</span> <span class=mi>2</span><span class=p>:</span>
+        <span class=k>return</span>
+
+    <span class=k>yield</span> <span class=mi>3</span>
+    <span class=k>if</span> <span class=n>maximum</span> <span class=o><=</span> <span class=mi>3</span><span class=p>:</span>
+        <span class=k>return</span>
+
+    <span class=n>current</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>5</span>
+    <span class=n>check_primes</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=nb>int</span><span class=p>]]</span> <span class=o>=</span> <span class=p>[]</span>  <span class=c1># the numbers <= sqrt(current)</span>
+    <span class=n>next_primes</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>deque</span><span class=p>[</span><span class=nb>int</span><span class=p>]]</span> <span class=o>=</span> <span class=n>deque</span><span class=p>([</span><span class=mi>3</span><span class=p>])</span>   <span class=c1># larger primes</span>
+    <span class=n>check_limit</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>  <span class=c1># the square of the largest number in check_primes</span>
+    <span class=k>while</span> <span class=n>current</span> <span class=o><=</span> <span class=n>maximum</span><span class=p>:</span>
+        <span class=n>is_prime</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span>
+
+        <span class=c1># check all odd primes <= sqrt(current)</span>
+        <span class=k>for</span> <span class=n>check</span> <span class=ow>in</span> <span class=n>check_primes</span><span class=p>:</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>current</span> <span class=o>%</span> <span class=n>check</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>:</span>
+                <span class=n>is_prime</span> <span class=o>=</span> <span class=kc>False</span>
+                <span class=k>break</span>
+
+        <span class=c1># ...well, there might be one more to check, maybe we need to step the</span>
+        <span class=c1># sqrt up by one?</span>
+        <span class=k>if</span> <span class=n>check_limit</span> <span class=o><=</span> <span class=n>current</span><span class=p>:</span>
+            <span class=n>check</span> <span class=o>=</span> <span class=n>next_primes</span><span class=o>.</span><span class=n>popleft</span><span class=p>()</span>
+            <span class=n>check_limit</span> <span class=o>=</span> <span class=n>check</span> <span class=o>*</span> <span class=n>check</span>
+            <span class=n>is_prime</span> <span class=o>&=</span> <span class=p>(</span><span class=n>current</span> <span class=o>%</span> <span class=n>check</span><span class=p>)</span> <span class=o>!=</span> <span class=mi>0</span>
+            <span class=n>check_primes</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>check</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=n>is_prime</span><span class=p>:</span>
+            <span class=k>yield</span> <span class=n>current</span>
+            <span class=n>next_primes</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>current</span><span class=p>)</span>
+        <span class=n>current</span> <span class=o>+=</span> <span class=mi>2</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.math.primes</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

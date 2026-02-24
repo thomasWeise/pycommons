@@ -1,0 +1,455 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.io.arguments — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/io/arguments.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.io.arguments</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.io.arguments</h1><div class=highlight><pre>
+<span></span><span class=sd>"""The parser for command line arguments."""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>argparse</span><span class=w> </span><span class=kn>import</span> <span class=n>ArgumentDefaultsHelpFormatter</span><span class=p>,</span> <span class=n>ArgumentParser</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>datetime</span><span class=w> </span><span class=kn>import</span> <span class=n>UTC</span><span class=p>,</span> <span class=n>datetime</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Final</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.processes.python</span><span class=w> </span><span class=kn>import</span> <span class=n>python_command</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.strings.chars</span><span class=w> </span><span class=kn>import</span> <span class=n>NBDASH</span><span class=p>,</span> <span class=n>NBSP</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>check_int_range</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.version</span><span class=w> </span><span class=kn>import</span> <span class=n>__version__</span>
+
+<span class=c1>#: The default argument parser for latexgit executables.</span>
+<span class=n>__DEFAULT_ARGUMENTS</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>ArgumentParser</span><span class=p>]</span> <span class=o>=</span> <span class=n>ArgumentParser</span><span class=p>(</span>
+    <span class=n>add_help</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span>
+    <span class=n>formatter_class</span><span class=o>=</span><span class=n>ArgumentDefaultsHelpFormatter</span><span class=p>,</span>
+<span class=p>)</span>
+
+
+<div class=viewcode-block id=make_argparser>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.arguments.make_argparser>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>make_argparser</span><span class=p>(</span><span class=n>file</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>description</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>epilog</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span>
+                   <span class=n>version</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=n>ArgumentParser</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Create an argument parser with default settings.</span>
+
+<span class=sd>    :param file: the `__file__` special variable of the calling script</span>
+<span class=sd>    :param description: the description string</span>
+<span class=sd>    :param epilog: the epilogue string</span>
+<span class=sd>    :param version: an optional version string</span>
+<span class=sd>    :returns: the argument parser</span>
+
+<span class=sd>    >>> ap = make_argparser(__file__, "This is a test program.",</span>
+<span class=sd>    ...                     "This is a test.")</span>
+<span class=sd>    >>> isinstance(ap, ArgumentParser)</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> from io import StringIO</span>
+<span class=sd>    >>> s = StringIO()</span>
+<span class=sd>    >>> with redirect_stdout(s):</span>
+<span class=sd>    ...     ap.print_usage()</span>
+<span class=sd>    >>> print(s.getvalue())</span>
+<span class=sd>    usage: python3 -m pycommons.io.arguments [-h]</span>
+<span class=sd>    &LTBLANKLINE></span>
+
+<span class=sd>    >>> s = StringIO()</span>
+<span class=sd>    >>> with redirect_stdout(s):</span>
+<span class=sd>    ...     ap.print_help()</span>
+<span class=sd>    >>> print(s.getvalue())</span>
+<span class=sd>    usage: python3 -m pycommons.io.arguments [-h]</span>
+<span class=sd>    &LTBLANKLINE></span>
+<span class=sd>    This is a test program.</span>
+<span class=sd>    &LTBLANKLINE></span>
+<span class=sd>    options:</span>
+<span class=sd>      -h, --help  show this help message and exit</span>
+<span class=sd>    &LTBLANKLINE></span>
+<span class=sd>    This is a test.</span>
+<span class=sd>    &LTBLANKLINE></span>
+
+<span class=sd>    >>> ap = make_argparser(__file__, "This is a test program.",</span>
+<span class=sd>    ...                     "This is a test.", "0.2")</span>
+<span class=sd>    >>> isinstance(ap, ArgumentParser)</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> from io import StringIO</span>
+<span class=sd>    >>> s = StringIO()</span>
+<span class=sd>    >>> with redirect_stdout(s):</span>
+<span class=sd>    ...     ap.print_usage()</span>
+<span class=sd>    >>> print(s.getvalue())</span>
+<span class=sd>    usage: python3 -m pycommons.io.arguments [-h] [--version]</span>
+<span class=sd>    &LTBLANKLINE></span>
+
+<span class=sd>    >>> s = StringIO()</span>
+<span class=sd>    >>> with redirect_stdout(s):</span>
+<span class=sd>    ...     ap.print_help()</span>
+<span class=sd>    >>> print(s.getvalue())</span>
+<span class=sd>    usage: python3 -m pycommons.io.arguments [-h] [--version]</span>
+<span class=sd>    &LTBLANKLINE></span>
+<span class=sd>    This is a test program.</span>
+<span class=sd>    &LTBLANKLINE></span>
+<span class=sd>    options:</span>
+<span class=sd>      -h, --help  show this help message and exit</span>
+<span class=sd>      --version   show program's version number and exit</span>
+<span class=sd>    &LTBLANKLINE></span>
+<span class=sd>    This is a test.</span>
+<span class=sd>    &LTBLANKLINE></span>
+
+<span class=sd>    >>> ap = make_argparser(__file__, "This is a test program.",</span>
+<span class=sd>    ...     make_epilog("This program computes something",</span>
+<span class=sd>    ...                 2022, 2023, "Thomas Weise",</span>
+<span class=sd>    ...                 url="https://github.com/thomasWeise/pycommons",</span>
+<span class=sd>    ...                 email="tweise@hfuu.edu.cn"))</span>
+<span class=sd>    >>> s = StringIO()</span>
+<span class=sd>    >>> with redirect_stdout(s):</span>
+<span class=sd>    ...     ap.print_help()</span>
+<span class=sd>    >>> v = ('usage: python3 -m pycommons.io.arguments [-h]\n\nThis is '</span>
+<span class=sd>    ...      'a test program.\n\noptions:\n  -h, --help  show this help '</span>
+<span class=sd>    ...      'message and exit\n\nThis program computes something Copyright'</span>
+<span class=sd>    ...      '\xa0©\xa02022\u20112023,\xa0Thomas\xa0Weise,\nGNU\xa0GENERAL'</span>
+<span class=sd>    ...      '\xa0PUBLIC\xa0LICENSE\xa0Version\xa03,\xa029\xa0June'</span>
+<span class=sd>    ...      '\xa02007,\nhttps://github.com/thomasWeise/pycommons, '</span>
+<span class=sd>    ...      'tweise@hfuu.edu.cn\n')</span>
+<span class=sd>    >>> s.getvalue() == v</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_argparser(1, "", "")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_argparser(None, "", "")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_argparser("te", "", "")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    invalid file='te'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_argparser("test", 1, "")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_argparser("Test", None, "")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_argparser("Test", "Bla", "")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    invalid description='Bla'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_argparser("Test", "This is a long test", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_argparser("Test", "This is a long test", None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_argparser("Test", "This is a long test", "epi")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    invalid epilog='epi'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_argparser(__file__, "This is a long test",</span>
+<span class=sd>    ...         "long long long epilog", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:60])</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_argparser(__file__, "This is a long test",</span>
+<span class=sd>    ...         "long long long epilog", " ")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid version string ' '.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>file</span><span class=p>)</span> <span class=o><=</span> <span class=mi>3</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"invalid file=</span><span class=si>{</span><span class=n>file</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>description</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>description</span><span class=p>)</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>description</span><span class=p>)</span> <span class=o><=</span> <span class=mi>12</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"invalid description=</span><span class=si>{</span><span class=n>description</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>epilog</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>epilog</span><span class=p>)</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>epilog</span><span class=p>)</span> <span class=o><=</span> <span class=mi>10</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"invalid epilog=</span><span class=si>{</span><span class=n>epilog</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>result</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>ArgumentParser</span><span class=p>]</span> <span class=o>=</span> <span class=n>ArgumentParser</span><span class=p>(</span>
+        <span class=n>parents</span><span class=o>=</span><span class=p>[</span><span class=n>__DEFAULT_ARGUMENTS</span><span class=p>],</span> <span class=n>prog</span><span class=o>=</span><span class=s2>" "</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>python_command</span><span class=p>(</span><span class=n>file</span><span class=p>)),</span>
+        <span class=n>description</span><span class=o>=</span><span class=n>description</span><span class=p>,</span> <span class=n>epilog</span><span class=o>=</span><span class=n>epilog</span><span class=p>,</span>
+        <span class=n>formatter_class</span><span class=o>=</span><span class=n>__DEFAULT_ARGUMENTS</span><span class=o>.</span><span class=n>formatter_class</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=n>version</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>uversion</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>version</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>uversion</span><span class=p>)</span> <span class=o><</span> <span class=mi>1</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid version string </span><span class=si>{</span><span class=n>version</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=n>result</span><span class=o>.</span><span class=n>add_argument</span><span class=p>(</span><span class=s2>"--version"</span><span class=p>,</span> <span class=n>action</span><span class=o>=</span><span class=s2>"version"</span><span class=p>,</span> <span class=n>version</span><span class=o>=</span><span class=n>uversion</span><span class=p>)</span>
+
+    <span class=k>return</span> <span class=n>result</span></div>
+
+
+
+<div class=viewcode-block id=make_epilog>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.arguments.make_epilog>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>make_epilog</span><span class=p>(</span>
+        <span class=n>text</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>copyright_start</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+        <span class=n>copyright_end</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span> <span class=n>author</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+        <span class=n>the_license</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span>
+        <span class=s2>"GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007"</span><span class=p>,</span>
+        <span class=n>url</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+        <span class=n>email</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Build an epilogue from the given components.</span>
+
+<span class=sd>    :param text: the epilog text</span>
+<span class=sd>    :param copyright_start: the start year of the copyright, or `None` for no</span>
+<span class=sd>        copyright duration</span>
+<span class=sd>    :param copyright_end: the end year of the copyright, or `None` for using</span>
+<span class=sd>        the current year (unless `copyright_start` is `None`, in which case,</span>
+<span class=sd>        no copyright information is generated).</span>
+<span class=sd>    :param author: the author name, or `None` for no author</span>
+<span class=sd>    :param the_license: the license, or `None` for no license</span>
+<span class=sd>    :param url: the URL, or `None` for no URL</span>
+<span class=sd>    :param email: the email address(es) of the author, or `None` for no email</span>
+<span class=sd>        address information</span>
+<span class=sd>    :returns: the copyright information</span>
+
+<span class=sd>    >>> cy = datetime.now(tz=UTC).year</span>
+<span class=sd>    >>> ex = (f"This is a test.\n\nGNU\xa0GENERAL\xa0PUBLIC\xa0LICENSE"</span>
+<span class=sd>    ...       "\xa0Version\xa03,\xa029\xa0June\xa02007")</span>
+<span class=sd>    >>> make_epilog("This is a test.") == ex</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> make_epilog("This is a test.", 2011, 2030, "Test User",</span>
+<span class=sd>    ...             "Test License", "http://testurl", "test@test.com")[:50]</span>
+<span class=sd>    'This is a test.\n\nCopyright\xa0©\xa02011\u20112030,\xa0Test\xa0User,'</span>
+
+<span class=sd>    >>> ex = (f"This is a test.\n\nCopyright\xa0©\xa02011\u2011{cy},"</span>
+<span class=sd>    ...        "\xa0Test\xa0User, Test\xa0License, http://testurl, "</span>
+<span class=sd>    ...        "test@test.com")</span>
+<span class=sd>    >>> make_epilog("This is a test.", 2011, None, "Test User",</span>
+<span class=sd>    ...             "Test License", "http://testurl", "test@test.com") == ex</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> make_epilog("This is a test.", 2011, 2030, "Test User",</span>
+<span class=sd>    ...             "Test License", "http://testurl", "test@test.com")[50:]</span>
+<span class=sd>    ' Test\xa0License, http://testurl, test@test.com'</span>
+
+<span class=sd>    >>> make_epilog("This is a test.", 2030, 2030, "Test User",</span>
+<span class=sd>    ...             "Test License", "http://testurl", "test@test.com")[:50]</span>
+<span class=sd>    'This is a test.\n\nCopyright\xa0©\xa02030,\xa0Test\xa0User, Test'</span>
+
+<span class=sd>    >>> make_epilog("This is a test.", 2030, 2030, "Test User",</span>
+<span class=sd>    ...             "Test License", "http://testurl", "test@test.com")[50:]</span>
+<span class=sd>    '\xa0License, http://testurl, test@test.com'</span>
+
+<span class=sd>    >>> make_epilog("This is a test.", None, None, "Test User",</span>
+<span class=sd>    ...             "Test License", "http://testurl", "test@test.com")[:50]</span>
+<span class=sd>    'This is a test.\n\nTest\xa0User, Test\xa0License, http://t'</span>
+
+<span class=sd>    >>> make_epilog("This is a test.", None, None, "Test User",</span>
+<span class=sd>    ...             "Test License", "http://testurl", "test@test.com")[50:]</span>
+<span class=sd>    'esturl, test@test.com'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog(1, None, None, "Test User",</span>
+<span class=sd>    ...                 "Test License", "http://testurl", "test@test.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog(None, None, None, "Test User",</span>
+<span class=sd>    ...                 "Test License", "http://testurl", "test@test.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("1", None, None, "Test User",</span>
+<span class=sd>    ...                 "Test License", "http://testurl", "test@test.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Epilog text too short: '1'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", "v", None, "Test User",</span>
+<span class=sd>    ...                 "Test License", "http://testurl", "test@test.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    copyright_start should be an instance of int but is str, namely 'v'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", -2, None, "Test User",</span>
+<span class=sd>    ...                 "Test License", "http://testurl", "test@test.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    copyright_start=-2 is invalid, must be in 1970..2500.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", 3455334, None, "Test User",</span>
+<span class=sd>    ...                 "Test License", "http://testurl", "test@test.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    copyright_start=3455334 is invalid, must be in 1970..2500.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", 2002, "v", "Test User",</span>
+<span class=sd>    ...                 "Test License", "http://testurl", "test@test.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    copyright_end should be an instance of int but is str, namely 'v'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", 2002, 12, "Test User",</span>
+<span class=sd>    ...                 "Test License", "http://testurl", "test@test.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    copyright_end=12 is invalid, must be in 2002..2500.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", 2023, 3455334, "Test User",</span>
+<span class=sd>    ...                 "Test License", "http://testurl", "test@test.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    copyright_end=3455334 is invalid, must be in 2023..2500.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", None, None, 2,</span>
+<span class=sd>    ...                 "Test License", "http://testurl", "test@test.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", None, None, "",</span>
+<span class=sd>    ...                 "Test License", "http://testurl", "test@test.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Author too short: ''.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", None, None, "Tester",</span>
+<span class=sd>    ...                 23, "http://testurl", "test@test.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", None, None, "Tester",</span>
+<span class=sd>    ...                 "Te", "http://testurl", "test@test.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    License too short: 'Te'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", None, None, "Tester",</span>
+<span class=sd>    ...                 "GPL", 2, "test@test.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", None, None, "Tester",</span>
+<span class=sd>    ...                 "GPL", "http", "test@test.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Url too short: 'http'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", None, None, "Tester",</span>
+<span class=sd>    ...                 "GPL", "http://www.test.com", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_epilog("This is a test.", None, None, "Tester",</span>
+<span class=sd>    ...                 "GPL", "http://www.test.com", "a@b")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Email too short: 'a@b'.</span>
+<span class=sd>    """</span>
+    <span class=n>text</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>text</span><span class=p>)</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>text</span><span class=p>)</span> <span class=o><=</span> <span class=mi>10</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Epilog text too short: </span><span class=si>{</span><span class=n>text</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>the_epilog</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=s2>""</span>
+    <span class=k>if</span> <span class=n>copyright_start</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>copyright_start</span> <span class=o>=</span> <span class=n>check_int_range</span><span class=p>(</span>
+            <span class=n>copyright_start</span><span class=p>,</span> <span class=s2>"copyright_start"</span><span class=p>,</span> <span class=mi>1970</span><span class=p>,</span> <span class=mi>2500</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>copyright_end</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>copyright_end</span> <span class=o>=</span> <span class=n>check_int_range</span><span class=p>(</span>
+                <span class=n>datetime</span><span class=o>.</span><span class=n>now</span><span class=p>(</span><span class=n>tz</span><span class=o>=</span><span class=n>UTC</span><span class=p>)</span><span class=o>.</span><span class=n>year</span><span class=p>,</span>
+                <span class=s2>"year"</span><span class=p>,</span> <span class=mi>1970</span><span class=p>,</span> <span class=mi>2500</span><span class=p>)</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>copyright_end</span> <span class=o>=</span> <span class=n>check_int_range</span><span class=p>(</span>
+                <span class=n>copyright_end</span><span class=p>,</span> <span class=s2>"copyright_end"</span><span class=p>,</span> <span class=n>copyright_start</span><span class=p>,</span> <span class=mi>2500</span><span class=p>)</span>
+        <span class=n>the_epilog</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"Copyright </span><span class=se>\u00a9</span><span class=s2> </span><span class=si>{</span><span class=n>copyright_start</span><span class=si>}</span><span class=s2>"</span> \
+            <span class=k>if</span> <span class=n>copyright_start</span> <span class=o>>=</span> <span class=n>copyright_end</span> \
+            <span class=k>else</span> <span class=sa>f</span><span class=s2>"Copyright </span><span class=se>\u00a9</span><span class=s2> </span><span class=si>{</span><span class=n>copyright_start</span><span class=si>}</span><span class=s2>-</span><span class=si>{</span><span class=n>copyright_end</span><span class=si>}</span><span class=s2>"</span>
+    <span class=k>if</span> <span class=n>author</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>author</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>author</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>author</span><span class=p>)</span> <span class=o><</span> <span class=mi>1</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Author too short: </span><span class=si>{</span><span class=n>author</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=n>the_epilog</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>the_epilog</span><span class=si>}</span><span class=s2>, </span><span class=si>{</span><span class=n>author</span><span class=si>}</span><span class=s2>"</span> \
+            <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>the_epilog</span><span class=p>)</span> <span class=o>></span> <span class=mi>0</span> <span class=k>else</span> <span class=n>author</span>
+    <span class=k>if</span> <span class=n>the_license</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>the_license</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>the_license</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>the_license</span><span class=p>)</span> <span class=o><</span> <span class=mi>3</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"License too short: </span><span class=si>{</span><span class=n>the_license</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=n>the_epilog</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>the_epilog</span><span class=si>}</span><span class=s2>,</span><span class=se>\n</span><span class=si>{</span><span class=n>the_license</span><span class=si>}</span><span class=s2>"</span> \
+            <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>the_epilog</span><span class=p>)</span> <span class=o>></span> <span class=mi>0</span> <span class=k>else</span> <span class=n>the_license</span>
+    <span class=k>if</span> <span class=n>url</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>url</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>url</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>url</span><span class=p>)</span> <span class=o><</span> <span class=mi>6</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Url too short: </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=n>the_epilog</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>the_epilog</span><span class=si>}</span><span class=s2>,</span><span class=se>\n</span><span class=si>{</span><span class=n>url</span><span class=si>}</span><span class=s2>"</span> \
+            <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>the_epilog</span><span class=p>)</span> <span class=o>></span> <span class=mi>0</span> <span class=k>else</span> <span class=n>url</span>
+    <span class=k>if</span> <span class=n>email</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>email</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>email</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>email</span><span class=p>)</span> <span class=o><</span> <span class=mi>5</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Email too short: </span><span class=si>{</span><span class=n>email</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=n>the_epilog</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>the_epilog</span><span class=si>}</span><span class=s2>,</span><span class=se>\n</span><span class=si>{</span><span class=n>email</span><span class=si>}</span><span class=s2>"</span> \
+            <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>the_epilog</span><span class=p>)</span> <span class=o>></span> <span class=mi>0</span> <span class=k>else</span> <span class=n>email</span>
+
+    <span class=n>the_epilog</span> <span class=o>=</span> <span class=p>(</span><span class=n>the_epilog</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=s2>" "</span><span class=p>,</span> <span class=n>NBSP</span><span class=p>)</span>
+                  <span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=s2>"-"</span><span class=p>,</span> <span class=n>NBDASH</span><span class=p>)</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=p>,</span> <span class=s2>" "</span><span class=p>))</span>
+    <span class=k>return</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>text</span><span class=si>}</span><span class=se>\n\n</span><span class=si>{</span><span class=n>the_epilog</span><span class=si>}</span><span class=s2>"</span></div>
+
+
+
+<div class=viewcode-block id=pycommons_argparser>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.arguments.pycommons_argparser>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>pycommons_argparser</span><span class=p>(</span>
+        <span class=n>file</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>description</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>epilog</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=n>ArgumentParser</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Create an argument parser with default settings for `pycommons`.</span>
+
+<span class=sd>    :param file: the `__file__` special variable of the calling script</span>
+<span class=sd>    :param description: the description string</span>
+<span class=sd>    :param epilog: the epilogue string</span>
+<span class=sd>    :returns: the argument parser</span>
+
+<span class=sd>    >>> ap = pycommons_argparser(</span>
+<span class=sd>    ...     __file__, "This is a test program.", "This is a test.")</span>
+<span class=sd>    >>> isinstance(ap, ArgumentParser)</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> "Copyright" in ap.epilog</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+    <span class=k>return</span> <span class=n>make_argparser</span><span class=p>(</span>
+        <span class=n>file</span><span class=p>,</span> <span class=n>description</span><span class=p>,</span>
+        <span class=n>make_epilog</span><span class=p>(</span><span class=n>epilog</span><span class=p>,</span> <span class=mi>2023</span><span class=p>,</span> <span class=mi>2024</span><span class=p>,</span> <span class=s2>"Thomas Weise"</span><span class=p>,</span>
+                    <span class=n>url</span><span class=o>=</span><span class=s2>"https://thomasweise.github.io/pycommons"</span><span class=p>,</span>
+                    <span class=n>email</span><span class=o>=</span><span class=s2>"tweise@hfuu.edu.cn, tweise@ustc.edu.cn"</span><span class=p>),</span>
+        <span class=n>__version__</span><span class=p>)</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.io.arguments</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

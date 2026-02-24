@@ -1,0 +1,796 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.strings.string_conv — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/strings/string_conv.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.strings.string_conv</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.strings.string_conv</h1><div class=highlight><pre>
+<span></span><span class=sd>"""Converting stuff to and from strings."""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>datetime</span><span class=w> </span><span class=kn>import</span> <span class=n>datetime</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>math</span><span class=w> </span><span class=kn>import</span> <span class=n>isfinite</span><span class=p>,</span> <span class=n>isnan</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>cast</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.math.int_math</span><span class=w> </span><span class=kn>import</span> <span class=n>__try_int</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.strings.chars</span><span class=w> </span><span class=kn>import</span> <span class=n>NBDASH</span><span class=p>,</span> <span class=n>NBSP</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>type_error</span>
+
+<span class=c1>#: fast call to :meth:`str.__len__`</span>
+<span class=n>__LEN</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=nb>int</span><span class=p>]]</span> <span class=o>=</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"Callable[[str], int]"</span><span class=p>,</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=float_to_str>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_conv.float_to_str>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>float_to_str</span><span class=p>(</span><span class=n>value</span><span class=p>:</span> <span class=nb>float</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Convert `float` to a string.</span>
+
+<span class=sd>    The floating point value `value` is converted to a string.</span>
+
+<span class=sd>    :param value: the floating point value</span>
+<span class=sd>    :returns: the string representation</span>
+<span class=sd>    :raises TypeError: if `value` is not a `float`</span>
+<span class=sd>    :raises ValueError: if `value` is not a number</span>
+
+<span class=sd>    >>> float_to_str(1.3)</span>
+<span class=sd>    '1.3'</span>
+<span class=sd>    >>> float_to_str(1.0)</span>
+<span class=sd>    '1'</span>
+<span class=sd>    >>> float_to_str(1e-5)</span>
+<span class=sd>    '1e-5'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     float_to_str(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of float but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     float_to_str(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of float but is None.</span>
+
+<span class=sd>    >>> from math import nan</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     float_to_str(nan)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    nan => 'nan' is not a permitted float.</span>
+
+<span class=sd>    >>> from math import inf</span>
+<span class=sd>    >>> float_to_str(inf)</span>
+<span class=sd>    'inf'</span>
+<span class=sd>    >>> float_to_str(-inf)</span>
+<span class=sd>    '-inf'</span>
+<span class=sd>    >>> float_to_str(1e300)</span>
+<span class=sd>    '1e300'</span>
+<span class=sd>    >>> float_to_str(-1e300)</span>
+<span class=sd>    '-1e300'</span>
+<span class=sd>    >>> float_to_str(-1e-300)</span>
+<span class=sd>    '-1e-300'</span>
+<span class=sd>    >>> float_to_str(1e-300)</span>
+<span class=sd>    '1e-300'</span>
+<span class=sd>    >>> float_to_str(1e1)</span>
+<span class=sd>    '10'</span>
+<span class=sd>    >>> float_to_str(1e5)</span>
+<span class=sd>    '100000'</span>
+<span class=sd>    >>> float_to_str(1e10)</span>
+<span class=sd>    '10000000000'</span>
+<span class=sd>    >>> float_to_str(1e20)</span>
+<span class=sd>    '1e20'</span>
+<span class=sd>    >>> float_to_str(1e030)</span>
+<span class=sd>    '1e30'</span>
+<span class=sd>    >>> float_to_str(0.0)</span>
+<span class=sd>    '0'</span>
+<span class=sd>    >>> float_to_str(-0.0)</span>
+<span class=sd>    '0'</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>float</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=s2>"value"</span><span class=p>,</span> <span class=nb>float</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>value</span> <span class=o>==</span> <span class=mf>0.0</span><span class=p>:</span>  <span class=c1># fast track for 0  # noqa: RUF069</span>
+        <span class=k>return</span> <span class=s2>"0"</span>
+    <span class=n>s</span> <span class=o>=</span> <span class=nb>float</span><span class=o>.</span><span class=fm>__repr__</span><span class=p>(</span><span class=n>value</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>isnan</span><span class=p>(</span><span class=n>value</span><span class=p>):</span>  <span class=c1># nan is not permitted</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>value</span><span class=si>!r}</span><span class=s2> => </span><span class=si>{</span><span class=n>s</span><span class=si>!r}</span><span class=s2> is not a permitted float."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>isfinite</span><span class=p>(</span><span class=n>value</span><span class=p>):</span>  <span class=c1># +/-inf can be returned directly</span>
+        <span class=k>return</span> <span class=n>s</span>
+    <span class=k>return</span> <span class=nb>str</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span>  <span class=c1># simplify/remove clutter</span>
+        <span class=n>s</span><span class=p>,</span> <span class=s2>"e-0"</span><span class=p>,</span> <span class=s2>"e-"</span><span class=p>),</span> <span class=s2>"e+0"</span><span class=p>,</span> <span class=s2>"e"</span><span class=p>),</span> <span class=s2>"e+"</span><span class=p>,</span> <span class=s2>"e"</span><span class=p>)</span><span class=o>.</span><span class=n>removesuffix</span><span class=p>(</span><span class=s2>".0"</span><span class=p>)</span></div>
+
+
+
+<div class=viewcode-block id=bool_to_str>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_conv.bool_to_str>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>bool_to_str</span><span class=p>(</span><span class=n>value</span><span class=p>:</span> <span class=nb>bool</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Convert a Boolean value to a string.</span>
+
+<span class=sd>    This function is the inverse of :func:`str_to_bool`.</span>
+
+<span class=sd>    :param value: the Boolean value</span>
+<span class=sd>    :returns `"T"`: if `value == True`</span>
+<span class=sd>    :returns `"F"`: if `value == False`</span>
+<span class=sd>    :raises TypeError: if `value` is not a `bool`</span>
+
+<span class=sd>    >>> print(bool_to_str(True))</span>
+<span class=sd>    T</span>
+<span class=sd>    >>> print(bool_to_str(False))</span>
+<span class=sd>    F</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     bool_to_str("t")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of bool but is str, namely 't'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     bool_to_str(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of bool but is None.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>bool</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=s2>"value"</span><span class=p>,</span> <span class=nb>bool</span><span class=p>)</span>
+    <span class=k>return</span> <span class=s2>"T"</span> <span class=k>if</span> <span class=n>value</span> <span class=k>else</span> <span class=s2>"F"</span></div>
+
+
+
+<div class=viewcode-block id=str_to_bool>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_conv.str_to_bool>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>str_to_bool</span><span class=p>(</span><span class=n>value</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Convert a string to a boolean value.</span>
+
+<span class=sd>    This function is the inverse of :func:`bool_to_str`.</span>
+
+<span class=sd>    :param value: the string value</span>
+<span class=sd>    :returns `True`: if `value == "T"`</span>
+<span class=sd>    :returns `False`: if `value == "F"`</span>
+<span class=sd>    :raises TypeError: if `value` is not a string</span>
+<span class=sd>    :raises ValueError: if `value` is neither `T` nor `F`</span>
+
+<span class=sd>    >>> str_to_bool("T")</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> str_to_bool("F")</span>
+<span class=sd>    False</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_bool("x")</span>
+<span class=sd>    ... except ValueError as v:</span>
+<span class=sd>    ...     print(v)</span>
+<span class=sd>    Expected 'T' or 'F', but got 'x'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_bool(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_bool(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=n>__LEN</span><span class=p>(</span><span class=n>value</span><span class=p>)</span> <span class=o>==</span> <span class=mi>1</span><span class=p>:</span>
+        <span class=k>if</span> <span class=n>value</span> <span class=o>==</span> <span class=s2>"T"</span><span class=p>:</span>
+            <span class=k>return</span> <span class=kc>True</span>
+        <span class=k>if</span> <span class=n>value</span> <span class=o>==</span> <span class=s2>"F"</span><span class=p>:</span>
+            <span class=k>return</span> <span class=kc>False</span>
+    <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Expected 'T' or 'F', but got </span><span class=si>{</span><span class=n>value</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span></div>
+
+
+
+<div class=viewcode-block id=num_to_str>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_conv.num_to_str>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>num_to_str</span><span class=p>(</span><span class=n>value</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Transform a numerical value which is either `int` or`float` to a string.</span>
+
+<span class=sd>    If `value` is an instance of `int`, the result of its conversion via `str`</span>
+<span class=sd>    will be returned.</span>
+<span class=sd>    If `value` is an instance of `bool`, a `TypeError` will be raised.</span>
+<span class=sd>    Otherwise, the result of :func:`~float_to_str` is returned.</span>
+<span class=sd>    This means that `nan` will yield a `ValueError` and anything that is</span>
+<span class=sd>    neither an `int`, `bool`, or `float` will incur a `TypeError`.</span>
+
+<span class=sd>    :param value: the value</span>
+<span class=sd>    :returns: the string</span>
+<span class=sd>    :raises TypeError: if `value` is a `bool` (notice that `bool` is a</span>
+<span class=sd>        subclass of `int`) or any other type that is neither `int` nor</span>
+<span class=sd>        `float`.</span>
+<span class=sd>    :raises ValueError: if `value` is not-a-number</span>
+
+<span class=sd>    >>> num_to_str(1)</span>
+<span class=sd>    '1'</span>
+<span class=sd>    >>> num_to_str(1.5)</span>
+<span class=sd>    '1.5'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     num_to_str(True)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of any in {float, int} but is bool, \</span>
+<span class=sd>namely True.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     num_to_str(False)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of any in {float, int} but is bool, \</span>
+<span class=sd>namely False.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     num_to_str("x")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of float but is str, namely 'x'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     num_to_str(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of float but is None.</span>
+
+<span class=sd>    >>> from math import inf, nan</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     num_to_str(nan)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    nan => 'nan' is not a permitted float.</span>
+
+<span class=sd>    >>> num_to_str(inf)</span>
+<span class=sd>    'inf'</span>
+<span class=sd>    >>> num_to_str(-inf)</span>
+<span class=sd>    '-inf'</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>bool</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=s2>"value"</span><span class=p>,</span> <span class=p>(</span><span class=nb>int</span><span class=p>,</span> <span class=nb>float</span><span class=p>))</span>
+    <span class=k>return</span> <span class=nb>int</span><span class=o>.</span><span class=fm>__str__</span><span class=p>(</span><span class=n>value</span><span class=p>)</span> <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>int</span><span class=p>)</span> \
+        <span class=k>else</span> <span class=n>float_to_str</span><span class=p>(</span><span class=n>value</span><span class=p>)</span></div>
+
+
+
+<div class=viewcode-block id=bool_or_num_to_str>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_conv.bool_or_num_to_str>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>bool_or_num_to_str</span><span class=p>(</span><span class=n>value</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=nb>bool</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Convert a `bool` or number to string.</span>
+
+<span class=sd>    :param value: the number or `bool`</span>
+<span class=sd>    :returns: the string</span>
+<span class=sd>    :raises TypeError: if the number is neither `bool`, `float`, or `int`.</span>
+
+<span class=sd>    >>> bool_or_num_to_str(True)</span>
+<span class=sd>    'T'</span>
+<span class=sd>    >>> bool_or_num_to_str(False)</span>
+<span class=sd>    'F'</span>
+<span class=sd>    >>> bool_or_num_to_str(12.0)</span>
+<span class=sd>    '12'</span>
+<span class=sd>    >>> bool_or_num_to_str(12)</span>
+<span class=sd>    '12'</span>
+<span class=sd>    >>> bool_or_num_to_str(12.5)</span>
+<span class=sd>    '12.5'</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     bool_or_num_to_str("x")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of float but is str, namely 'x'.</span>
+<span class=sd>    """</span>
+    <span class=k>return</span> <span class=n>bool_to_str</span><span class=p>(</span><span class=n>value</span><span class=p>)</span> <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>bool</span><span class=p>)</span> <span class=k>else</span> <span class=p>(</span>
+        <span class=nb>int</span><span class=o>.</span><span class=fm>__str__</span><span class=p>(</span><span class=n>value</span><span class=p>)</span> <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>int</span><span class=p>)</span> <span class=k>else</span> <span class=n>float_to_str</span><span class=p>(</span><span class=n>value</span><span class=p>))</span></div>
+
+
+
+<div class=viewcode-block id=num_or_none_to_str>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_conv.num_or_none_to_str>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>num_or_none_to_str</span><span class=p>(</span><span class=n>value</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Convert a numerical type (`int`, `float`) or `None` to a string.</span>
+
+<span class=sd>    If `value is None`, then `""` is returned.</span>
+<span class=sd>    Otherwise, the result of :func:`~num_to_str` is returned.</span>
+
+<span class=sd>    :param value: the value</span>
+<span class=sd>    :returns: the string representation, `""` for `None`</span>
+<span class=sd>    :returns `""`: if `value is None`</span>
+<span class=sd>    :returns `num_to_str(value)`: otherwise</span>
+<span class=sd>    :raises TypeError: if `value` not `Nont` but instead is a `bool`</span>
+<span class=sd>        (notice that `bool` is a subclass of `int`) or any other type that</span>
+<span class=sd>        is neither `int` nor `float`.</span>
+<span class=sd>    :raises ValueError: if `value` is not-a-number</span>
+
+<span class=sd>    >>> print(repr(num_or_none_to_str(None)))</span>
+<span class=sd>    ''</span>
+<span class=sd>    >>> print(num_or_none_to_str(12))</span>
+<span class=sd>    12</span>
+<span class=sd>    >>> print(num_or_none_to_str(12.3))</span>
+<span class=sd>    12.3</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     num_or_none_to_str(True)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of any in {float, int} but is bool, \</span>
+<span class=sd>namely True.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     num_or_none_to_str(False)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of any in {float, int} but is bool, \</span>
+<span class=sd>namely False.</span>
+
+<span class=sd>    >>> from math import nan</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     num_to_str(nan)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    nan => 'nan' is not a permitted float.</span>
+<span class=sd>    """</span>
+    <span class=k>return</span> <span class=s2>""</span> <span class=k>if</span> <span class=n>value</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>num_to_str</span><span class=p>(</span><span class=n>value</span><span class=p>)</span></div>
+
+
+
+<div class=viewcode-block id=int_or_none_to_str>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_conv.int_or_none_to_str>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>int_or_none_to_str</span><span class=p>(</span><span class=n>value</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Convert an integer or `None` to a string.</span>
+
+<span class=sd>    If `value is None`, `""` is returned.</span>
+<span class=sd>    If `value` is an instance of `bool`, a `TypeError` is raised.</span>
+<span class=sd>    If `value` is an `int`, `str(val)` is returned.</span>
+<span class=sd>    Otherwise, a `TypeError` is thrown.</span>
+
+<span class=sd>    :param value: the value</span>
+<span class=sd>    :returns: the string representation, `''` for `None`</span>
+<span class=sd>    :returns `""`: if `value is None`</span>
+<span class=sd>    :returns `int.__str__(value)`: otherwise</span>
+<span class=sd>    :raises TypeError: if `value` is a `bool` (notice that `bool` is a</span>
+<span class=sd>        subclass of `int`) or any other non-`int` type.</span>
+
+<span class=sd>    >>> print(repr(int_or_none_to_str(None)))</span>
+<span class=sd>    ''</span>
+<span class=sd>    >>> print(int_or_none_to_str(12))</span>
+<span class=sd>    12</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     int_or_none_to_str(True)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of int but is bool, namely True.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     int_or_none_to_str(False)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of int but is bool, namely False.</span>
+
+<span class=sd>    >>> print(int_or_none_to_str(-10))</span>
+<span class=sd>    -10</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     int_or_none_to_str(1.0)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of int but is float, namely 1.0.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=n>value</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>return</span> <span class=s2>""</span>
+    <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>bool</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>int</span><span class=p>)):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=s2>"value"</span><span class=p>,</span> <span class=nb>int</span><span class=p>)</span>
+    <span class=k>return</span> <span class=nb>int</span><span class=o>.</span><span class=fm>__str__</span><span class=p>(</span><span class=n>value</span><span class=p>)</span></div>
+
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__str_to_num_or_none</span><span class=p>(</span><span class=n>value</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>,</span>
+                         <span class=n>none_is_ok</span><span class=p>:</span> <span class=nb>bool</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Convert a string to an `int` or `float`.</span>
+
+<span class=sd>    If `value is None` and `none_is_ok == True`, then `None` is returned.</span>
+<span class=sd>    If `value` is not an instance of `str`, a `TypeError` will be raised.</span>
+<span class=sd>    If `value` becomes an empty string after stripping, then `None` is</span>
+<span class=sd>    returned if `none_is_ok == True` and else an `ValueError` is raised.</span>
+<span class=sd>    If the value `value` can be converted to an integer without loss of</span>
+<span class=sd>    precision, then an `int` with the corresponding value is returned.</span>
+<span class=sd>    If the value `value` can be converted to a `float`, a `float` with the</span>
+<span class=sd>    appropriate value is returned.</span>
+<span class=sd>    Otherwise, a `ValueError` is thrown.</span>
+
+<span class=sd>    :param value: the string value</span>
+<span class=sd>    :returns: the `int` or `float` or `None` corresponding to `value`</span>
+
+<span class=sd>    >>> print(type(__str_to_num_or_none("15.0", False)))</span>
+<span class=sd>    &LTclass 'int'></span>
+<span class=sd>    >>> print(type(__str_to_num_or_none("15.1", False)))</span>
+<span class=sd>    &LTclass 'float'></span>
+<span class=sd>    >>> __str_to_num_or_none("inf", False)</span>
+<span class=sd>    inf</span>
+<span class=sd>    >>> __str_to_num_or_none("  -inf  ", False)</span>
+<span class=sd>    -inf</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __str_to_num_or_none(21, False)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __str_to_num_or_none("nan", False)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    NaN is not permitted, but got 'nan'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __str_to_num_or_none("12-3", False)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid numerical value '12-3'.</span>
+
+<span class=sd>    >>> __str_to_num_or_none("1e34423", False)</span>
+<span class=sd>    inf</span>
+<span class=sd>    >>> __str_to_num_or_none("-1e34423", False)</span>
+<span class=sd>    -inf</span>
+<span class=sd>    >>> __str_to_num_or_none("-1e-34423", False)</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> __str_to_num_or_none("1e-34423", False)</span>
+<span class=sd>    0</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __str_to_num_or_none("-1e-34e4423", False)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid numerical value '-1e-34e4423'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __str_to_num_or_none("T", False)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid numerical value 'T'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __str_to_num_or_none("F", False)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid numerical value 'F'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __str_to_num_or_none(None, False)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __str_to_num_or_none(" ", False)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Value ' ' becomes empty after stripping, cannot be converted to a number.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __str_to_num_or_none("", False)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Value '' becomes empty after stripping, cannot be converted to a number.</span>
+
+<span class=sd>    >>> print(__str_to_num_or_none(" ", True))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(__str_to_num_or_none("", True))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(__str_to_num_or_none(None, True))</span>
+<span class=sd>    None</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=p>(</span><span class=n>value</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=n>none_is_ok</span><span class=p>:</span>
+        <span class=k>return</span> <span class=kc>None</span>
+    <span class=n>vv</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>lower</span><span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>value</span><span class=p>))</span>
+    <span class=k>if</span> <span class=n>__LEN</span><span class=p>(</span><span class=n>vv</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>if</span> <span class=n>none_is_ok</span><span class=p>:</span>
+            <span class=k>return</span> <span class=kc>None</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Value </span><span class=si>{</span><span class=n>value</span><span class=si>!r}</span><span class=s2> becomes empty after stripping, "</span>
+                         <span class=s2>"cannot be converted to a number."</span><span class=p>)</span>
+    <span class=k>try</span><span class=p>:</span>
+        <span class=k>return</span> <span class=nb>int</span><span class=p>(</span><span class=n>vv</span><span class=p>)</span>
+    <span class=k>except</span> <span class=ne>ValueError</span><span class=p>:</span>
+        <span class=k>pass</span>
+    <span class=n>res</span><span class=p>:</span> <span class=nb>float</span>
+    <span class=k>try</span><span class=p>:</span>
+        <span class=n>res</span> <span class=o>=</span> <span class=nb>float</span><span class=p>(</span><span class=n>vv</span><span class=p>)</span>
+    <span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid numerical value </span><span class=si>{</span><span class=n>value</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=nn>ve</span>
+    <span class=k>if</span> <span class=n>isnan</span><span class=p>(</span><span class=n>res</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"NaN is not permitted, but got </span><span class=si>{</span><span class=n>value</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>__try_int</span><span class=p>(</span><span class=n>res</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=str_to_num>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_conv.str_to_num>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>str_to_num</span><span class=p>(</span><span class=n>value</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Convert a string to an `int` or `float`.</span>
+
+<span class=sd>    If `value` is not an instance of `str`, a `TypeError` will be raised.</span>
+<span class=sd>    If the value `value` can be converted to an integer, then an `int` with</span>
+<span class=sd>    the corresponding value is returned.</span>
+<span class=sd>    If the value `value` can be converted to a `float`, a `float` with the</span>
+<span class=sd>    appropriate value is returned.</span>
+<span class=sd>    Otherwise, a `ValueError` is thrown.</span>
+
+<span class=sd>    :param value: the string value</span>
+<span class=sd>    :returns: the `int` or `float`: Integers are preferred to be used whereever</span>
+<span class=sd>        possible</span>
+<span class=sd>    :raises TypeError: if `value` is not a `str`</span>
+<span class=sd>    :raises ValueError: if `value` is a `str` but cannot be converted to an</span>
+<span class=sd>        integer (base-10) or converts to a `float` which is not a number</span>
+
+<span class=sd>    >>> print(type(str_to_num("15.0")))</span>
+<span class=sd>    &LTclass 'int'></span>
+<span class=sd>    >>> print(type(str_to_num("15.1")))</span>
+<span class=sd>    &LTclass 'float'></span>
+<span class=sd>    >>> str_to_num("inf")</span>
+<span class=sd>    inf</span>
+<span class=sd>    >>> str_to_num("  -inf  ")</span>
+<span class=sd>    -inf</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num(21)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num("nan")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    NaN is not permitted, but got 'nan'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num("12-3")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid numerical value '12-3'.</span>
+
+<span class=sd>    >>> str_to_num("1e34423")</span>
+<span class=sd>    inf</span>
+<span class=sd>    >>> str_to_num("-1e34423")</span>
+<span class=sd>    -inf</span>
+<span class=sd>    >>> str_to_num("-1e-34423")</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> str_to_num("1e-34423")</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num("-1e-34e4423")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid numerical value '-1e-34e4423'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num("T")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid numerical value 'T'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num("F")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid numerical value 'F'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num("")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Value '' becomes empty after stripping, cannot be converted to a number.</span>
+<span class=sd>    """</span>
+    <span class=k>return</span> <span class=n>__str_to_num_or_none</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=kc>False</span><span class=p>)</span></div>
+
+
+
+<div class=viewcode-block id=str_to_num_or_none>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_conv.str_to_num_or_none>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>str_to_num_or_none</span><span class=p>(</span><span class=n>value</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Convert a string to an `int` or `float` or `None`.</span>
+
+<span class=sd>    If the value `value` is `None`, then `None` is returned.</span>
+<span class=sd>    If the vlaue `value` is empty or entirely composed of white space, `None`</span>
+<span class=sd>    is returned.</span>
+<span class=sd>    If the value `value` can be converted to an integer, then an `int` with</span>
+<span class=sd>    the corresponding value is returned.</span>
+<span class=sd>    If the value `value` can be converted to a `float`, a `float` with the</span>
+<span class=sd>    appropriate value is returned.</span>
+<span class=sd>    Otherwise, a `ValueError` is thrown.</span>
+
+<span class=sd>    :param value: the string value</span>
+<span class=sd>    :returns: the `int` or `float` or `None`</span>
+<span class=sd>    :raises TypeError: if `value` is neither a `str` nor `None`</span>
+<span class=sd>    :raises ValueError: if `value` is a `str` but cannot be converted to an</span>
+<span class=sd>        integer (base-10) or converts to a `float` which is not a number</span>
+
+<span class=sd>    >>> print(type(str_to_num_or_none("15.0")))</span>
+<span class=sd>    &LTclass 'int'></span>
+<span class=sd>    >>> print(type(str_to_num_or_none("15.1")))</span>
+<span class=sd>    &LTclass 'float'></span>
+<span class=sd>    >>> str_to_num_or_none("inf")</span>
+<span class=sd>    inf</span>
+<span class=sd>    >>> str_to_num_or_none("  -inf  ")</span>
+<span class=sd>    -inf</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num_or_none(21)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num_or_none("nan")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    NaN is not permitted, but got 'nan'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num_or_none("12-3")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid numerical value '12-3'.</span>
+
+<span class=sd>    >>> str_to_num_or_none("1e34423")</span>
+<span class=sd>    inf</span>
+<span class=sd>    >>> str_to_num_or_none("-1e34423")</span>
+<span class=sd>    -inf</span>
+<span class=sd>    >>> str_to_num_or_none("-1e-34423")</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> str_to_num_or_none("1e-34423")</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num_or_none("-1e-34e4423")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid numerical value '-1e-34e4423'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num_or_none("T")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid numerical value 'T'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     str_to_num_or_none("F")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid numerical value 'F'.</span>
+
+<span class=sd>    >>> print(str_to_num_or_none(""))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(str_to_num_or_none(None))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(type(str_to_num_or_none("5.0")))</span>
+<span class=sd>    &LTclass 'int'></span>
+<span class=sd>    >>> print(type(str_to_num_or_none("5.1")))</span>
+<span class=sd>    &LTclass 'float'></span>
+<span class=sd>    """</span>
+    <span class=k>return</span> <span class=n>__str_to_num_or_none</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=kc>True</span><span class=p>)</span></div>
+
+
+
+<div class=viewcode-block id=str_to_int_or_none>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_conv.str_to_int_or_none>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>str_to_int_or_none</span><span class=p>(</span><span class=n>value</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Convert a string to an `int` or `None`.</span>
+
+<span class=sd>    If the value `value` is `None`, then `None` is returned.</span>
+<span class=sd>    If the vlaue `value` is empty or entirely composed of white space, `None`</span>
+<span class=sd>    is returned.</span>
+<span class=sd>    If the value `value` can be converted to an integer, then an `int` with</span>
+<span class=sd>    the corresponding value is returned.</span>
+<span class=sd>    Otherwise, a `ValueError` is thrown.</span>
+
+<span class=sd>    :param value: the string value, or `None`</span>
+<span class=sd>    :returns: the int or None</span>
+<span class=sd>    :raises TypeError: if `value` is neither a `str` nor `None`</span>
+<span class=sd>    :raises ValueError: if `value` is a `str` but cannot be base-10 converted</span>
+<span class=sd>        to an integer</span>
+
+<span class=sd>    >>> print(str_to_int_or_none(""))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(str_to_int_or_none("5"))</span>
+<span class=sd>    5</span>
+<span class=sd>    >>> print(str_to_int_or_none(None))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(str_to_int_or_none("  "))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     print(str_to_int_or_none(1.3))</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    value should be an instance of str but is float, namely 1.3.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     print(str_to_int_or_none("1.3"))</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    invalid literal for int() with base 10: '1.3'</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=n>value</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>return</span> <span class=kc>None</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>str</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=s2>"value"</span><span class=p>,</span> <span class=nb>str</span><span class=p>)</span>
+    <span class=n>vv</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>value</span><span class=o>.</span><span class=n>strip</span><span class=p>()</span><span class=o>.</span><span class=n>lower</span><span class=p>()</span>
+    <span class=k>if</span> <span class=nb>len</span><span class=p>(</span><span class=n>vv</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>return</span> <span class=kc>None</span>
+    <span class=k>return</span> <span class=nb>int</span><span class=p>(</span><span class=n>vv</span><span class=p>)</span></div>
+
+
+
+<span class=c1>#: the format for time</span>
+<span class=n>__DATE_FORMAT</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"%Y</span><span class=si>{</span><span class=n>NBDASH</span><span class=si>}</span><span class=s2>%m</span><span class=si>{</span><span class=n>NBDASH</span><span class=si>}</span><span class=s2>%d"</span>
+<span class=c1>#: the format for date and time</span>
+<span class=n>__DATE_TIME_FORMAT_NO_TZ</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>__DATE_FORMAT</span><span class=si>}{</span><span class=n>NBSP</span><span class=si>}</span><span class=s2>%H:%M"</span>
+<span class=c1>#: the format for date and time</span>
+<span class=n>__DATE_TIME_FORMAT_TZ</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>__DATE_TIME_FORMAT_NO_TZ</span><span class=si>}{</span><span class=n>NBSP</span><span class=si>}</span><span class=s2>%Z"</span>
+
+
+<div class=viewcode-block id=datetime_to_date_str>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_conv.datetime_to_date_str>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>datetime_to_date_str</span><span class=p>(</span><span class=n>date</span><span class=p>:</span> <span class=n>datetime</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Convert a datetime object to a date string.</span>
+
+<span class=sd>    :param date: the date</span>
+<span class=sd>    :returns: the date string</span>
+<span class=sd>    :raises TypeError: if `date` is not an instance of</span>
+<span class=sd>        :class:`datetime.datetime`.</span>
+
+<span class=sd>    >>> datetime_to_date_str(datetime(1999, 12, 21))</span>
+<span class=sd>    '1999\u201112\u201121'</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     datetime_to_date_str(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    date should be an instance of datetime.datetime but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     datetime_to_date_str(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    date should be an instance of datetime.datetime but is int, namely 1.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>date</span><span class=p>,</span> <span class=n>datetime</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>date</span><span class=p>,</span> <span class=s2>"date"</span><span class=p>,</span> <span class=n>datetime</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>date</span><span class=o>.</span><span class=n>strftime</span><span class=p>(</span><span class=n>__DATE_FORMAT</span><span class=p>)</span></div>
+
+
+
+<div class=viewcode-block id=datetime_to_datetime_str>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_conv.datetime_to_datetime_str>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>datetime_to_datetime_str</span><span class=p>(</span><span class=n>dateandtime</span><span class=p>:</span> <span class=n>datetime</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Convert a datetime object to a date-time string.</span>
+
+<span class=sd>    :param dateandtime: the date and time</span>
+<span class=sd>    :returns: the date-time string</span>
+<span class=sd>    :raises TypeError: if `dateandtime` is not an instance of</span>
+<span class=sd>        :class:`datetime.datetime`.</span>
+
+<span class=sd>    >>> datetime_to_datetime_str(datetime(1999, 12, 21, 13, 42, 23))</span>
+<span class=sd>    '1999\u201112\u201121\xa013:42'</span>
+<span class=sd>    >>> from datetime import timezone</span>
+<span class=sd>    >>> datetime_to_datetime_str(datetime(1999, 12, 21, 13, 42,</span>
+<span class=sd>    ...                                   tzinfo=timezone.utc))</span>
+<span class=sd>    '1999\u201112\u201121\xa013:42\xa0UTC'</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     datetime_to_datetime_str(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    dateandtime should be an instance of datetime.datetime but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     datetime_to_datetime_str(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:60])</span>
+<span class=sd>    dateandtime should be an instance of datetime.datetime but i</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>dateandtime</span><span class=p>,</span> <span class=n>datetime</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>dateandtime</span><span class=p>,</span> <span class=s2>"dateandtime"</span><span class=p>,</span> <span class=n>datetime</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>dateandtime</span><span class=o>.</span><span class=n>strftime</span><span class=p>(</span>
+        <span class=n>__DATE_TIME_FORMAT_NO_TZ</span> <span class=k>if</span> <span class=n>dateandtime</span><span class=o>.</span><span class=n>tzinfo</span> <span class=ow>is</span> <span class=kc>None</span>
+        <span class=k>else</span> <span class=n>__DATE_TIME_FORMAT_TZ</span><span class=p>)</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.strings.string_conv</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

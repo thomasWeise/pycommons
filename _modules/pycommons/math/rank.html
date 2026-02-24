@@ -1,0 +1,228 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.math.rank — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/math/rank.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.math.rank</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.math.rank</h1><div class=highlight><pre>
+<span></span><span class=sd>"""Some tools for ranking data."""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>math</span><span class=w> </span><span class=kn>import</span> <span class=n>isfinite</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>operator</span><span class=w> </span><span class=kn>import</span> <span class=n>add</span><span class=p>,</span> <span class=n>itemgetter</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>,</span> <span class=n>TypeVar</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>type_error</span>
+
+<span class=c1>#: the type of the element to sort during ranking</span>
+<span class=n>T</span> <span class=o>=</span> <span class=n>TypeVar</span><span class=p>(</span><span class=s2>"T"</span><span class=p>)</span>
+
+<span class=c1>#: the type of the key to use during ranking</span>
+<span class=n>K</span> <span class=o>=</span> <span class=n>TypeVar</span><span class=p>(</span><span class=s2>"K"</span><span class=p>)</span>
+
+<span class=c1>#: the rank type: must either be int, float, or a union of both</span>
+<span class=n>R</span> <span class=o>=</span> <span class=n>TypeVar</span><span class=p>(</span><span class=s2>"R"</span><span class=p>,</span> <span class=nb>int</span><span class=p>,</span> <span class=nb>float</span><span class=p>,</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>)</span>
+
+<span class=c1>#: the output type var</span>
+<span class=n>X</span> <span class=o>=</span> <span class=n>TypeVar</span><span class=p>(</span><span class=s2>"X"</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=rank>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.rank.rank>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>rank</span><span class=p>(</span><span class=n>source</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=n>T</span><span class=p>],</span>
+         <span class=n>key</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>T</span><span class=p>],</span> <span class=n>K</span><span class=p>]</span> <span class=o>=</span> <span class=k>lambda</span> <span class=n>x</span><span class=p>:</span> <span class=n>x</span><span class=p>,</span>  <span class=c1># type: ignore</span>
+         <span class=n>output</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>R</span><span class=p>,</span> <span class=n>T</span><span class=p>,</span> <span class=n>K</span><span class=p>],</span> <span class=n>X</span><span class=p>]</span> <span class=o>=</span>  <span class=c1># type: ignore</span>
+         <span class=k>lambda</span> <span class=n>rr</span><span class=p>,</span> <span class=n>tt</span><span class=p>,</span> <span class=n>_</span><span class=p>:</span> <span class=p>(</span><span class=n>rr</span><span class=p>,</span> <span class=n>tt</span><span class=p>),</span>  <span class=c1># type: ignore</span>
+         <span class=n>rank_join</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>int</span><span class=p>,</span> <span class=nb>int</span><span class=p>],</span> <span class=n>R</span><span class=p>]</span> <span class=o>=</span> <span class=n>add</span><span class=p>,</span>  <span class=c1># type: ignore</span>
+         <span class=n>rank_offset</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span><span class=p>)</span> <span class=o>-></span> <span class=nb>list</span><span class=p>[</span><span class=n>X</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Rank the elements in a data source based on a given key function.</span>
+
+<span class=sd>    The default behavior of this function is to basically sort the data from</span>
+<span class=sd>    `source` and return tuples with the rank and the data element in a list.</span>
+<span class=sd>    The result list is sorted by the keys of the object.</span>
+
+<span class=sd>    By default, ranks start at `0` and increase in steps of `2`. The ranks of</span>
+<span class=sd>    objects that would have the same rank are resolved by averaging their</span>
+<span class=sd>    ranks. This is why we increment ranks in steps of `2`: This way, the mean</span>
+<span class=sd>    of two ranks is always an integer:</span>
+
+<span class=sd>    >>> rank([3, 6, 6, 12])</span>
+<span class=sd>    [(0, 3), (3, 6), (3, 6), (6, 12)]</span>
+
+<span class=sd>    This averaging can be modified by providing a `rank_join` function that</span>
+<span class=sd>    computes a joint rank for objects as well as a `rank_offset`:</span>
+
+<span class=sd>    >>> rank([3, 6, 6, 12], rank_join=lambda a, b: 0.5 * (a + b))</span>
+<span class=sd>    [(0.0, 3), (1.5, 6), (1.5, 6), (3.0, 12)]</span>
+
+<span class=sd>    >>> rank([3, 6, 6, 12], rank_join=min, rank_offset=1)</span>
+<span class=sd>    [(1, 3), (2, 6), (2, 6), (4, 12)]</span>
+
+<span class=sd>    >>> rank([3, 6, 6, 12], rank_join=max, rank_offset=1)</span>
+<span class=sd>    [(1, 3), (3, 6), (3, 6), (4, 12)]</span>
+
+<span class=sd>    However, the result of `rank_offset + rank_join(a, b)` must always be</span>
+<span class=sd>    either an `int` or a `float` and also always finite and never negative,</span>
+<span class=sd>    for any two non-negative integers `a` and `b`.</span>
+
+<span class=sd>    The `key` function must compute a key for each element of `source` which</span>
+<span class=sd>    can be used for sorting. By default, it returns the element itself.</span>
+<span class=sd>    But it can be customized.</span>
+
+<span class=sd>    >>> rank((6, 5, 3, 4, 0, 7))</span>
+<span class=sd>    [(0, 0), (2, 3), (4, 4), (6, 5), (8, 6), (10, 7)]</span>
+
+<span class=sd>    >>> sorted(rank({"a", "c", "X", "y", "x", "xx", "L", "l"}, key=str.lower))</span>
+<span class=sd>    [(0, 'a'), (2, 'c'), (5, 'L'), (5, 'l'), (9, 'X'), (9, 'x'), (12, 'xx'), \</span>
+<span class=sd>(14, 'y')]</span>
+
+<span class=sd>    The `output` function is used to create the records to be placed in the</span>
+<span class=sd>    list returned by this function. Its input are the rank, the object, and</span>
+<span class=sd>    its computed key. By default, it creates tuples of the rank and the object</span>
+<span class=sd>    obtained from `source`. You can customize this as well:</span>
+
+<span class=sd>    >>> rank([5, 7, 4, 9, 2, 1])</span>
+<span class=sd>    [(0, 1), (2, 2), (4, 4), (6, 5), (8, 7), (10, 9)]</span>
+
+<span class=sd>    >>> rank([5, 7, 4, 9, 2, 1], output=lambda rr, oo, kk: f"{rr}:{oo}")</span>
+<span class=sd>    ['0:1', '2:2', '4:4', '6:5', '8:7', '10:9']</span>
+
+<span class=sd>    >>> rank([5, 7, 4, 19, 2, 1], key=str,</span>
+<span class=sd>    ...         output=lambda rr, oo, kk: (rr, oo, kk))</span>
+<span class=sd>    [(0, 1, '1'), (2, 19, '19'), (4, 2, '2'), (6, 4, '4'), (8, 5, '5'), \</span>
+<span class=sd>(10, 7, '7')]</span>
+
+<span class=sd>    :param source: the data source</span>
+<span class=sd>    :param key: a function returning the key for a given object</span>
+<span class=sd>    :param output: a function creating the output object, receiving the rank,</span>
+<span class=sd>        original object, and key as input</span>
+<span class=sd>    :param rank_join: a function for joining a maximum and minimum index of an</span>
+<span class=sd>        object to a rank; by default this returns the sum of both</span>
+<span class=sd>    :param rank_offset: an offset to be added to the ranks</span>
+<span class=sd>    :returns: a list with the objects generated by the `output` function,</span>
+<span class=sd>        which by default are tuples of rank and object</span>
+
+<span class=sd>    >>> rank({})</span>
+<span class=sd>    []</span>
+<span class=sd>    >>> rank([12])</span>
+<span class=sd>    [(0, 12)]</span>
+<span class=sd>    >>> rank([12, 3])</span>
+<span class=sd>    [(0, 3), (2, 12)]</span>
+<span class=sd>    >>> rank([3, 12], rank_offset=2)</span>
+<span class=sd>    [(2, 3), (4, 12)]</span>
+<span class=sd>    >>> rank([12, 12])</span>
+<span class=sd>    [(1, 12), (1, 12)]</span>
+<span class=sd>    >>> rank([12, 12], output=lambda rr, tt, kk: rr)</span>
+<span class=sd>    [1, 1]</span>
+<span class=sd>    >>> rank([-1, 0, 4, 3, 3, 5, 6, 1])</span>
+<span class=sd>    [(0, -1), (2, 0), (4, 1), (7, 3), (7, 3), (10, 4), (12, 5), (14, 6)]</span>
+<span class=sd>    >>> rank([-1, 0, 4, 3, 3, 5, 6, 1], rank_join=lambda a, b: 0.5 * (a + b))</span>
+<span class=sd>    [(0.0, -1), (1.0, 0), (2.0, 1), (3.5, 3), (3.5, 3), (5.0, 4), (6.0, 5), \</span>
+<span class=sd>(7.0, 6)]</span>
+<span class=sd>    >>> sorted(rank(("a", "B", "c", "b", "A", "A", "cc"), key=str.casefold))</span>
+<span class=sd>    [(2, 'A'), (2, 'A'), (2, 'a'), (7, 'B'), (7, 'b'), (10, 'c'), (12, 'cc')]</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     rank(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    source should be an instance of typing.Iterable but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     rank([], key=1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    key should be a callable but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     rank([], output=1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    output should be a callable but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     rank([], rank_join=1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    rank_join should be a callable but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     rank([], rank_offset="x")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    rank_offset should be an instance of any in {float, int} \</span>
+<span class=sd>but is str, namely 'x'.</span>
+
+<span class=sd>    >>> from math import inf, nan</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     rank([], rank_offset=inf)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    rank_offset=inf should be finite</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     rank([], rank_offset=nan)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    rank_offset=nan should be finite</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     rank([1, 2, 3], rank_join=lambda a, b: "x")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    rank_join(0, 0) should be an instance of any in {float, int} \</span>
+<span class=sd>but is str, namely 'x'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     rank([1, 2, 3], rank_join=lambda a, b: inf)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    rank inf=rank_join(0, 0) + 0 is not finite and non-negative.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     rank([1, 2, 3], rank_join=lambda a, b: nan)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    rank nan=rank_join(0, 0) + 0 is not finite and non-negative.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>source</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>source</span><span class=p>,</span> <span class=s2>"source"</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>key</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>key</span><span class=p>,</span> <span class=s2>"key"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>output</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>output</span><span class=p>,</span> <span class=s2>"output"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>rank_join</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>rank_join</span><span class=p>,</span> <span class=s2>"rank_join"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>rank_offset</span><span class=p>,</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>rank_offset</span><span class=p>,</span> <span class=s2>"rank_offset"</span><span class=p>,</span> <span class=p>(</span><span class=nb>int</span><span class=p>,</span> <span class=nb>float</span><span class=p>))</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>isfinite</span><span class=p>(</span><span class=n>rank_offset</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"rank_offset=</span><span class=si>{</span><span class=n>rank_offset</span><span class=si>}</span><span class=s2> should be finite"</span><span class=p>)</span>
+
+    <span class=n>data</span><span class=p>:</span> <span class=nb>list</span> <span class=o>=</span> <span class=p>[(</span><span class=n>key</span><span class=p>(</span><span class=n>t</span><span class=p>),</span> <span class=n>t</span><span class=p>)</span> <span class=k>for</span> <span class=n>t</span> <span class=ow>in</span> <span class=n>source</span><span class=p>]</span>  <span class=c1># convert data to list</span>
+    <span class=n>max_hi</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=nb>list</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>data</span><span class=p>)</span> <span class=o>-</span> <span class=mi>1</span>  <span class=c1># maximum index</span>
+    <span class=k>if</span> <span class=n>max_hi</span> <span class=o><</span> <span class=mi>0</span><span class=p>:</span>  <span class=c1># data is empty, can return it as-is</span>
+        <span class=k>return</span> <span class=n>data</span>
+
+    <span class=n>data</span><span class=o>.</span><span class=n>sort</span><span class=p>(</span><span class=n>key</span><span class=o>=</span><span class=n>itemgetter</span><span class=p>(</span><span class=mi>0</span><span class=p>))</span>  <span class=c1># sort the data by the key</span>
+
+    <span class=n>lo</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>
+    <span class=k>while</span> <span class=n>lo</span> <span class=o><=</span> <span class=n>max_hi</span><span class=p>:</span>  <span class=c1># iterate through all the data</span>
+        <span class=c1># first, we obtain the index range of objects with the same rank</span>
+        <span class=n>lo_key</span> <span class=o>=</span> <span class=n>data</span><span class=p>[</span><span class=n>lo</span><span class=p>][</span><span class=mi>0</span><span class=p>]</span>
+        <span class=n>hi</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>lo</span>
+        <span class=k>while</span> <span class=p>(</span><span class=n>hi</span> <span class=o><</span> <span class=n>max_hi</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=ow>not</span> <span class=n>lo_key</span> <span class=o><</span> <span class=n>data</span><span class=p>[</span><span class=n>hi</span> <span class=o>+</span> <span class=mi>1</span><span class=p>][</span><span class=mi>0</span><span class=p>]):</span>
+            <span class=n>hi</span> <span class=o>+=</span> <span class=mi>1</span>
+
+        <span class=n>r</span><span class=p>:</span> <span class=n>R</span> <span class=o>=</span> <span class=n>rank_join</span><span class=p>(</span><span class=n>lo</span><span class=p>,</span> <span class=n>hi</span><span class=p>)</span>  <span class=c1># compute the joint rank</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>r</span><span class=p>,</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>):</span>  <span class=c1># sanity check of rank, part 1</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>r</span><span class=p>,</span> <span class=sa>f</span><span class=s2>"rank_join(</span><span class=si>{</span><span class=n>lo</span><span class=si>}</span><span class=s2>, </span><span class=si>{</span><span class=n>hi</span><span class=si>}</span><span class=s2>)"</span><span class=p>,</span> <span class=p>(</span><span class=nb>int</span><span class=p>,</span> <span class=nb>float</span><span class=p>))</span>
+
+        <span class=n>r</span> <span class=o>+=</span> <span class=n>rank_offset</span>
+        <span class=k>if</span> <span class=p>(</span><span class=ow>not</span> <span class=n>isfinite</span><span class=p>(</span><span class=n>r</span><span class=p>))</span> <span class=ow>or</span> <span class=p>(</span><span class=n>r</span> <span class=o><</span> <span class=mi>0</span><span class=p>):</span>  <span class=c1># sanity check of rank, part 2</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"rank </span><span class=si>{</span><span class=n>r</span><span class=si>}</span><span class=s2>=rank_join(</span><span class=si>{</span><span class=n>lo</span><span class=si>}</span><span class=s2>, </span><span class=si>{</span><span class=n>hi</span><span class=si>}</span><span class=s2>) + </span><span class=si>{</span><span class=n>rank_offset</span><span class=si>}</span><span class=s2>"</span>
+                             <span class=s2>" is not finite and non-negative."</span><span class=p>)</span>
+
+        <span class=k>for</span> <span class=n>i</span> <span class=ow>in</span> <span class=nb>range</span><span class=p>(</span><span class=n>lo</span><span class=p>,</span> <span class=n>hi</span> <span class=o>+</span> <span class=mi>1</span><span class=p>):</span>  <span class=c1># assign rank and create output objects</span>
+            <span class=n>dk</span><span class=p>,</span> <span class=n>dt</span> <span class=o>=</span> <span class=n>data</span><span class=p>[</span><span class=n>i</span><span class=p>]</span>
+            <span class=n>data</span><span class=p>[</span><span class=n>i</span><span class=p>]</span> <span class=o>=</span> <span class=n>output</span><span class=p>(</span><span class=n>r</span><span class=p>,</span> <span class=n>dt</span><span class=p>,</span> <span class=n>dk</span><span class=p>)</span>
+
+        <span class=n>lo</span> <span class=o>=</span> <span class=n>hi</span> <span class=o>+</span> <span class=mi>1</span>  <span class=c1># move on to next object</span>
+
+    <span class=k>return</span> <span class=n>data</span>  <span class=c1># return finalized list</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.math.rank</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

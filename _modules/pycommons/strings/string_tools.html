@@ -1,0 +1,707 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.strings.string_tools — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/strings/string_tools.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.strings.string_tools</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.strings.string_tools</h1><div class=highlight><pre>
+<span></span><span class=sd>"""Routines for handling strings."""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>re</span><span class=w> </span><span class=kn>import</span> <span class=n>Match</span><span class=p>,</span> <span class=n>subn</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>re</span><span class=w> </span><span class=kn>import</span> <span class=nb>compile</span> <span class=k>as</span> <span class=n>_compile</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Any</span><span class=p>,</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Generator</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>,</span> <span class=n>Pattern</span><span class=p>,</span> <span class=n>cast</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>type_error</span>
+
+<span class=c1>#: fast call to :meth:`str.__len__`</span>
+<span class=n>__LEN</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=nb>int</span><span class=p>]]</span> <span class=o>=</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"Callable[[str], int]"</span><span class=p>,</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=replace_str>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_tools.replace_str>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>replace_str</span><span class=p>(</span><span class=n>find</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>replace</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>src</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Perform a recursive replacement of strings.</span>
+
+<span class=sd>    After applying this function, there will not be any occurence of `find`</span>
+<span class=sd>    left in `src`. All of them will have been replaced by `replace`. If that</span>
+<span class=sd>    produces new instances of `find`, these will be replaced as well</span>
+<span class=sd>    *unless they do not make the string shorter*. In other words, the</span>
+<span class=sd>    replacement is continued only if the new string becomes shorter.</span>
+
+<span class=sd>    See :func:`replace_regex` for regular-expression based replacements.</span>
+
+<span class=sd>    :param find: the string to find</span>
+<span class=sd>    :param replace: the string with which it will be replaced</span>
+<span class=sd>    :param src: the string in which we search</span>
+<span class=sd>    :returns: the string `src`, with all occurrences of find replaced by</span>
+<span class=sd>        replace</span>
+<span class=sd>    :raises TypeError: if any of the parameters are not strings</span>
+
+<span class=sd>    >>> replace_str("a", "b", "abc")</span>
+<span class=sd>    'bbc'</span>
+<span class=sd>    >>> replace_str("aa", "a", "aaaaa")</span>
+<span class=sd>    'a'</span>
+<span class=sd>    >>> replace_str("aba", "a", "abaababa")</span>
+<span class=sd>    'aa'</span>
+<span class=sd>    >>> replace_str("aba", "aba", "abaababa")</span>
+<span class=sd>    'abaababa'</span>
+<span class=sd>    >>> replace_str("aa", "aa", "aaaaaaaa")</span>
+<span class=sd>    'aaaaaaaa'</span>
+<span class=sd>    >>> replace_str("a", "aa", "aaaaaaaa")</span>
+<span class=sd>    'aaaaaaaaaaaaaaaa'</span>
+<span class=sd>    >>> replace_str("a", "xx", "aaaaaaaa")</span>
+<span class=sd>    'xxxxxxxxxxxxxxxx'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     replace_str(None, "a", "b")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    replace() argument 1 must be str, not None</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     replace_str(1, "a", "b")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    replace() argument 1 must be str, not int</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     replace_str("a", None, "b")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    replace() argument 2 must be str, not None</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     replace_str("x", 1, "b")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    replace() argument 2 must be str, not int</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     replace_str("a", "v", None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     replace_str("x", "xy", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+<span class=sd>    """</span>
+    <span class=n>new_len</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>__LEN</span><span class=p>(</span><span class=n>src</span><span class=p>)</span>
+    <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>
+        <span class=n>src</span> <span class=o>=</span> <span class=n>src</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=n>find</span><span class=p>,</span> <span class=n>replace</span><span class=p>)</span>
+        <span class=n>old_len</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>new_len</span>
+        <span class=n>new_len</span> <span class=o>=</span> <span class=n>__LEN</span><span class=p>(</span><span class=n>src</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>new_len</span> <span class=o>>=</span> <span class=n>old_len</span><span class=p>:</span>
+            <span class=k>return</span> <span class=n>src</span></div>
+
+
+
+<div class=viewcode-block id=replace_regex>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_tools.replace_regex>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>replace_regex</span><span class=p>(</span><span class=n>search</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=n>Pattern</span><span class=p>,</span>
+                  <span class=n>replace</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>Match</span><span class=p>],</span> <span class=nb>str</span><span class=p>],</span>
+                  <span class=n>inside</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Replace all occurrences of 'search' in 'inside' with 'replace'.</span>
+
+<span class=sd>    This replacement procedure is done repetitively and recursively until</span>
+<span class=sd>    no occurrence of `search` is found anymore. This, of course, may lead</span>
+<span class=sd>    to an endless loop, so a `ValueError` is thrown if there are too many</span>
+<span class=sd>    recursive replacements.</span>
+
+<span class=sd>    :param search: the regular expression to search, either a string or a</span>
+<span class=sd>        pattern</span>
+<span class=sd>    :param replace: the string to replace it with, or a function receiving</span>
+<span class=sd>        a :class:`re.Match` instance and returning a replacement string</span>
+<span class=sd>    :param inside: the string in which to search/replace</span>
+<span class=sd>    :returns: the new string after the recursive replacement</span>
+<span class=sd>    :raises TypeError: if any of the parameters is not of the right type</span>
+<span class=sd>    :raises ValueError: if there are 100000 recursive replacements or more,</span>
+<span class=sd>        indicating that there could be an endless loop</span>
+
+<span class=sd>    >>> replace_regex('[ \t]+\n', '\n', ' bla \nxyz\tabc\t\n')</span>
+<span class=sd>    ' bla\nxyz\tabc\n'</span>
+<span class=sd>    >>> replace_regex('[0-9]A', 'X', '23A7AA')</span>
+<span class=sd>    '2XXA'</span>
+<span class=sd>    >>> from re import compile as cpx</span>
+<span class=sd>    >>> replace_regex(cpx('[0-9]A'), 'X', '23A7AA')</span>
+<span class=sd>    '2XXA'</span>
+
+<span class=sd>    >>> def __repl(a):</span>
+<span class=sd>    ...     print(repr(a))</span>
+<span class=sd>    ...     return "y"</span>
+<span class=sd>    >>> replace_regex("a.b", __repl, "albaab")</span>
+<span class=sd>    &LTre.Match object; span=(0, 3), match='alb'></span>
+<span class=sd>    &LTre.Match object; span=(3, 6), match='aab'></span>
+<span class=sd>    'yy'</span>
+
+<span class=sd>    >>> def __repl(a):</span>
+<span class=sd>    ...     print(repr(a))</span>
+<span class=sd>    ...     ss = a.group()</span>
+<span class=sd>    ...     print(ss)</span>
+<span class=sd>    ...     return "axb"</span>
+<span class=sd>    >>> replace_regex("aa.bb", __repl, "aaaaaxbbbbb")</span>
+<span class=sd>    &LTre.Match object; span=(3, 8), match='aaxbb'></span>
+<span class=sd>    aaxbb</span>
+<span class=sd>    &LTre.Match object; span=(2, 7), match='aaxbb'></span>
+<span class=sd>    aaxbb</span>
+<span class=sd>    &LTre.Match object; span=(1, 6), match='aaxbb'></span>
+<span class=sd>    aaxbb</span>
+<span class=sd>    &LTre.Match object; span=(0, 5), match='aaxbb'></span>
+<span class=sd>    aaxbb</span>
+<span class=sd>    'axb'</span>
+
+<span class=sd>    >>> replace_regex("aa.bb", "axb", "aaaaaxbbbbb")</span>
+<span class=sd>    'axb'</span>
+<span class=sd>    >>> replace_regex("aa.bb", "axb", "".join("a" * 100 + "y" + "b" * 100))</span>
+<span class=sd>    'axb'</span>
+<span class=sd>    >>> replace_regex("aa.bb", "axb",</span>
+<span class=sd>    ...               "".join("a" * 10000 + "y" + "b" * 10000))</span>
+<span class=sd>    'axb'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...    replace_regex(1, "1", "2")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...    print(str(te)[0:60])</span>
+<span class=sd>    search should be an instance of any in {str, typing.Pattern}</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...    replace_regex(None, "1", "2")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...    print(te)</span>
+<span class=sd>    search should be an instance of any in {str, typing.Pattern} but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...    replace_regex("x", 2, "2")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...    print(te)</span>
+<span class=sd>    replace should be an instance of str or a callable but is int, namely 2.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...    replace_regex("x", None, "2")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...    print(te)</span>
+<span class=sd>    replace should be an instance of str or a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...    replace_regex(1, 1, "2")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...    print(str(te)[0:60])</span>
+<span class=sd>    search should be an instance of any in {str, typing.Pattern}</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...    replace_regex("yy", "1", 3)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...    print(te)</span>
+<span class=sd>    inside should be an instance of str but is int, namely 3.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...    replace_regex("adad", "1", None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...    print(te)</span>
+<span class=sd>    inside should be an instance of str but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...    replace_regex(1, "1", 3)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...    print(str(te)[0:60])</span>
+<span class=sd>    search should be an instance of any in {str, typing.Pattern}</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...    replace_regex(1, 3, 5)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...    print(str(te)[0:60])</span>
+<span class=sd>    search should be an instance of any in {str, typing.Pattern}</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     replace_regex("abab|baab|bbab|aaab|aaaa|bbbb", "baba",</span>
+<span class=sd>    ...                   "ababababab")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:50])</span>
+<span class=sd>    Too many replacements, pattern re.compile('abab|ba</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>search</span><span class=p>,</span> <span class=n>Pattern</span><span class=p>):</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>search</span><span class=p>,</span> <span class=nb>str</span><span class=p>):</span>
+            <span class=n>search</span> <span class=o>=</span> <span class=n>_compile</span><span class=p>(</span><span class=n>search</span><span class=p>)</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>search</span><span class=p>,</span> <span class=s2>"search"</span><span class=p>,</span> <span class=p>(</span><span class=nb>str</span><span class=p>,</span> <span class=n>Pattern</span><span class=p>))</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=p>(</span><span class=nb>isinstance</span><span class=p>(</span><span class=n>replace</span><span class=p>,</span> <span class=nb>str</span><span class=p>)</span> <span class=ow>or</span> <span class=nb>callable</span><span class=p>(</span><span class=n>replace</span><span class=p>)):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>replace</span><span class=p>,</span> <span class=s2>"replace"</span><span class=p>,</span> <span class=nb>str</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>inside</span><span class=p>,</span> <span class=nb>str</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>inside</span><span class=p>,</span> <span class=s2>"inside"</span><span class=p>,</span> <span class=nb>str</span><span class=p>)</span>
+    <span class=k>for</span> <span class=n>_</span> <span class=ow>in</span> <span class=nb>range</span><span class=p>(</span><span class=mi>100_000</span><span class=p>):</span>
+        <span class=n>text</span><span class=p>,</span> <span class=n>n</span> <span class=o>=</span> <span class=n>subn</span><span class=p>(</span><span class=n>pattern</span><span class=o>=</span><span class=n>search</span><span class=p>,</span> <span class=n>repl</span><span class=o>=</span><span class=n>replace</span><span class=p>,</span> <span class=n>string</span><span class=o>=</span><span class=n>inside</span><span class=p>)</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>n</span> <span class=o><=</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>text</span> <span class=o>==</span> <span class=n>inside</span><span class=p>):</span>
+            <span class=k>return</span> <span class=n>text</span>
+        <span class=n>inside</span> <span class=o>=</span> <span class=n>text</span>
+    <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+        <span class=sa>f</span><span class=s2>"Too many replacements, pattern </span><span class=si>{</span><span class=n>search</span><span class=si>!r}</span><span class=s2> probably malformed for "</span>
+        <span class=sa>f</span><span class=s2>"text </span><span class=si>{</span><span class=n>inside</span><span class=si>!r}</span><span class=s2> and replacement </span><span class=si>{</span><span class=n>replace</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span></div>
+
+
+
+<div class=viewcode-block id=get_prefix_str>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_tools.get_prefix_str>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>get_prefix_str</span><span class=p>(</span><span class=n>strings</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>])</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Compute the common prefix of an iterable of strings.</span>
+
+<span class=sd>    :param strings: the iterable of strings</span>
+<span class=sd>    :returns: the common prefix</span>
+<span class=sd>    :raises TypeError: if the input is not a string, iterable of string,</span>
+<span class=sd>        or contains any non-string element (before the prefix is determined)</span>
+<span class=sd>        Notice: If the prefix is determined as the empty string, then the</span>
+<span class=sd>        search is stopped. If some non-`str` items follow later in `strings`,</span>
+<span class=sd>        then these may not raise a `TypeError`</span>
+
+<span class=sd>    >>> get_prefix_str(["abc", "acd"])</span>
+<span class=sd>    'a'</span>
+<span class=sd>    >>> get_prefix_str(["xyz", "gsdf"])</span>
+<span class=sd>    ''</span>
+<span class=sd>    >>> get_prefix_str([])</span>
+<span class=sd>    ''</span>
+<span class=sd>    >>> get_prefix_str(["abx"])</span>
+<span class=sd>    'abx'</span>
+<span class=sd>    >>> get_prefix_str(("abx", ))</span>
+<span class=sd>    'abx'</span>
+<span class=sd>    >>> get_prefix_str({"abx", })</span>
+<span class=sd>    'abx'</span>
+<span class=sd>    >>> get_prefix_str("abx")</span>
+<span class=sd>    'abx'</span>
+<span class=sd>    >>> get_prefix_str(("\\relative.path", "\\relative.figure",</span>
+<span class=sd>    ...     "\\relative.code"))</span>
+<span class=sd>    '\\relative.'</span>
+<span class=sd>    >>> get_prefix_str({"\\relative.path", "\\relative.figure",</span>
+<span class=sd>    ...     "\\relative.code"})</span>
+<span class=sd>    '\\relative.'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     get_prefix_str(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    strings should be an instance of any in {str, typing.Iterable} but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     get_prefix_str(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:60])</span>
+<span class=sd>    strings should be an instance of any in {str, typing.Iterabl</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     get_prefix_str(["abc", "acd", 2, "x"])</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     get_prefix_str(["abc", "acd", None, "x"])</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> get_prefix_str(["xyz", "gsdf", 5])</span>
+<span class=sd>    ''</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>strings</span><span class=p>,</span> <span class=nb>str</span><span class=p>):</span>
+        <span class=k>return</span> <span class=n>strings</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>strings</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>strings</span><span class=p>,</span> <span class=s2>"strings"</span><span class=p>,</span> <span class=p>(</span><span class=nb>str</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>))</span>
+    <span class=n>prefix</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=n>prefix_len</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>
+    <span class=k>for</span> <span class=n>current</span> <span class=ow>in</span> <span class=n>strings</span><span class=p>:</span>  <span class=c1># iterate over all strings</span>
+        <span class=n>current_len</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>__LEN</span><span class=p>(</span><span class=n>current</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>prefix</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>  <span class=c1># no prefix set yet</span>
+            <span class=n>prefix</span> <span class=o>=</span> <span class=n>current</span>
+            <span class=n>prefix_len</span> <span class=o>=</span> <span class=n>current_len</span>
+        <span class=k>else</span><span class=p>:</span>  <span class=c1># we got a prefix</span>
+            <span class=k>for</span> <span class=n>i</span> <span class=ow>in</span> <span class=nb>range</span><span class=p>(</span><span class=nb>min</span><span class=p>(</span><span class=n>prefix_len</span><span class=p>,</span> <span class=n>current_len</span><span class=p>)):</span>
+                <span class=k>if</span> <span class=n>prefix</span><span class=p>[</span><span class=n>i</span><span class=p>]</span> <span class=o>!=</span> <span class=n>current</span><span class=p>[</span><span class=n>i</span><span class=p>]:</span>
+                    <span class=n>prefix_len</span> <span class=o>=</span> <span class=n>i</span>
+                    <span class=k>break</span>
+        <span class=k>if</span> <span class=n>prefix_len</span> <span class=o>==</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>return</span> <span class=s2>""</span>
+    <span class=k>return</span> <span class=s2>""</span> <span class=k>if</span> <span class=n>prefix</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>prefix</span><span class=p>[</span><span class=mi>0</span><span class=p>:</span><span class=n>prefix_len</span><span class=p>]</span></div>
+
+
+
+<div class=viewcode-block id=split_str>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_tools.split_str>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>split_str</span><span class=p>(</span><span class=n>source</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>split_by</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=n>Generator</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=kc>None</span><span class=p>,</span> <span class=kc>None</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Split a string by the given other string.</span>
+
+<span class=sd>    The goal is to provide a less memory intense variant of the method</span>
+<span class=sd>    :meth:`str.split`. This routine should iteratively divide a given string</span>
+<span class=sd>    based on a splitting character or string. This function may be useful if</span>
+<span class=sd>    we are dealing with a very big `source` string and want to iteratively</span>
+<span class=sd>    split it into smaller strings. Instead of creating a list with many small</span>
+<span class=sd>    strings, what :meth:`str.split` does, it creates these strings</span>
+<span class=sd>    iteratively</span>
+
+<span class=sd>    :param source: the source string</span>
+<span class=sd>    :param split_by: the split string</span>
+<span class=sd>    :returns: each split element</span>
+
+<span class=sd>    >>> list(split_str("", ""))</span>
+<span class=sd>    ['']</span>
+
+<span class=sd>    >>> list(split_str("", "x"))</span>
+<span class=sd>    ['']</span>
+
+<span class=sd>    >>> list(split_str("a", ""))</span>
+<span class=sd>    ['a']</span>
+
+<span class=sd>    >>> list(split_str("abc", ""))</span>
+<span class=sd>    ['a', 'b', 'c']</span>
+
+<span class=sd>    >>> list(split_str("a;b;c", ";"))</span>
+<span class=sd>    ['a', 'b', 'c']</span>
+
+<span class=sd>    >>> list(split_str("a;b;c;", ";"))</span>
+<span class=sd>    ['a', 'b', 'c', '']</span>
+
+<span class=sd>    >>> list(split_str(";a;b;;c;", ";"))</span>
+<span class=sd>    ['', 'a', 'b', '', 'c', '']</span>
+
+<span class=sd>    >>> list(split_str("a;aaa;aba;aa;aca;a", "a;a"))</span>
+<span class=sd>    ['', 'a', 'b', '', 'c', '']</span>
+<span class=sd>    """</span>
+    <span class=n>src_len</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>source</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>src_len</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>  <span class=c1># handle empty input strings</span>
+        <span class=k>yield</span> <span class=s2>""</span>  <span class=c1># the source is empty, so the split is empty, too</span>
+        <span class=k>return</span>  <span class=c1># quit after returning the empty string</span>
+
+    <span class=n>split_len</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>split_by</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>split_len</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>  <span class=c1># handle empty split patterns</span>
+        <span class=k>yield from</span> <span class=n>source</span>  <span class=c1># if the split is empty, we return each character</span>
+        <span class=k>return</span>  <span class=c1># and quit</span>
+
+    <span class=n>start</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>  <span class=c1># now we work for non-empty split patterns</span>
+    <span class=n>finder</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>int</span><span class=p>],</span> <span class=nb>int</span><span class=p>]]</span> <span class=o>=</span> <span class=n>source</span><span class=o>.</span><span class=n>find</span>  <span class=c1># fast call</span>
+    <span class=k>while</span> <span class=n>start</span> <span class=o><</span> <span class=n>src_len</span><span class=p>:</span>
+        <span class=n>end</span> <span class=o>=</span> <span class=n>finder</span><span class=p>(</span><span class=n>split_by</span><span class=p>,</span> <span class=n>start</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>end</span> <span class=o><</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>yield</span> <span class=n>source</span><span class=p>[</span><span class=n>start</span><span class=p>:]</span> <span class=k>if</span> <span class=n>start</span> <span class=o>></span> <span class=mi>0</span> <span class=k>else</span> <span class=n>source</span>
+            <span class=k>return</span>  <span class=c1># pattern not found anymore, so we quit</span>
+        <span class=k>yield</span> <span class=n>source</span><span class=p>[</span><span class=n>start</span><span class=p>:</span><span class=n>end</span><span class=p>]</span>
+        <span class=n>start</span> <span class=o>=</span> <span class=n>end</span> <span class=o>+</span> <span class=n>split_len</span>
+    <span class=k>yield</span> <span class=s2>""</span>  <span class=c1># pattern found at the end of the string</span></div>
+
+
+
+<div class=viewcode-block id=escape>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_tools.escape>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>escape</span><span class=p>(</span><span class=n>text</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>escapes</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>])</span> <span class=o>-></span> <span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=n>Any</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Escapes a set of substrings inside a string in a reversible manner.</span>
+
+<span class=sd>    A set of character sequences (`escapes`) are to be removed from</span>
+<span class=sd>    `text` and to be replaced with characters that do not occur inside</span>
+<span class=sd>    `text`. Escaping is a bijection. Since all escaped sequences are replaced</span>
+<span class=sd>    with characters that are new to the string, there cannot be any issue with</span>
+<span class=sd>    recursively occuring patterns or ambigiuties.</span>
+
+<span class=sd>    Replacement is performed iteratively from beginning to end. The first</span>
+<span class=sd>    sequence from `escapes` that is discovered is replaced and then the</span>
+<span class=sd>    process continues. If two sequences start at the same place, then the</span>
+<span class=sd>    longer one is replaced first.</span>
+
+<span class=sd>    The same `text` with the same set of escapes will always produce the same</span>
+<span class=sd>    output, regardless of the order of the escapes.</span>
+
+<span class=sd>    The function returns a tuple containing the escaped string as well as the</span>
+<span class=sd>    setup used for the escaping (as the second element). This second element</span>
+<span class=sd>    must *only* be used by the function :func:`unescape`, which is the reverse</span>
+<span class=sd>    operator of :func:`escape`. You must not make any assumption about its</span>
+<span class=sd>    nature.</span>
+
+<span class=sd>    :param text: the text</span>
+<span class=sd>    :param escapes: the substrings to escape</span>
+<span class=sd>    :return: a tuple of an escaped version of the string, together with</span>
+<span class=sd>        the escape information.</span>
+<span class=sd>        The second part of the tuple must not be accessed.</span>
+
+<span class=sd>    >>> s, v = escape("12345", ("12", "X", "5"))</span>
+<span class=sd>    >>> print(s)</span>
+<span class=sd>    "34!</span>
+<span class=sd>    >>> print(v)</span>
+<span class=sd>    [('12', '"'), ('5', '!')]</span>
+
+<span class=sd>    >>> unescape(s, v)</span>
+<span class=sd>    '12345'</span>
+
+<span class=sd>    >>> s, v = escape('"123!45', ("12", "X", "5", "!", '"'))</span>
+<span class=sd>    >>> print(s)</span>
+<span class=sd>    $&3#4%</span>
+<span class=sd>    >>> print(v)</span>
+<span class=sd>    [('!', '#'), ('"', '$'), ('12', '&'), ('5', '%')]</span>
+
+<span class=sd>    >>> unescape(s, v)</span>
+<span class=sd>    '"123!45'</span>
+
+<span class=sd>    >>> s, v = escape('"123!45', ("X", "5", "12", "!", '"'))</span>
+<span class=sd>    >>> print(s)</span>
+<span class=sd>    $&3#4%</span>
+<span class=sd>    >>> print(v)</span>
+<span class=sd>    [('!', '#'), ('"', '$'), ('12', '&'), ('5', '%')]</span>
+
+<span class=sd>    >>> unescape(s, v)</span>
+<span class=sd>    '"123!45'</span>
+
+<span class=sd>    >>> s, v = escape('111111112222233321111212121',</span>
+<span class=sd>    ...     ("1", "11", "2", "222", "1", "32", "321", "21", "33"))</span>
+<span class=sd>    >>> print(s)</span>
+<span class=sd>    ####'""&(#!$$$</span>
+<span class=sd>    >>> print(v)</span>
+<span class=sd>    [('1', '!'), ('11', '#'), ('2', '"'), ('21', '$'), ('222', "'"), \</span>
+<span class=sd>('321', '('), ('33', '&')]</span>
+
+<span class=sd>    >>> unescape(s, v)</span>
+<span class=sd>    '111111112222233321111212121'</span>
+
+<span class=sd>    >>> s, v = escape('111&111112222233321111212X121',</span>
+<span class=sd>    ...     ("1", "11", "2", "222", "1", "32", "321", "21", "33"))</span>
+<span class=sd>    >>> print(s)</span>
+<span class=sd>    #!&##!(""')#!$"X!$</span>
+<span class=sd>    >>> print(v)</span>
+<span class=sd>    [('1', '!'), ('11', '#'), ('2', '"'), ('21', '$'), ('222', '('), \</span>
+<span class=sd>('321', ')'), ('33', "'")]</span>
+
+<span class=sd>    >>> unescape(s, v)</span>
+<span class=sd>    '111&111112222233321111212X121'</span>
+
+<span class=sd>    >>> s, v = escape('221', ("22", "21"))</span>
+<span class=sd>    >>> print(s)</span>
+<span class=sd>    "1</span>
+<span class=sd>    >>> print(v)</span>
+<span class=sd>    [('22', '"')]</span>
+
+<span class=sd>    >>> s, v = escape('22221', ("2222", "2221", "22", "21"))</span>
+<span class=sd>    >>> print(s)</span>
+<span class=sd>    $1</span>
+<span class=sd>    >>> print(v)</span>
+<span class=sd>    [('2222', '$')]</span>
+
+<span class=sd>    >>> unescape(s, v)</span>
+<span class=sd>    '22221'</span>
+
+<span class=sd>    >>> s, v = escape('222212222122221', ("2222", "2221", "22", "21"))</span>
+<span class=sd>    >>> print(s)</span>
+<span class=sd>    $1$1$1</span>
+<span class=sd>    >>> print(v)</span>
+<span class=sd>    [('2222', '$')]</span>
+
+<span class=sd>    >>> unescape(s, v)</span>
+<span class=sd>    '222212222122221'</span>
+
+<span class=sd>    >>> s, v = escape('222212222122221', ("2222", "2221", "22", "21", '"1'))</span>
+<span class=sd>    >>> print(s)</span>
+<span class=sd>    %1%1%1</span>
+<span class=sd>    >>> print(v)</span>
+<span class=sd>    [('2222', '%')]</span>
+
+<span class=sd>    >>> unescape(s, v)</span>
+<span class=sd>    '222212222122221'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     escape(1, None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     escape("x", 5)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    'int' object is not iterable</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     escape("x", (5, ))</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> s, v = escape("", ("12", ))</span>
+<span class=sd>    >>> s == ""</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> v is None</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> s, v = escape("12", [])</span>
+<span class=sd>    >>> s == "12"</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> v is None</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> s, v = escape("12", ["3", "4", "5"])</span>
+<span class=sd>    >>> s == "12"</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> v is None</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     s, v = escape("1" * 1_073_741_826, ("x", ))</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    We rather not escape a string with 1073741826 characters.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     s, v = escape("".join(chr(i) for i in range(524_290)), ("x", ))</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    524290 different characters and 1 escapes are too many.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     s, v = escape("123", ("x", ""))</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Cannot escape empty string.</span>
+<span class=sd>    """</span>
+    <span class=n>text_len</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>text</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>text_len</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>return</span> <span class=s2>""</span><span class=p>,</span> <span class=kc>None</span>
+    <span class=k>if</span> <span class=n>text_len</span> <span class=o>></span> <span class=mi>1_073_741_824</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"We rather not escape a string with </span><span class=si>{</span><span class=n>text_len</span><span class=si>}</span><span class=s2> characters."</span><span class=p>)</span>
+
+    <span class=c1># check which of the escapes are actually needed</span>
+    <span class=n>forbidden</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=n>Any</span><span class=p>]]</span> <span class=o>=</span> <span class=p>[]</span>
+    <span class=n>charset</span><span class=p>:</span> <span class=nb>set</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>set</span><span class=p>()</span>
+    <span class=n>needs_escaping</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>False</span>
+    <span class=k>for</span> <span class=n>fb</span> <span class=ow>in</span> <span class=n>escapes</span><span class=p>:</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>fb</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Cannot escape empty string."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>fb</span> <span class=ow>in</span> <span class=n>forbidden</span><span class=p>:</span>
+            <span class=k>continue</span>
+        <span class=n>charset</span><span class=o>.</span><span class=n>update</span><span class=p>(</span><span class=n>fb</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>fb</span> <span class=ow>in</span> <span class=n>text</span><span class=p>:</span>
+            <span class=n>forbidden</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>fb</span><span class=p>)</span>
+            <span class=n>needs_escaping</span> <span class=o>=</span> <span class=kc>True</span>
+
+    <span class=n>forbidden_len</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=nb>list</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>forbidden</span><span class=p>)</span>
+    <span class=k>if</span> <span class=p>(</span><span class=ow>not</span> <span class=n>needs_escaping</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>forbidden_len</span> <span class=o><=</span> <span class=mi>0</span><span class=p>):</span>
+        <span class=k>return</span> <span class=n>text</span><span class=p>,</span> <span class=kc>None</span>
+
+    <span class=c1># always create the same escape sequences</span>
+    <span class=n>forbidden</span><span class=o>.</span><span class=n>sort</span><span class=p>()</span>
+    <span class=c1># make sure to escape long sequences first</span>
+    <span class=n>forbidden</span><span class=o>.</span><span class=n>sort</span><span class=p>(</span><span class=n>key</span><span class=o>=</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>)</span>  <span class=c1># type: ignore</span>
+
+    <span class=c1># get the set of all characters in this string</span>
+    <span class=n>charset</span><span class=o>.</span><span class=n>update</span><span class=p>(</span><span class=n>text</span><span class=p>)</span>
+    <span class=n>char_len</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=nb>set</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>charset</span><span class=p>)</span>
+    <span class=k>if</span> <span class=p>(</span><span class=n>char_len</span> <span class=o>+</span> <span class=n>forbidden_len</span><span class=p>)</span> <span class=o>></span> <span class=mi>524_288</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>char_len</span><span class=si>}</span><span class=s2> different characters and "</span>
+            <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>forbidden_len</span><span class=si>}</span><span class=s2> escapes are too many."</span><span class=p>)</span>
+
+    <span class=c1># get the characters to be used for escaping</span>
+    <span class=n>marker</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>33</span>
+    <span class=k>for</span> <span class=n>i</span><span class=p>,</span> <span class=n>esc</span> <span class=ow>in</span> <span class=nb>enumerate</span><span class=p>(</span><span class=n>forbidden</span><span class=p>):</span>
+        <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>
+            <span class=n>cmarker</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=nb>chr</span><span class=p>(</span><span class=n>marker</span><span class=p>)</span>
+            <span class=n>marker</span> <span class=o>+=</span> <span class=mi>1</span>
+            <span class=k>if</span> <span class=n>cmarker</span> <span class=ow>not</span> <span class=ow>in</span> <span class=n>charset</span><span class=p>:</span>
+                <span class=k>break</span>
+        <span class=n>forbidden</span><span class=p>[</span><span class=n>i</span><span class=p>]</span> <span class=o>=</span> <span class=p>[</span><span class=n>esc</span><span class=p>,</span> <span class=n>cmarker</span><span class=p>,</span> <span class=kc>False</span><span class=p>]</span>  <span class=c1># type: ignore</span>
+        <span class=n>charset</span><span class=o>.</span><span class=n>add</span><span class=p>(</span><span class=n>cmarker</span><span class=p>)</span>
+
+    <span class=c1># perform the escaping</span>
+    <span class=n>last</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>
+    <span class=n>used</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=p>[]</span>
+    <span class=n>forbidden_len</span> <span class=o>-=</span> <span class=mi>1</span>
+    <span class=k>while</span> <span class=n>forbidden_len</span> <span class=o>>=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=n>first</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>1_073_741_825</span>
+        <span class=n>ft</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=n>Any</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=k>for</span> <span class=n>i</span> <span class=ow>in</span> <span class=nb>range</span><span class=p>(</span><span class=n>forbidden_len</span><span class=p>,</span> <span class=o>-</span><span class=mi>1</span><span class=p>,</span> <span class=o>-</span><span class=mi>1</span><span class=p>):</span>
+            <span class=n>ftx</span> <span class=o>=</span> <span class=n>forbidden</span><span class=p>[</span><span class=n>i</span><span class=p>]</span>
+            <span class=n>index</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=n>ftx</span><span class=p>[</span><span class=mi>0</span><span class=p>],</span> <span class=n>last</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>index</span> <span class=o>>=</span> <span class=n>last</span><span class=p>:</span>
+                <span class=k>if</span> <span class=n>index</span> <span class=o><</span> <span class=n>first</span><span class=p>:</span>
+                    <span class=n>ft</span> <span class=o>=</span> <span class=n>ftx</span>
+                    <span class=n>first</span> <span class=o>=</span> <span class=n>index</span>
+            <span class=k>else</span><span class=p>:</span>
+                <span class=k>del</span> <span class=n>forbidden</span><span class=p>[</span><span class=n>i</span><span class=p>]</span>
+                <span class=n>forbidden_len</span> <span class=o>-=</span> <span class=mi>1</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>first</span> <span class=o><</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=ow>not</span> <span class=n>ft</span><span class=p>):</span>
+            <span class=k>break</span>
+
+        <span class=c1># This form of replacement of subsequences is inefficient.</span>
+        <span class=n>text</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=n>text</span><span class=p>,</span> <span class=n>ft</span><span class=p>[</span><span class=mi>0</span><span class=p>],</span> <span class=n>ft</span><span class=p>[</span><span class=mi>1</span><span class=p>],</span> <span class=mi>1</span><span class=p>)</span>  <span class=c1># Must be first occurence...</span>
+        <span class=c1># f"{text[:first]}{p2}{text[first + str.__len__(p1):]}"  # noqa</span>
+        <span class=n>last</span> <span class=o>=</span> <span class=n>first</span> <span class=o>+</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>ft</span><span class=p>[</span><span class=mi>1</span><span class=p>])</span>
+        <span class=k>if</span> <span class=n>ft</span><span class=p>[</span><span class=mi>2</span><span class=p>]:</span>
+            <span class=k>continue</span>
+        <span class=n>used</span><span class=o>.</span><span class=n>append</span><span class=p>((</span><span class=n>ft</span><span class=p>[</span><span class=mi>0</span><span class=p>],</span> <span class=n>ft</span><span class=p>[</span><span class=mi>1</span><span class=p>]))</span>
+        <span class=n>ft</span><span class=p>[</span><span class=mi>2</span><span class=p>]</span> <span class=o>=</span> <span class=kc>True</span>
+
+    <span class=n>used</span><span class=o>.</span><span class=n>sort</span><span class=p>()</span>
+    <span class=k>return</span> <span class=n>text</span><span class=p>,</span> <span class=n>used</span></div>
+
+
+
+<div class=viewcode-block id=unescape>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.string_tools.unescape>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>unescape</span><span class=p>(</span><span class=n>text</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>escapes</span><span class=p>:</span> <span class=n>Any</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Revert the operation of the :func:`escape` function.</span>
+
+<span class=sd>    See the documentation of the function :func:`escape`.</span>
+
+<span class=sd>    :param text: the text</span>
+<span class=sd>    :param escapes: the substrings to escape</span>
+<span class=sd>    :return: a tuple of an escaped version of the string, together with</span>
+<span class=sd>        the escape sequences.</span>
+
+<span class=sd>    >>> s, v = escape('2345123123^21123z41vvvbH34Zxgo493244747261',</span>
+<span class=sd>    ...     ("1", "11", "45", "v", "vb", "47", "61", "H3"))</span>
+<span class=sd>    >>> print(s)</span>
+<span class=sd>    23$!23!23^2#23z4!""('4Zxgo49324%%2&</span>
+<span class=sd>    >>> print(v)</span>
+<span class=sd>    [('1', '!'), ('11', '#'), ('45', '$'), ('47', '%'), ('61', '&'), \</span>
+<span class=sd>('H3', "'"), ('v', '"'), ('vb', '(')]</span>
+
+<span class=sd>    >>> unescape(s, v)</span>
+<span class=sd>    '2345123123^21123z41vvvbH34Zxgo493244747261'</span>
+
+<span class=sd>    >>> s, v = escape('23451"23123^2112$3z41#vvvb!H34Zxgo4932%44747261',</span>
+<span class=sd>    ...     ("1", "11", "45", "v", "vb", "47", "61", "H3"))</span>
+<span class=sd>    >>> print(s)</span>
+<span class=sd>    23)&"23&23^2(2$3z4&#''-!,4Zxgo4932%4**2+</span>
+<span class=sd>    >>> print(v)</span>
+<span class=sd>    [('1', '&'), ('11', '('), ('45', ')'), ('47', '*'), ('61', '+'), \</span>
+<span class=sd>('H3', ','), ('v', "'"), ('vb', '-')]</span>
+
+<span class=sd>    >>> unescape(s, v)</span>
+<span class=sd>    '23451"23123^2112$3z41#vvvb!H34Zxgo4932%44747261'</span>
+
+<span class=sd>    >>> unescape("", [("a", "b"), ])</span>
+<span class=sd>    ''</span>
+
+<span class=sd>    >>> unescape("b", [("a", "b"), ])</span>
+<span class=sd>    'a'</span>
+
+<span class=sd>    >>> unescape("b", None)</span>
+<span class=sd>    'b'</span>
+
+<span class=sd>    >>> unescape("b", [])</span>
+<span class=sd>    'b'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     unescape("1" * 1_073_741_825, [("1", "2"), ])</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    We rather not unescape a string with 1073741825 characters.</span>
+<span class=sd>    """</span>
+    <span class=n>text_len</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>text</span><span class=p>)</span>
+    <span class=k>if</span> <span class=p>(</span><span class=n>text_len</span> <span class=o><=</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>escapes</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span>
+            <span class=nb>list</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>escapes</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>):</span>
+        <span class=k>return</span> <span class=n>text</span>
+    <span class=k>if</span> <span class=n>text_len</span> <span class=o>></span> <span class=mi>1_073_741_824</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"We rather not unescape a string with </span><span class=si>{</span><span class=n>text_len</span><span class=si>}</span><span class=s2> characters."</span><span class=p>)</span>
+
+    <span class=c1># perform the un-escaping</span>
+    <span class=k>for</span> <span class=n>orig</span><span class=p>,</span> <span class=n>repl</span> <span class=ow>in</span> <span class=n>escapes</span><span class=p>:</span>
+        <span class=n>text</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=n>text</span><span class=p>,</span> <span class=n>repl</span><span class=p>,</span> <span class=n>orig</span><span class=p>)</span>
+
+    <span class=k>return</span> <span class=n>text</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.strings.string_tools</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

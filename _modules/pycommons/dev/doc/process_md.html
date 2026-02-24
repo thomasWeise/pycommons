@@ -1,0 +1,313 @@
+<!doctype html><html data-content_root=../../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.dev.doc.process_md — pycommons 0.8.89 documentation</title><link href="../../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/dev/doc/process_md.html rel=canonical><link href=../../../../genindex.html rel=index title=Index><link href=../../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.doc.process_md</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.dev.doc.process_md</h1><div class=highlight><pre>
+<span></span><span class=sd>"""</span>
+<span class=sd>Process a markdown file in order to make it useful for distribution.</span>
+
+<span class=sd>In order to let sphinx properly load and insert the `README.md` file into the</span>
+<span class=sd>project's documentation, we need to process this file from the GitHub style</span>
+<span class=sd>markdown to a variant suitable for the myst parser used in sphinx. While we</span>
+<span class=sd>are at it, we can also turn absolute URLs from the GitHub-`README.md` file</span>
+<span class=sd>that point to the documentation URL to relative URLs.</span>
+<span class=sd>"""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>re</span><span class=w> </span><span class=kn>import</span> <span class=n>Pattern</span><span class=p>,</span> <span class=n>sub</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>re</span><span class=w> </span><span class=kn>import</span> <span class=nb>compile</span> <span class=k>as</span> <span class=n>re_compile</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Any</span><span class=p>,</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>,</span> <span class=n>Mapping</span><span class=p>,</span> <span class=n>cast</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.dev.url_replacer</span><span class=w> </span><span class=kn>import</span> <span class=n>make_url_replacer</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>type_error</span>
+
+<span class=c1>#: detects strings of the form [xyz](#123-bla) and gives \1=xyz and \2=bla</span>
+<span class=n>__FIX_LINKS</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Pattern</span><span class=p>]</span> <span class=o>=</span> <span class=n>re_compile</span><span class=p>(</span><span class=sa>r</span><span class=s2>"(\[.+?])\(#\d+-(.+?)\)"</span><span class=p>)</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__process_markdown</span><span class=p>(</span>
+        <span class=n>source</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>],</span> <span class=n>dest</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=n>Any</span><span class=p>],</span>
+        <span class=n>line_processor</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=k>lambda</span> <span class=n>s</span><span class=p>:</span> <span class=n>s</span><span class=p>,</span>
+        <span class=n>discard_until</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=s2>"## 1. Introduction"</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Process a markdown file in order to make it useful for distribution.</span>
+
+<span class=sd>    This process changes the GitHub-style markdown to a format that the myst</span>
+<span class=sd>    parser, which is used by sphinx, can render properly. This involves</span>
+<span class=sd>    several issues:</span>
+
+<span class=sd>    1. We discard the top-level heading.</span>
+<span class=sd>    2. We need to move all sub-headings one step up.</span>
+<span class=sd>    3. Furthermore, we can turn all absolute URLs pointing to the</span>
+<span class=sd>       documentation website to local references starting with `./`.</span>
+
+<span class=sd>    :param source: the source line iterable</span>
+<span class=sd>    :param dest: the destination callable receiving the output</span>
+<span class=sd>    :param line_processor: an optional callable for processing lines</span>
+<span class=sd>    :param discard_until: discard all strings until reaching this line. If</span>
+<span class=sd>        this is `None`, all lines will be used. If this is not `None`, then</span>
+<span class=sd>        this will be the first line to be forwarded to `dest`f</span>
+
+<span class=sd>    >>> lp = list()</span>
+<span class=sd>    >>> lpp = make_url_replacer({"https://example.com/": "./"},</span>
+<span class=sd>    ...                         {"https://example.com/A": "xyz"})</span>
+<span class=sd>    >>> src = ["![image](https://example.com/1.jp)",</span>
+<span class=sd>    ...        "# This is `pycommons!`",</span>
+<span class=sd>    ...        "Table of contents",</span>
+<span class=sd>    ...        "## 1. Introduction",</span>
+<span class=sd>    ...        "blabla bla &LThttps://example.com/A>!",</span>
+<span class=sd>    ...        "## 2. Some More Text",</span>
+<span class=sd>    ...        "We [also say](https://example.com/z/hello.txt) stuff.",</span>
+<span class=sd>    ...        "### 2.4. Code Example",</span>
+<span class=sd>    ...        "```",</span>
+<span class=sd>    ...        "But [not in code](https://example.com/z/hello.txt).",</span>
+<span class=sd>    ...        "```",</span>
+<span class=sd>    ...        "See also [here](#24-code-example)."]</span>
+<span class=sd>    >>> __process_markdown(src, print, lpp)</span>
+<span class=sd>    # 1. Introduction</span>
+<span class=sd>    blabla bla &LTxyz>!</span>
+<span class=sd>    # 2. Some More Text</span>
+<span class=sd>    We [also say](./z/hello.txt) stuff.</span>
+<span class=sd>    ## 2.4. Code Example</span>
+<span class=sd>    ```</span>
+<span class=sd>    But [not in code](https://example.com/z/hello.txt).</span>
+<span class=sd>    ```</span>
+<span class=sd>    See also [here](#24-code-example).</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __process_markdown(None, print, lambda x: x, "bla")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    source should be an instance of typing.Iterable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __process_markdown(1, print, lambda x: x, "bla")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    source should be an instance of typing.Iterable but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __process_markdown([None], print, lambda x: x, "bla")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'rstrip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __process_markdown([1], print, lambda x: x, "bla")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'rstrip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __process_markdown([""], None, lambda x: x, "bla")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    dest should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __process_markdown([""], 1, lambda x: x, "bla")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    dest should be a callable but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __process_markdown([""], print, None, "bla")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    line_processor should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __process_markdown([""], print, 1, "bla")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    line_processor should be a callable but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __process_markdown([""], print, lambda x: x, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __process_markdown([""], print, lambda x: x, "")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    discard_until cannot be ''.</span>
+
+<span class=sd>    >>> __process_markdown([""], print, lambda x: x, None)</span>
+<span class=sd>    &LTBLANKLINE></span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>source</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>source</span><span class=p>,</span> <span class=s2>"source"</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>dest</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>dest</span><span class=p>,</span> <span class=s2>"dest"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>line_processor</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>line_processor</span><span class=p>,</span> <span class=s2>"line_processor"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+
+    <span class=n>skip</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>False</span>
+    <span class=k>if</span> <span class=n>discard_until</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>discard_until</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"discard_until cannot be </span><span class=si>{</span><span class=n>discard_until</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=n>skip</span> <span class=o>=</span> <span class=kc>True</span>
+    <span class=k>else</span><span class=p>:</span>
+        <span class=n>discard_until</span> <span class=o>=</span> <span class=s2>""</span>
+
+    <span class=n>in_code</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>False</span>  <span class=c1># we only process non-code lines</span>
+    <span class=n>needs_newline</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>False</span>  <span class=c1># required after image lines</span>
+    <span class=n>add_images_anyway</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span>
+    <span class=k>for</span> <span class=n>the_line</span> <span class=ow>in</span> <span class=n>source</span><span class=p>:</span>
+        <span class=n>line</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>rstrip</span><span class=p>(</span><span class=n>the_line</span><span class=p>)</span>  <span class=c1># enforce string</span>
+
+        <span class=c1># we skip everything until the introduction section</span>
+        <span class=k>if</span> <span class=n>skip</span><span class=p>:</span>
+            <span class=n>the_line_lstr</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>lstrip</span><span class=p>(</span><span class=n>the_line</span><span class=p>)</span>
+            <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>the_line_lstr</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+                <span class=k>continue</span>
+            <span class=k>if</span> <span class=n>the_line_lstr</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=n>discard_until</span><span class=p>):</span>
+                <span class=n>skip</span> <span class=o>=</span> <span class=kc>False</span>
+            <span class=k>elif</span> <span class=n>the_line_lstr</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"[!["</span><span class=p>)</span> <span class=ow>and</span> <span class=n>add_images_anyway</span><span class=p>:</span>
+                <span class=n>needs_newline</span> <span class=o>=</span> <span class=kc>True</span>
+                <span class=n>dest</span><span class=p>(</span><span class=n>line</span><span class=p>)</span>
+                <span class=k>continue</span>
+            <span class=k>else</span><span class=p>:</span>
+                <span class=n>add_images_anyway</span> <span class=o>=</span> <span class=kc>False</span>
+                <span class=k>continue</span>
+
+        <span class=k>if</span> <span class=n>needs_newline</span><span class=p>:</span>
+            <span class=n>dest</span><span class=p>(</span><span class=s2>""</span><span class=p>)</span>
+            <span class=n>needs_newline</span> <span class=o>=</span> <span class=kc>False</span>
+
+        <span class=k>if</span> <span class=n>in_code</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>line</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"```"</span><span class=p>):</span>
+                <span class=n>in_code</span> <span class=o>=</span> <span class=kc>False</span>  <span class=c1># toggle to non-code</span>
+        <span class=k>elif</span> <span class=n>line</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"```"</span><span class=p>):</span>
+            <span class=n>in_code</span> <span class=o>=</span> <span class=kc>True</span>  <span class=c1># toggle to code</span>
+        <span class=k>elif</span> <span class=n>line</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"#"</span><span class=p>):</span>
+            <span class=n>line</span> <span class=o>=</span> <span class=n>line</span><span class=p>[</span><span class=mi>1</span><span class=p>:]</span>  <span class=c1># move all sub-headings one step up</span>
+        <span class=k>else</span><span class=p>:</span>  <span class=c1># e.g., fix all urls via the line processor</span>
+            <span class=n>line</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>rstrip</span><span class=p>(</span><span class=n>line_processor</span><span class=p>(</span><span class=n>line</span><span class=p>))</span>
+
+        <span class=n>dest</span><span class=p>(</span><span class=n>line</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=process_markdown_for_sphinx>
+<a class=viewcode-back href=../../../../pycommons.dev.doc.html#pycommons.dev.doc.process_md.process_markdown_for_sphinx>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>process_markdown_for_sphinx</span><span class=p>(</span>
+        <span class=n>source</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>],</span> <span class=n>dest</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=n>Any</span><span class=p>],</span>
+        <span class=n>base_urls</span><span class=p>:</span> <span class=n>Mapping</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+        <span class=n>full_urls</span><span class=p>:</span> <span class=n>Mapping</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+        <span class=n>discard_until</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=s2>"## 1. Introduction"</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Process a markdown file in order to make it useful for distribution.</span>
+
+<span class=sd>    This process changes the GitHub-style markdown to a format that the myst</span>
+<span class=sd>    parser, which is used by sphinx, can render properly. This involves</span>
+<span class=sd>    several issues:</span>
+
+<span class=sd>    1. We discard the top-level heading.</span>
+<span class=sd>    2. We need to move all sub-headings one step up.</span>
+<span class=sd>    3. Furthermore, we can turn all absolute URLs pointing to the</span>
+<span class=sd>       documentation website to local references starting with `./`.</span>
+<span class=sd>    4. The myst parser drops the numerical prefixes of links, i.e., it tags</span>
+<span class=sd>       `## 1.2. Hello` with id `hello` instead of `12-hello`. This means that</span>
+<span class=sd>       we need to fix all references following the pattern `[xxx](#12-hello)`</span>
+<span class=sd>       to `[xxx](#hello)`.</span>
+
+<span class=sd>    :param source: the source line iterable</span>
+<span class=sd>    :param dest: the destination callable receiving the output</span>
+<span class=sd>    :param base_urls: a mapping of basic urls to shortcuts</span>
+<span class=sd>    :param full_urls: a mapping of full urls to abbreviations</span>
+<span class=sd>    :param discard_until: discard all strings until reaching this line. If</span>
+<span class=sd>        this is `None`, all lines will be used. If this is not `None`, then</span>
+<span class=sd>        this will be the first line to be forwarded to `dest`</span>
+
+<span class=sd>    >>> lp = list()</span>
+<span class=sd>    >>> src = ["![image](https://example.com/1.jp)",</span>
+<span class=sd>    ...        "# This is `pycommons!`",</span>
+<span class=sd>    ...        "Table of contents",</span>
+<span class=sd>    ...        "## 1. Introduction",</span>
+<span class=sd>    ...        "blabla bla &LThttps://example.com/A>!",</span>
+<span class=sd>    ...        "## 2. Some More Text",</span>
+<span class=sd>    ...        "We [also say](https://example.com/z/hello.txt) stuff.",</span>
+<span class=sd>    ...        "### 2.4. Code Example",</span>
+<span class=sd>    ...        "```",</span>
+<span class=sd>    ...        "But [not in code](https://example.com/z/hello.txt).",</span>
+<span class=sd>    ...        "```",</span>
+<span class=sd>    ...        "See also [here](#24-code-example)."]</span>
+<span class=sd>    >>> process_markdown_for_sphinx(src, print,</span>
+<span class=sd>    ...     {"https://example.com/": "./"},</span>
+<span class=sd>    ...     {"https://example.com/A": "xyz"})</span>
+<span class=sd>    # 1. Introduction</span>
+<span class=sd>    blabla bla &LTxyz>!</span>
+<span class=sd>    # 2. Some More Text</span>
+<span class=sd>    We [also say](./z/hello.txt) stuff.</span>
+<span class=sd>    ## 2.4. Code Example</span>
+<span class=sd>    ```</span>
+<span class=sd>    But [not in code](https://example.com/z/hello.txt).</span>
+<span class=sd>    ```</span>
+<span class=sd>    See also [here](#code-example).</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     process_markdown_for_sphinx(None, print)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    source should be an instance of typing.Iterable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     process_markdown_for_sphinx(1, print)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    source should be an instance of typing.Iterable but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     process_markdown_for_sphinx([None], print)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'rstrip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     process_markdown_for_sphinx([1], print)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'rstrip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     process_markdown_for_sphinx([""], None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    dest should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     process_markdown_for_sphinx([""], 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    dest should be a callable but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     process_markdown_for_sphinx([""], print, 1, None, "bla")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    base_urls should be an instance of typing.Mapping but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     process_markdown_for_sphinx([""], print, None, 1, "bla")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    full_urls should be an instance of typing.Mapping but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     process_markdown_for_sphinx([""], print, None, None, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     process_markdown_for_sphinx([""], print, None, None, "")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    discard_until cannot be ''.</span>
+
+<span class=sd>    >>> process_markdown_for_sphinx([""], print, None, None, None)</span>
+<span class=sd>    &LTBLANKLINE></span>
+<span class=sd>    """</span>
+    <span class=n>__process_markdown</span><span class=p>(</span><span class=n>source</span><span class=p>,</span> <span class=n>dest</span><span class=p>,</span> <span class=n>cast</span><span class=p>(</span>
+        <span class=s2>"Callable[[str], str]"</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>s</span><span class=p>,</span> <span class=n>__l</span><span class=o>=</span><span class=n>make_url_replacer</span><span class=p>(</span>
+            <span class=n>base_urls</span><span class=p>,</span> <span class=n>full_urls</span><span class=p>):</span> <span class=n>__l</span><span class=p>(</span><span class=n>sub</span><span class=p>(</span><span class=n>__FIX_LINKS</span><span class=p>,</span> <span class=s2>"</span><span class=se>\\</span><span class=s2>1(#</span><span class=se>\\</span><span class=s2>2)"</span><span class=p>,</span>
+                                           <span class=n>s</span><span class=p>))),</span> <span class=n>discard_until</span><span class=p>)</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.doc.process_md</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

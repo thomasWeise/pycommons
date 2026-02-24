@@ -1,0 +1,536 @@
+<!doctype html><html data-content_root=../../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.dev.doc.doc_info — pycommons 0.8.89 documentation</title><link href="../../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/dev/doc/doc_info.html rel=canonical><link href=../../../../genindex.html rel=index title=Index><link href=../../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.doc.doc_info</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.dev.doc.doc_info</h1><div class=highlight><pre>
+<span></span><span class=sd>"""</span>
+<span class=sd>The documentation information.</span>
+
+<span class=sd>The :class:`~pycommons.dev.doc.doc_info.DocInfo` holds the basic data needed</span>
+<span class=sd>to generate documentation in a unified way. For now, this data is loaded</span>
+<span class=sd>from the `setup.cfg` file, in which the process expects to find references</span>
+<span class=sd>to a `version.py` and `README.md` file. Then, it loads the information from</span>
+<span class=sd>these files as well. This spares us the trouble of defining the information</span>
+<span class=sd>in several places and keeping it synchronized.</span>
+<span class=sd>"""</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>configparser</span><span class=w> </span><span class=kn>import</span> <span class=n>ConfigParser</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>dataclasses</span><span class=w> </span><span class=kn>import</span> <span class=n>dataclass</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Final</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.console</span><span class=w> </span><span class=kn>import</span> <span class=n>logger</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.path</span><span class=w> </span><span class=kn>import</span> <span class=n>UTF8</span><span class=p>,</span> <span class=n>Path</span><span class=p>,</span> <span class=n>file_path</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.net.url</span><span class=w> </span><span class=kn>import</span> <span class=n>URL</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>check_int_range</span><span class=p>,</span> <span class=n>check_to_int_range</span>
+
+
+<div class=viewcode-block id=DocInfo>
+<a class=viewcode-back href=../../../../pycommons.dev.doc.html#pycommons.dev.doc.doc_info.DocInfo>[docs]</a>
+<span class=nd>@dataclass</span><span class=p>(</span><span class=n>frozen</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span> <span class=n>init</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span> <span class=n>order</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span> <span class=n>eq</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+<span class=k>class</span><span class=w> </span><span class=nc>DocInfo</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    A class that represents information about documentation.</span>
+
+<span class=sd>    >>> di = DocInfo(__file__, "a", "b", "c", "1", 12, "https://example.com")</span>
+<span class=sd>    >>> di.doc_url</span>
+<span class=sd>    'https://example.com'</span>
+<span class=sd>    >>> di.last_major_section_index</span>
+<span class=sd>    12</span>
+<span class=sd>    >>> di.project</span>
+<span class=sd>    'a'</span>
+<span class=sd>    >>> di.author</span>
+<span class=sd>    'b'</span>
+<span class=sd>    >>> di.title</span>
+<span class=sd>    'c'</span>
+<span class=sd>    >>> di.readme_md_file[-11:]</span>
+<span class=sd>    'doc_info.py'</span>
+
+<span class=sd>    >>> di = DocInfo(__file__, "a", "b", "c", "1", None,</span>
+<span class=sd>    ...             "https://example.com")</span>
+<span class=sd>    >>> di.doc_url</span>
+<span class=sd>    'https://example.com'</span>
+<span class=sd>    >>> print(di.last_major_section_index)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> di.title</span>
+<span class=sd>    'c'</span>
+<span class=sd>    >>> di.readme_md_file[-11:]</span>
+<span class=sd>    'doc_info.py'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(None, "a", "b", "c", "1", 12, "https://example.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(1, "a", "b", "c", "1", 12, "https://example.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, None, "b", "c", "1", 12, "https://example.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, 1, "b", "c", "1", 12, "https://example.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, " ", "b", "c", "1", 12, "https://example.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid project name ' '.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", None, "c", "1", 12, "https://example.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", 1, "c", "1", 12, "https://example.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", " ", "c", "1", 12, "https://example.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid author name ' '.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", None, "1", 12, "https://example.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", 1, "1", 12, "https://example.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "b", "c", " ", "1", 12, "https://example.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid title ' '.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", "c", None, 12, "https://example.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", "c", 1, 12, "https://example.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", "c", "x", 12, "https://example.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:64])</span>
+<span class=sd>    Invalid version 'x': Cannot convert version='x' to int, let alon</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", "c", " ", 12, "https://example.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:64])</span>
+<span class=sd>    Invalid version ' ': empty or only white space.</span>
+
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", "c", "1.x", 12, "https://example.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:64])</span>
+<span class=sd>    Invalid version '1.x': Cannot convert version='x' to int, let al</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", "c", "-1", 12, "https://example.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:64])</span>
+<span class=sd>    Invalid version '-1': version=-1 is invalid, must be in 0..10000</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", "c", "0.-1", 12, "https://example.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:64])</span>
+<span class=sd>    Invalid version '0.-1': version=-1 is invalid, must be in 0..100</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", "c", "1.2", "x",</span>
+<span class=sd>    ...             "https://example.com")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:60])</span>
+<span class=sd>    last_major_section_index should be an instance of int but is</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", "c", "1.2", 0, "https://example.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    last_major_section_index=0 is invalid, must be in 1..1000000.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", "c", "1.2", 12, None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", "c", "1.2", 12, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     DocInfo(__file__, "a", "b", "c", "1.2", 12, "dfg")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part '' has invalid length 0.</span>
+<span class=sd>    """</span>
+
+    <span class=c1>#: The readme.md file.</span>
+    <span class=n>readme_md_file</span><span class=p>:</span> <span class=n>Path</span>
+    <span class=c1>#: The project name.</span>
+    <span class=n>project</span><span class=p>:</span> <span class=nb>str</span>
+    <span class=c1>#: The author name.</span>
+    <span class=n>author</span><span class=p>:</span> <span class=nb>str</span>
+    <span class=c1>#: The documentation title.</span>
+    <span class=n>title</span><span class=p>:</span> <span class=nb>str</span>
+    <span class=c1>#: The version string.</span>
+    <span class=n>version</span><span class=p>:</span> <span class=nb>str</span>
+    <span class=c1>#: The index of the last major section</span>
+    <span class=n>last_major_section_index</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span>
+    <span class=c1>#: the base URL of the documentation</span>
+    <span class=n>doc_url</span><span class=p>:</span> <span class=n>URL</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>readme_md</span><span class=p>:</span> <span class=n>Path</span><span class=p>,</span> <span class=n>project</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>author</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span>
+                 <span class=n>title</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>version</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span>
+                 <span class=n>last_major_section_index</span><span class=p>:</span> <span class=nb>int</span><span class=p>,</span> <span class=n>doc_url</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Create the documentation information class.</span>
+
+<span class=sd>        :param readme_md: the path to the `README.md` file</span>
+<span class=sd>        :param project: the project name</span>
+<span class=sd>        :param author: the author name</span>
+<span class=sd>        :param title: the title string</span>
+<span class=sd>        :param version: the version string</span>
+<span class=sd>        :param last_major_section_index: the index of the last major section,</span>
+<span class=sd>            or `None`</span>
+<span class=sd>        :param doc_url: the base URL of the documentation</span>
+<span class=sd>        """</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"readme_md_file"</span><span class=p>,</span> <span class=n>file_path</span><span class=p>(</span><span class=n>readme_md</span><span class=p>))</span>
+
+        <span class=n>uproject</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>project</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>uproject</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid project name </span><span class=si>{</span><span class=n>project</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"project"</span><span class=p>,</span> <span class=n>uproject</span><span class=p>)</span>
+
+        <span class=n>uauthor</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>author</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>uauthor</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid author name </span><span class=si>{</span><span class=n>author</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"author"</span><span class=p>,</span> <span class=n>uauthor</span><span class=p>)</span>
+
+        <span class=n>utitle</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>title</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>utitle</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid title </span><span class=si>{</span><span class=n>title</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"title"</span><span class=p>,</span> <span class=n>utitle</span><span class=p>)</span>
+
+        <span class=n>uversion</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>version</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>uversion</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"Invalid version </span><span class=si>{</span><span class=n>version</span><span class=si>!r}</span><span class=s2>: empty or only white space."</span><span class=p>)</span>
+        <span class=k>for</span> <span class=n>v</span> <span class=ow>in</span> <span class=n>uversion</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=s2>"."</span><span class=p>):</span>  <span class=c1># noqa: PERF203</span>
+            <span class=k>try</span><span class=p>:</span>  <span class=c1># noqa: PERF203</span>
+                <span class=n>check_to_int_range</span><span class=p>(</span><span class=n>v</span><span class=p>,</span> <span class=s2>"version"</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>1_000_000_000</span><span class=p>)</span>
+            <span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>  <span class=c1># noqa: PERF203</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                    <span class=sa>f</span><span class=s2>"Invalid version </span><span class=si>{</span><span class=n>version</span><span class=si>!r}</span><span class=s2>: "</span>
+                    <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=nb>str</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span><span class=o>.</span><span class=n>removesuffix</span><span class=p>(</span><span class=s1>'.'</span><span class=p>)</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=nn>ve</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"version"</span><span class=p>,</span> <span class=n>uversion</span><span class=p>)</span>
+
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span>
+            <span class=bp>self</span><span class=p>,</span> <span class=s2>"last_major_section_index"</span><span class=p>,</span> <span class=kc>None</span>
+            <span class=k>if</span> <span class=n>last_major_section_index</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>check_int_range</span><span class=p>(</span>
+                <span class=n>last_major_section_index</span><span class=p>,</span> <span class=s2>"last_major_section_index"</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span>
+                <span class=mi>1_000_000</span><span class=p>))</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"doc_url"</span><span class=p>,</span> <span class=n>URL</span><span class=p>(</span><span class=n>doc_url</span><span class=p>))</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__str__</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Convert this object to a string.</span>
+
+<span class=sd>        :returns: the string version of this object.</span>
+
+<span class=sd>        >>> print(str(DocInfo(__file__, "a", "b", "c", "1",</span>
+<span class=sd>        ...                   12, "https://example.com"))[:40])</span>
+<span class=sd>        'c' project 'a' by 'b', version '1', wit</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>title</span><span class=si>!r}</span><span class=s2> project </span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>project</span><span class=si>!r}</span><span class=s2> by "</span>
+                <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>author</span><span class=si>!r}</span><span class=s2>, version </span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>version</span><span class=si>!r}</span><span class=s2>, "</span>
+                <span class=sa>f</span><span class=s2>"with readme file </span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>readme_md_file</span><span class=si>!r}</span><span class=s2> having the last "</span>
+                <span class=sa>f</span><span class=s2>"section </span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>last_major_section_index</span><span class=si>}</span><span class=s2> and documentation "</span>
+                <span class=sa>f</span><span class=s2>"url </span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>doc_url</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span></div>
+
+
+
+<div class=viewcode-block id=extract_md_infos>
+<a class=viewcode-back href=../../../../pycommons.dev.doc.html#pycommons.dev.doc.doc_info.extract_md_infos>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>extract_md_infos</span><span class=p>(</span><span class=n>readme_md_file</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Parse a `README.md` file and find the title and last section index.</span>
+
+<span class=sd>    :param readme_md_file: the path to the `README.md`</span>
+<span class=sd>    :returns: a tuple of the title (headline starting with `"# "` (but without</span>
+<span class=sd>        the `"# "`), and the last section index, if any)</span>
+
+<span class=sd>    >>> from os.path import join, dirname</span>
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> with redirect_stdout(None):</span>
+<span class=sd>    ...     t = extract_md_infos(join(dirname(dirname(dirname(dirname(</span>
+<span class=sd>    ...                          __file__)))), "README.md"))</span>
+<span class=sd>    >>> print(t)</span>
+<span class=sd>    ('*pycommons:* Common Utility Functions for Python Projects.', 5)</span>
+<span class=sd>    """</span>
+    <span class=n>readme_md</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>file_path</span><span class=p>(</span><span class=n>readme_md_file</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Now parsing markdown file </span><span class=si>{</span><span class=n>readme_md</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=c1># load both the title and the last index</span>
+    <span class=n>title</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=n>last_idx</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=n>in_code</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>False</span>
+    <span class=k>with</span> <span class=p>(</span><span class=n>readme_md</span><span class=o>.</span><span class=n>open_for_read</span><span class=p>()</span> <span class=k>as</span> <span class=n>rd</span><span class=p>):</span>  <span class=c1># noqa: PERF203</span>
+        <span class=k>for</span> <span class=n>orig_line</span> <span class=ow>in</span> <span class=n>rd</span><span class=p>:</span>
+            <span class=n>line</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>orig_line</span><span class=p>)</span>  <span class=c1># force string</span>
+            <span class=c1># skip all code snippets in the file</span>
+            <span class=k>if</span> <span class=n>line</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"```"</span><span class=p>):</span>
+                <span class=n>in_code</span> <span class=o>=</span> <span class=ow>not</span> <span class=n>in_code</span>
+                <span class=k>continue</span>
+            <span class=k>if</span> <span class=n>in_code</span><span class=p>:</span>
+                <span class=k>continue</span>
+            <span class=c1># ok, we are not in code</span>
+            <span class=k>if</span> <span class=n>line</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"# "</span><span class=p>):</span>  <span class=c1># top-level headline</span>
+                <span class=k>if</span> <span class=n>title</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>  <span class=c1># only 1 top-level headline permitted</span>
+                    <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                        <span class=sa>f</span><span class=s2>"Already have title </span><span class=si>{</span><span class=n>title</span><span class=si>!r}</span><span class=s2> but now found "</span>
+                        <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>line</span><span class=p>[</span><span class=mi>2</span><span class=p>:]</span><span class=si>!r}</span><span class=s2> in </span><span class=si>{</span><span class=n>readme_md</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+                <span class=n>title</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>line</span><span class=p>[</span><span class=mi>2</span><span class=p>:])</span>
+            <span class=k>elif</span> <span class=n>line</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"## "</span><span class=p>):</span>  <span class=c1># second-level headline</span>
+                <span class=n>doti</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>line</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>"."</span><span class=p>)</span>  <span class=c1># gather numeric index, if any</span>
+                <span class=k>if</span> <span class=n>doti</span> <span class=o><=</span> <span class=mi>3</span><span class=p>:</span>
+                    <span class=k>if</span> <span class=n>last_idx</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Got </span><span class=si>{</span><span class=n>line</span><span class=si>!r}</span><span class=s2> after having index."</span><span class=p>)</span>
+                <span class=k>else</span><span class=p>:</span>
+                    <span class=n>idx_str</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>line</span><span class=p>[</span><span class=mi>3</span><span class=p>:</span><span class=n>doti</span><span class=p>])</span>
+                    <span class=k>try</span><span class=p>:</span>  <span class=c1># noqa: PERF203</span>
+                        <span class=n>index</span> <span class=o>=</span> <span class=n>check_to_int_range</span><span class=p>(</span><span class=n>idx_str</span><span class=p>,</span> <span class=s2>"s"</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=mi>1000</span><span class=p>)</span>
+                    <span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>  <span class=c1># noqa: PERF203</span>
+                        <span class=n>index</span> <span class=o>=</span> <span class=kc>None</span>
+                        <span class=k>if</span> <span class=n>last_idx</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                                <span class=sa>f</span><span class=s2>"Got </span><span class=si>{</span><span class=n>line</span><span class=si>!r}</span><span class=s2> and finding index "</span>
+                                <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>last_idx</span><span class=si>}</span><span class=s2> in </span><span class=si>{</span><span class=n>readme_md</span><span class=si>!r}</span><span class=s2> causing "</span>
+                                <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=nb>str</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span><span class=o>.</span><span class=n>removesuffix</span><span class=p>(</span><span class=s1>'.'</span><span class=p>)</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=nn>ve</span>
+                    <span class=k>if</span> <span class=n>index</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                        <span class=k>if</span> <span class=p>(</span><span class=n>last_idx</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=n>last_idx</span> <span class=o>>=</span> <span class=n>index</span><span class=p>):</span>
+                            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                                <span class=sa>f</span><span class=s2>"Found index </span><span class=si>{</span><span class=n>index</span><span class=si>}</span><span class=s2> in line </span><span class=si>{</span><span class=n>line</span><span class=si>!r}</span><span class=s2> "</span>
+                                <span class=sa>f</span><span class=s2>"after index </span><span class=si>{</span><span class=n>last_idx</span><span class=si>}</span><span class=s2> in "</span>
+                                <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>readme_md</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+                        <span class=n>last_idx</span> <span class=o>=</span> <span class=n>index</span>
+
+    <span class=k>if</span> <span class=n>title</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"No title in </span><span class=si>{</span><span class=n>readme_md</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Finished parsing markdown file </span><span class=si>{</span><span class=n>readme_md</span><span class=si>!r}</span><span class=s2>, got "</span>
+           <span class=sa>f</span><span class=s2>"title </span><span class=si>{</span><span class=n>title</span><span class=si>!r}</span><span class=s2> and last section index </span><span class=si>{</span><span class=n>last_idx</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>title</span><span class=p>,</span> <span class=n>last_idx</span></div>
+
+
+
+<div class=viewcode-block id=parse_version_py>
+<a class=viewcode-back href=../../../../pycommons.dev.doc.html#pycommons.dev.doc.doc_info.parse_version_py>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>parse_version_py</span><span class=p>(</span><span class=n>version_file</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span>
+                     <span class=n>version_attr</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=s2>"__version__"</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Parse a `version.py` file and return the version string.</span>
+
+<span class=sd>    :param version_file: the path to the version file</span>
+<span class=sd>    :param version_attr: the version attribute</span>
+<span class=sd>    :returns: the version string</span>
+
+<span class=sd>    >>> from os.path import join, dirname</span>
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> with redirect_stdout(None):</span>
+<span class=sd>    ...     s = parse_version_py(join(dirname(dirname(dirname(__file__))),</span>
+<span class=sd>    ...         "version.py"))</span>
+<span class=sd>    >>> print(s[:s.rindex(".")])</span>
+<span class=sd>    0.8</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     parse_version_py(None, "v")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     parse_version_py(1, "v")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     parse_version_py(__file__, None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     parse_version_py(__file__, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     parse_version_py(__file__, "")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid version attr ''.</span>
+
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> from io import StringIO</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     with redirect_stdout(None):</span>
+<span class=sd>    ...         parse_version_py(__file__, "xyz")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:36])</span>
+<span class=sd>    Did not find version attr 'xyz' in '</span>
+<span class=sd>    """</span>
+    <span class=n>version_path</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>file_path</span><span class=p>(</span><span class=n>version_file</span><span class=p>)</span>
+    <span class=n>uversion_attr</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>version_attr</span><span class=p>)</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>uversion_attr</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid version attr </span><span class=si>{</span><span class=n>version_attr</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Now parsing version file </span><span class=si>{</span><span class=n>version_path</span><span class=si>!r}</span><span class=s2>, looking for "</span>
+           <span class=sa>f</span><span class=s2>"attribute </span><span class=si>{</span><span class=n>uversion_attr</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>version_str</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=c1># load the version string</span>
+    <span class=k>with</span> <span class=n>version_path</span><span class=o>.</span><span class=n>open_for_read</span><span class=p>()</span> <span class=k>as</span> <span class=n>rd</span><span class=p>:</span>
+        <span class=k>for</span> <span class=n>orig_line</span> <span class=ow>in</span> <span class=n>rd</span><span class=p>:</span>
+            <span class=n>line</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>orig_line</span><span class=p>)</span>
+            <span class=n>lst</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=p>[</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>item</span><span class=p>)</span> <span class=k>for</span> <span class=n>sublist</span> <span class=ow>in</span>
+                              <span class=n>line</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=s2>"="</span><span class=p>)</span> <span class=k>for</span> <span class=n>item</span> <span class=ow>in</span> <span class=n>sublist</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=s2>":"</span><span class=p>)]</span>
+            <span class=k>if</span> <span class=n>lst</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span> <span class=o>==</span> <span class=n>uversion_attr</span><span class=p>:</span>
+                <span class=k>if</span> <span class=n>version_str</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                    <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                        <span class=sa>f</span><span class=s2>"Version defined as </span><span class=si>{</span><span class=n>version_str</span><span class=si>!r}</span><span class=s2> in "</span>
+                        <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>version_path</span><span class=si>!r}</span><span class=s2> but encountered </span><span class=si>{</span><span class=n>orig_line</span><span class=si>!r}</span><span class=s2>?"</span><span class=p>)</span>
+                <span class=k>if</span> <span class=nb>list</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>lst</span><span class=p>)</span> <span class=o><=</span> <span class=mi>1</span><span class=p>:</span>
+                    <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Strange version string </span><span class=si>{</span><span class=n>orig_line</span><span class=si>!r}</span><span class=s2> "</span>
+                                     <span class=sa>f</span><span class=s2>"in </span><span class=si>{</span><span class=n>version_path</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+                <span class=n>version_tst</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>lst</span><span class=p>[</span><span class=o>-</span><span class=mi>1</span><span class=p>]</span>
+                <span class=k>for</span> <span class=n>se</span> <span class=ow>in</span> <span class=p>(</span><span class=s2>"'"</span><span class=p>,</span> <span class=s1>'"'</span><span class=p>):</span>
+                    <span class=k>if</span> <span class=n>version_tst</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=n>se</span><span class=p>):</span>
+                        <span class=k>if</span> <span class=ow>not</span> <span class=n>version_tst</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=n>se</span><span class=p>):</span>
+                            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                                <span class=sa>f</span><span class=s2>"Incorrect string limits for </span><span class=si>{</span><span class=n>orig_line</span><span class=si>!r}</span><span class=s2>"</span>
+                                <span class=sa>f</span><span class=s2>" in version file </span><span class=si>{</span><span class=n>version_path</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+                        <span class=n>version_str</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>version_tst</span><span class=p>[</span><span class=mi>1</span><span class=p>:</span><span class=o>-</span><span class=mi>1</span><span class=p>])</span>
+                        <span class=k>break</span>
+                <span class=k>if</span> <span class=n>version_str</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+                    <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Undelimited string in </span><span class=si>{</span><span class=n>orig_line</span><span class=si>!r}</span><span class=s2> in"</span>
+                                     <span class=sa>f</span><span class=s2>" version file </span><span class=si>{</span><span class=n>version_path</span><span class=si>!r}</span><span class=s2>?"</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>version_str</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Did not find version attr </span><span class=si>{</span><span class=n>uversion_attr</span><span class=si>!r}</span><span class=s2> in "</span>
+                         <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>version_path</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Found version string </span><span class=si>{</span><span class=n>version_str</span><span class=si>!r}</span><span class=s2> in file </span><span class=si>{</span><span class=n>version_path</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>version_str</span></div>
+
+
+
+<div class=viewcode-block id=load_doc_info_from_setup_cfg>
+<a class=viewcode-back href=../../../../pycommons.dev.doc.html#pycommons.dev.doc.doc_info.load_doc_info_from_setup_cfg>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>load_doc_info_from_setup_cfg</span><span class=p>(</span><span class=n>setup_cfg_file</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=n>DocInfo</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Load the documentation information from the `setup.cfg` file.</span>
+
+<span class=sd>    :param setup_cfg_file: the path to the `setup.cfg` file.</span>
+<span class=sd>    :returns: the documentation information</span>
+
+<span class=sd>    >>> from os.path import dirname, join</span>
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> with redirect_stdout(None):</span>
+<span class=sd>    ...     r = load_doc_info_from_setup_cfg(join(dirname(dirname(dirname(</span>
+<span class=sd>    ...         dirname(__file__)))), "setup.cfg"))</span>
+<span class=sd>    >>> r.title</span>
+<span class=sd>    '*pycommons:* Common Utility Functions for Python Projects.'</span>
+<span class=sd>    >>> r.doc_url</span>
+<span class=sd>    'https://thomasweise.github.io/pycommons'</span>
+<span class=sd>    >>> r.project</span>
+<span class=sd>    'pycommons'</span>
+<span class=sd>    >>> r.author</span>
+<span class=sd>    'Thomas Weise'</span>
+<span class=sd>    """</span>
+    <span class=n>setup_cfg</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>file_path</span><span class=p>(</span><span class=n>setup_cfg_file</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Now loading documentation info from </span><span class=si>{</span><span class=n>setup_cfg</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>cfg</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>ConfigParser</span><span class=p>]</span> <span class=o>=</span> <span class=n>ConfigParser</span><span class=p>()</span>
+    <span class=n>cfg</span><span class=o>.</span><span class=n>read</span><span class=p>(</span><span class=n>setup_cfg</span><span class=p>,</span> <span class=n>UTF8</span><span class=p>)</span>
+    <span class=n>root_path</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>setup_cfg</span><span class=o>.</span><span class=n>up</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>
+
+    <span class=c1># first get version string</span>
+    <span class=n>version_attr</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>cfg</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>"metadata"</span><span class=p>,</span> <span class=s2>"version"</span><span class=p>))</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>version_attr</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid version attribute </span><span class=si>{</span><span class=n>version_attr</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>version_str</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=k>if</span> <span class=n>version_attr</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"attr: "</span><span class=p>):</span>
+        <span class=n>version_splt</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>version_attr</span><span class=p>[</span><span class=mi>6</span><span class=p>:]),</span> <span class=s2>"."</span><span class=p>)</span>
+        <span class=n>version_file</span> <span class=o>=</span> <span class=n>root_path</span>
+        <span class=k>for</span> <span class=n>f</span> <span class=ow>in</span> <span class=n>version_splt</span><span class=p>[:</span><span class=o>-</span><span class=mi>2</span><span class=p>]:</span>  <span class=c1># find file</span>
+            <span class=n>version_file</span> <span class=o>=</span> <span class=n>version_file</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=n>f</span><span class=p>)</span>
+        <span class=n>version_str</span> <span class=o>=</span> <span class=n>parse_version_py</span><span class=p>(</span>
+            <span class=n>version_file</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=n>version_splt</span><span class=p>[</span><span class=o>-</span><span class=mi>2</span><span class=p>]</span> <span class=o>+</span> <span class=s2>".py"</span><span class=p>),</span>
+            <span class=n>version_splt</span><span class=p>[</span><span class=o>-</span><span class=mi>1</span><span class=p>])</span>
+    <span class=k>else</span><span class=p>:</span>
+        <span class=n>version_str</span> <span class=o>=</span> <span class=n>version_attr</span>
+
+    <span class=c1># now load data from readme md</span>
+    <span class=n>long_desc_attr</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>cfg</span><span class=o>.</span><span class=n>get</span><span class=p>(</span>
+        <span class=s2>"metadata"</span><span class=p>,</span> <span class=s2>"long_description"</span><span class=p>))</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>long_desc_attr</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"Invalid long_description attribute </span><span class=si>{</span><span class=n>long_desc_attr</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>long_desc_attr</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"file:"</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"long_description </span><span class=si>{</span><span class=n>long_desc_attr</span><span class=si>!r}</span><span class=s2> does "</span>
+                         <span class=sa>f</span><span class=s2>"not point to file."</span><span class=p>)</span>
+    <span class=n>readme_md_file</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>root_path</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span>
+        <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>long_desc_attr</span><span class=p>[</span><span class=mi>6</span><span class=p>:]))</span>
+    <span class=n>title</span><span class=p>,</span> <span class=n>last_sec</span> <span class=o>=</span> <span class=n>extract_md_infos</span><span class=p>(</span><span class=n>readme_md_file</span><span class=p>)</span>
+
+    <span class=c1># get the documentation URL</span>
+    <span class=n>docu_url</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=k>for</span> <span class=n>url</span> <span class=ow>in</span> <span class=nb>str</span><span class=o>.</span><span class=n>splitlines</span><span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>cfg</span><span class=o>.</span><span class=n>get</span><span class=p>(</span>
+            <span class=s2>"metadata"</span><span class=p>,</span> <span class=s2>"project_urls"</span><span class=p>))):</span>
+        <span class=n>splt</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>url</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=s2>"="</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>list</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>splt</span><span class=p>)</span> <span class=o>!=</span> <span class=mi>2</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Strange URL line </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>splt</span><span class=p>[</span><span class=mi>0</span><span class=p>])</span><span class=o>.</span><span class=n>lower</span><span class=p>()</span> <span class=o>==</span> <span class=s2>"documentation"</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>docu_url</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Two docu URLs found?"</span><span class=p>)</span>
+            <span class=n>docu_url</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>splt</span><span class=p>[</span><span class=mi>1</span><span class=p>])</span>
+    <span class=k>if</span> <span class=n>docu_url</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>docu_url</span> <span class=o>=</span> <span class=n>cfg</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>"metadata"</span><span class=p>,</span> <span class=s2>"url"</span><span class=p>)</span>
+
+    <span class=n>res</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>DocInfo</span><span class=p>]</span> <span class=o>=</span> <span class=n>DocInfo</span><span class=p>(</span>
+        <span class=n>readme_md_file</span><span class=p>,</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>cfg</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>"metadata"</span><span class=p>,</span> <span class=s2>"name"</span><span class=p>)),</span>
+        <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>cfg</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>"metadata"</span><span class=p>,</span> <span class=s2>"author"</span><span class=p>)),</span> <span class=n>title</span><span class=p>,</span> <span class=n>version_str</span><span class=p>,</span>
+        <span class=n>last_sec</span><span class=p>,</span> <span class=n>docu_url</span><span class=p>)</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=s2>"Finished loading documentation info "</span>
+           <span class=sa>f</span><span class=s2>"from </span><span class=si>{</span><span class=n>setup_cfg</span><span class=si>!r}</span><span class=s2>, found </span><span class=si>{</span><span class=n>res</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>res</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.doc.doc_info</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

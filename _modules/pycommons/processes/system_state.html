@@ -1,0 +1,327 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.processes.system_state — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/processes/system_state.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.processes.system_state</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.processes.system_state</h1><div class=highlight><pre>
+<span></span><span class=sd>"""</span>
+<span class=sd>Functionality to log the current system state.</span>
+
+<span class=sd>Here we provide a small program that can be executed concurrently with other</span>
+<span class=sd>activities and that logs information about the system state. This may be</span>
+<span class=sd>useful when running some computationally heavy experiments to find potential</span>
+<span class=sd>problems.</span>
+<span class=sd>"""</span>
+
+
+<span class=kn>import</span><span class=w> </span><span class=nn>datetime</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>argparse</span><span class=w> </span><span class=kn>import</span> <span class=n>ArgumentParser</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>contextlib</span><span class=w> </span><span class=kn>import</span> <span class=n>AbstractContextManager</span><span class=p>,</span> <span class=n>nullcontext</span><span class=p>,</span> <span class=n>suppress</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>time</span><span class=w> </span><span class=kn>import</span> <span class=n>sleep</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Any</span><span class=p>,</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Iterable</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>psutil</span><span class=w> </span><span class=kn>import</span> <span class=p>(</span>  <span class=c1># type: ignore</span>
+    <span class=n>cpu_times</span><span class=p>,</span>  <span class=c1># type: ignore</span>
+    <span class=n>cpu_times_percent</span><span class=p>,</span>  <span class=c1># type: ignore</span>
+    <span class=n>disk_partitions</span><span class=p>,</span>  <span class=c1># type: ignore</span>
+    <span class=n>disk_usage</span><span class=p>,</span>  <span class=c1># type: ignore</span>
+    <span class=n>sensors_fans</span><span class=p>,</span>  <span class=c1># type: ignore</span>
+    <span class=n>sensors_temperatures</span><span class=p>,</span>  <span class=c1># type: ignore</span>
+    <span class=n>virtual_memory</span><span class=p>,</span>  <span class=c1># type: ignore</span>
+<span class=p>)</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.arguments</span><span class=w> </span><span class=kn>import</span> <span class=n>pycommons_argparser</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.csv</span><span class=w> </span><span class=kn>import</span> <span class=n>CSV_SEPARATOR</span><span class=p>,</span> <span class=n>SCOPE_SEPARATOR</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.math.int_math</span><span class=w> </span><span class=kn>import</span> <span class=n>try_int</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.strings.chars</span><span class=w> </span><span class=kn>import</span> <span class=n>WHITESPACE_OR_NEWLINE</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.strings.string_tools</span><span class=w> </span><span class=kn>import</span> <span class=n>replace_str</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>check_int_range</span><span class=p>,</span> <span class=n>type_error</span>
+
+<span class=c1>#: the "now" function</span>
+<span class=n>__DTN</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>[[],</span> <span class=n>datetime</span><span class=o>.</span><span class=n>datetime</span><span class=p>]]</span> <span class=o>=</span> <span class=n>datetime</span><span class=o>.</span><span class=n>datetime</span><span class=o>.</span><span class=n>now</span>
+
+<span class=c1>#: the characters to replace with the `SCOPE_SEPARATOR`</span>
+<span class=n>__REPL</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=nb>tuple</span><span class=p>(</span>
+    <span class=sa>f</span><span class=s2>"/</span><span class=se>\\{{}}</span><span class=si>{</span><span class=n>WHITESPACE_OR_NEWLINE</span><span class=si>}{</span><span class=n>CSV_SEPARATOR</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span>
+
+<span class=c1>#: the double scope</span>
+<span class=n>__DOUBLE_SCOPE</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>SCOPE_SEPARATOR</span><span class=si>}{</span><span class=n>SCOPE_SEPARATOR</span><span class=si>}</span><span class=s2>"</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__fix_key</span><span class=p>(</span><span class=n>key</span><span class=p>:</span> <span class=n>Any</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Fix a key for usage.</span>
+
+<span class=sd>    :param key: the key</span>
+<span class=sd>    :returns: the key string</span>
+
+<span class=sd>    >>> print(__fix_key(None))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(__fix_key(1))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(__fix_key(""))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(__fix_key(" "))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(__fix_key("."))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(__fix_key(". ."))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(__fix_key("...."))</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> __fix_key(".d x")</span>
+<span class=sd>    'd.x'</span>
+<span class=sd>    >>> __fix_key(".d ..x")</span>
+<span class=sd>    'd.x'</span>
+<span class=sd>    >>> __fix_key(".v yd ..x yxc .")</span>
+<span class=sd>    'v.yd.x.yxc'</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>key</span><span class=p>,</span> <span class=nb>str</span><span class=p>):</span>
+        <span class=k>return</span> <span class=kc>None</span>
+    <span class=n>key</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>key</span><span class=p>)</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>key</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>return</span> <span class=kc>None</span>
+    <span class=k>for</span> <span class=n>ch</span> <span class=ow>in</span> <span class=n>__REPL</span><span class=p>:</span>
+        <span class=n>key</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=n>key</span><span class=p>,</span> <span class=n>ch</span><span class=p>,</span> <span class=n>SCOPE_SEPARATOR</span><span class=p>)</span>
+    <span class=n>key</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>replace_str</span><span class=p>(</span><span class=n>__DOUBLE_SCOPE</span><span class=p>,</span> <span class=n>SCOPE_SEPARATOR</span><span class=p>,</span> <span class=n>key</span><span class=p>))</span>
+    <span class=k>while</span> <span class=nb>str</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=n>key</span><span class=p>,</span> <span class=n>SCOPE_SEPARATOR</span><span class=p>):</span>
+        <span class=n>key</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>key</span><span class=p>[</span><span class=mi>1</span><span class=p>:])</span>
+    <span class=k>while</span> <span class=nb>str</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=n>key</span><span class=p>,</span> <span class=n>SCOPE_SEPARATOR</span><span class=p>):</span>
+        <span class=n>key</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>key</span><span class=p>[:</span><span class=o>-</span><span class=mi>1</span><span class=p>])</span>
+    <span class=k>return</span> <span class=kc>None</span> <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>key</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span> <span class=k>else</span> <span class=n>key</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__collect_attrs</span><span class=p>(</span><span class=n>prefix</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>data</span><span class=p>:</span> <span class=n>Any</span><span class=p>,</span> <span class=n>fields</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>],</span>
+                    <span class=n>collector</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>],</span> <span class=n>Any</span><span class=p>])</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Pass the attributes to a collector.</span>
+
+<span class=sd>    :param prefix: the attribute prefix</span>
+<span class=sd>    :param data: the named tuple</span>
+<span class=sd>    :param fields: the fields</span>
+<span class=sd>    :param collector: the collector receiving the attributes</span>
+
+<span class=sd>    >>> def __ptr(a: str, b: str) -> None:</span>
+<span class=sd>    ...     print(f"{a}: {b}")</span>
+
+<span class=sd>    >>> __collect_attrs("", None, (), __ptr)</span>
+
+<span class=sd>    >>> __collect_attrs("", "a", ("__class__", ), __ptr)</span>
+<span class=sd>    __class__: &LTclass 'str'></span>
+
+<span class=sd>    >>> __collect_attrs("prefix.", "a", ("__class__", ), __ptr)</span>
+<span class=sd>    prefix.__class__: &LTclass 'str'></span>
+
+<span class=sd>    >>> __collect_attrs("prefix.", "a", ("__class__", ), __ptr)</span>
+<span class=sd>    prefix.__class__: &LTclass 'str'></span>
+
+<span class=sd>    >>> __collect_attrs("prefix.", "a", ("__class__", "__class__"), __ptr)</span>
+<span class=sd>    prefix.__class__: &LTclass 'str'></span>
+<span class=sd>    prefix.__class__: &LTclass 'str'></span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=n>data</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>return</span>
+    <span class=k>for</span> <span class=n>attr</span> <span class=ow>in</span> <span class=n>fields</span><span class=p>:</span>
+        <span class=k>if</span> <span class=nb>hasattr</span><span class=p>(</span><span class=n>data</span><span class=p>,</span> <span class=n>attr</span><span class=p>):</span>
+            <span class=n>val</span><span class=p>:</span> <span class=n>Any</span> <span class=o>=</span> <span class=nb>getattr</span><span class=p>(</span><span class=n>data</span><span class=p>,</span> <span class=n>attr</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>val</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=n>k</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>__fix_key</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>prefix</span><span class=si>}{</span><span class=n>attr</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span>
+                <span class=k>if</span> <span class=n>k</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                    <span class=n>collector</span><span class=p>(</span><span class=n>k</span><span class=p>,</span> <span class=nb>repr</span><span class=p>(</span><span class=n>val</span><span class=p>))</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__collect_struct</span><span class=p>(</span><span class=n>prefix</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>data</span><span class=p>:</span> <span class=n>Any</span><span class=p>,</span> <span class=n>fields</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>],</span>
+                     <span class=n>collector</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>],</span> <span class=n>Any</span><span class=p>])</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Pass a structured info system to a collector.</span>
+
+<span class=sd>    :param prefix: the prefix to use</span>
+<span class=sd>    :param data: the data record</span>
+<span class=sd>    :param fields: the fields on the per-row basis</span>
+<span class=sd>    :param collector: the collector to receive the strings</span>
+
+<span class=sd>    >>> def __ptr(a: str, b: str) -> None:</span>
+<span class=sd>    ...     print(f"{a}: {b}")</span>
+
+<span class=sd>    >>> __collect_struct("", None, (), __ptr)</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>data</span><span class=p>,</span> <span class=nb>dict</span><span class=p>):</span>
+        <span class=n>prefix</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>prefix</span><span class=p>)</span>
+        <span class=k>for</span> <span class=n>key</span> <span class=ow>in</span> <span class=n>data</span><span class=p>:</span>
+            <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>key</span><span class=p>,</span> <span class=nb>str</span><span class=p>):</span>
+                <span class=n>row</span><span class=p>:</span> <span class=n>Any</span> <span class=o>=</span> <span class=n>data</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>key</span><span class=p>,</span> <span class=kc>None</span><span class=p>)</span>
+                <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>row</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+                    <span class=k>for</span> <span class=n>element</span> <span class=ow>in</span> <span class=n>row</span><span class=p>:</span>
+                        <span class=k>if</span> <span class=n>element</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                            <span class=n>name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>key</span><span class=p>)</span><span class=si>}</span><span class=s2>."</span>
+                            <span class=k>if</span> <span class=nb>hasattr</span><span class=p>(</span><span class=n>element</span><span class=p>,</span> <span class=s2>"label"</span><span class=p>):</span>
+                                <span class=n>label</span><span class=p>:</span> <span class=n>Any</span> <span class=o>=</span> <span class=nb>getattr</span><span class=p>(</span><span class=n>element</span><span class=p>,</span> <span class=s2>"label"</span><span class=p>)</span>
+                                <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>label</span><span class=p>,</span> <span class=nb>str</span><span class=p>):</span>
+                                    <span class=n>label</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>label</span><span class=p>)</span>
+                                    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>label</span><span class=p>)</span> <span class=o>></span> <span class=mi>0</span><span class=p>:</span>
+                                        <span class=n>name</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>prefix</span><span class=si>}{</span><span class=n>name</span><span class=si>}</span><span class=s2>.</span><span class=si>{</span><span class=n>label</span><span class=si>}</span><span class=s2>."</span>
+                            <span class=n>__collect_attrs</span><span class=p>(</span><span class=n>name</span><span class=p>,</span> <span class=n>element</span><span class=p>,</span> <span class=n>fields</span><span class=p>,</span> <span class=n>collector</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=collect_system_state>
+<a class=viewcode-back href=../../../pycommons.processes.html#pycommons.processes.system_state.collect_system_state>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>collect_system_state</span><span class=p>(</span>
+        <span class=n>collector</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>],</span> <span class=n>Any</span><span class=p>])</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Get a single string with the current state of the system.</span>
+
+<span class=sd>    :param collector: the collector to receive the key-value tuples</span>
+
+<span class=sd>    >>> def __ptr(a: str, b: str) -> None:</span>
+<span class=sd>    ...     pass</span>
+
+<span class=sd>    >>> s = collect_system_state(__ptr)</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     collect_system_state(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    collector should be a callable but is None.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>collector</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>collector</span><span class=p>,</span> <span class=s2>"collector"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+
+    <span class=n>now</span><span class=p>:</span> <span class=n>Final</span> <span class=o>=</span> <span class=n>__DTN</span><span class=p>()</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>"now"</span><span class=p>,</span> <span class=nb>repr</span><span class=p>(</span><span class=n>try_int</span><span class=p>(</span><span class=n>now</span><span class=o>.</span><span class=n>timestamp</span><span class=p>())))</span>
+    <span class=n>__collect_attrs</span><span class=p>(</span><span class=s2>"now."</span><span class=p>,</span> <span class=n>now</span><span class=p>,</span> <span class=p>(</span>
+        <span class=s2>"year"</span><span class=p>,</span> <span class=s2>"month"</span><span class=p>,</span> <span class=s2>"day"</span><span class=p>,</span> <span class=s2>"hour"</span><span class=p>,</span> <span class=s2>"minute"</span><span class=p>,</span> <span class=s2>"second"</span><span class=p>,</span> <span class=s2>"microsecond"</span><span class=p>),</span>
+        <span class=n>collector</span><span class=p>)</span>
+
+    <span class=k>with</span> <span class=n>suppress</span><span class=p>(</span><span class=ne>BaseException</span><span class=p>):</span>
+        <span class=n>__collect_attrs</span><span class=p>(</span><span class=s2>"cpu_times."</span><span class=p>,</span> <span class=n>cpu_times</span><span class=p>(),</span> <span class=p>(</span><span class=s2>"user"</span><span class=p>,</span> <span class=s2>"system"</span><span class=p>,</span> <span class=s2>"idle"</span><span class=p>),</span>
+                        <span class=n>collector</span><span class=p>)</span>
+
+    <span class=k>with</span> <span class=n>suppress</span><span class=p>(</span><span class=ne>BaseException</span><span class=p>):</span>
+        <span class=n>cpup</span><span class=p>:</span> <span class=n>Any</span> <span class=o>=</span> <span class=n>cpu_times_percent</span><span class=p>(</span><span class=n>percpu</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>cpup</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+            <span class=k>for</span> <span class=n>i</span><span class=p>,</span> <span class=n>z</span> <span class=ow>in</span> <span class=nb>enumerate</span><span class=p>(</span><span class=n>cpup</span><span class=p>):</span>
+                <span class=n>__collect_attrs</span><span class=p>(</span><span class=sa>f</span><span class=s2>"cpu_</span><span class=si>{</span><span class=n>i</span><span class=si>}</span><span class=s2>_usage."</span><span class=p>,</span> <span class=n>z</span><span class=p>,</span> <span class=p>(</span>
+                    <span class=s2>"user"</span><span class=p>,</span> <span class=s2>"system"</span><span class=p>,</span> <span class=s2>"idle"</span><span class=p>),</span> <span class=n>collector</span><span class=p>)</span>
+
+    <span class=k>with</span> <span class=n>suppress</span><span class=p>(</span><span class=ne>BaseException</span><span class=p>):</span>
+        <span class=n>__collect_attrs</span><span class=p>(</span><span class=s2>"memory."</span><span class=p>,</span> <span class=n>virtual_memory</span><span class=p>(),</span> <span class=p>(</span>
+            <span class=s2>"total"</span><span class=p>,</span> <span class=s2>"available"</span><span class=p>,</span> <span class=s2>"percent"</span><span class=p>,</span> <span class=s2>"used"</span><span class=p>,</span> <span class=s2>"free"</span><span class=p>),</span> <span class=n>collector</span><span class=p>)</span>
+
+    <span class=k>with</span> <span class=n>suppress</span><span class=p>(</span><span class=ne>BaseException</span><span class=p>):</span>
+        <span class=n>dps</span><span class=p>:</span> <span class=n>Any</span> <span class=o>=</span> <span class=n>disk_partitions</span><span class=p>(</span><span class=kc>False</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>dps</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+            <span class=k>for</span> <span class=n>disk</span> <span class=ow>in</span> <span class=n>dps</span><span class=p>:</span>
+                <span class=k>if</span> <span class=ow>not</span> <span class=nb>hasattr</span><span class=p>(</span><span class=n>disk</span><span class=p>,</span> <span class=s2>"mountpoint"</span><span class=p>):</span>
+                    <span class=k>continue</span>
+                <span class=n>mp</span> <span class=o>=</span> <span class=nb>getattr</span><span class=p>(</span><span class=n>disk</span><span class=p>,</span> <span class=s2>"mountpoint"</span><span class=p>)</span>
+                <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>mp</span><span class=p>,</span> <span class=nb>str</span><span class=p>):</span>
+                    <span class=k>continue</span>
+                <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=n>mp</span><span class=p>,</span> <span class=p>(</span><span class=s2>"/snap/"</span><span class=p>,</span> <span class=s2>"/var/snap/"</span><span class=p>)):</span>
+                    <span class=k>continue</span>
+                <span class=k>with</span> <span class=n>suppress</span><span class=p>(</span><span class=ne>BaseException</span><span class=p>):</span>
+                    <span class=n>__collect_attrs</span><span class=p>(</span><span class=sa>f</span><span class=s2>"disk.</span><span class=si>{</span><span class=n>mp</span><span class=si>}</span><span class=s2>."</span><span class=p>,</span> <span class=n>disk_usage</span><span class=p>(</span><span class=n>mp</span><span class=p>),</span> <span class=p>(</span>
+                        <span class=s2>"total"</span><span class=p>,</span> <span class=s2>"used"</span><span class=p>,</span> <span class=s2>"free"</span><span class=p>,</span> <span class=s2>"percent"</span><span class=p>),</span> <span class=n>collector</span><span class=p>)</span>
+
+    <span class=k>with</span> <span class=n>suppress</span><span class=p>(</span><span class=ne>BaseException</span><span class=p>):</span>
+        <span class=n>__collect_struct</span><span class=p>(</span><span class=s2>"temperature."</span><span class=p>,</span> <span class=n>sensors_temperatures</span><span class=p>(</span><span class=kc>False</span><span class=p>),</span> <span class=p>(</span>
+            <span class=s2>"current"</span><span class=p>,</span> <span class=s2>"high"</span><span class=p>,</span> <span class=s2>"critical"</span><span class=p>),</span> <span class=n>collector</span><span class=p>)</span>
+
+    <span class=k>with</span> <span class=n>suppress</span><span class=p>(</span><span class=ne>BaseException</span><span class=p>):</span>
+        <span class=n>__collect_struct</span><span class=p>(</span><span class=s2>"fan speed"</span><span class=p>,</span> <span class=n>sensors_fans</span><span class=p>(),</span> <span class=p>(</span><span class=s2>"current"</span><span class=p>,</span> <span class=p>),</span>
+                         <span class=n>collector</span><span class=p>)</span></div>
+
+
+
+<div class=viewcode-block id=log_system_state>
+<a class=viewcode-back href=../../../pycommons.processes.html#pycommons.processes.system_state.log_system_state>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>log_system_state</span><span class=p>(</span><span class=n>interval_seconds</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>300</span><span class=p>,</span>
+                     <span class=n>should_stop</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[],</span> <span class=nb>bool</span><span class=p>]</span> <span class=o>=</span> <span class=k>lambda</span><span class=p>:</span> <span class=kc>False</span><span class=p>,</span>
+                     <span class=n>lock</span><span class=p>:</span> <span class=n>AbstractContextManager</span> <span class=o>=</span> <span class=n>nullcontext</span><span class=p>())</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Log the system state periodically to the stdout.</span>
+
+<span class=sd>    This function allows for periodic logging of the system state to the</span>
+<span class=sd>    standard output. This can be launched as a program running besides an</span>
+<span class=sd>    experiment in order to help tracking potential problems. Let's say that</span>
+<span class=sd>    your experiment or whatever program crashes for unclear reasons. Why did</span>
+<span class=sd>    it crash? We don't know. Maybe it crashed because it ran out of memory.</span>
+<span class=sd>    Maybe it ran out of disk space? Maybe not? Who knows. If you let this</span>
+<span class=sd>    function here run concurrently to your program and pipe its output to a</span>
+<span class=sd>    log file, then at least you will be able to see if the system slowly runs</span>
+<span class=sd>    out of memory, disk space, or if the CPU gets too hot, or something. Or,</span>
+<span class=sd>    at least, you can rule out that this is not the case.</span>
+
+<span class=sd>    The output is presented in CSV format. Therefore, you can pipe it to a</span>
+<span class=sd>    file and later open it in Excel or whatever. This allows you to draw</span>
+<span class=sd>    diagrams of the usage of CPUs and memory or the temperature of the CPU</span>
+<span class=sd>    over time.</span>
+
+<span class=sd>    :param interval_seconds: the interval seconds</span>
+<span class=sd>    :param should_stop: a function telling the logger when it should stop</span>
+<span class=sd>    :param lock: a shared lock for the console access</span>
+
+<span class=sd>    # Example:</span>
+
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> from io import StringIO</span>
+<span class=sd>    >>> sio = StringIO()</span>
+
+<span class=sd>    >>> def __three(lst=[1, 2, 3, 4, 5, 6]) -> bool:</span>
+<span class=sd>    ...     if list.__len__(lst) > 0:</span>
+<span class=sd>    ...         del lst[-1]</span>
+<span class=sd>    ...         return False</span>
+<span class=sd>    ...     return True</span>
+
+<span class=sd>    >>> with redirect_stdout(sio):</span>
+<span class=sd>    ...     log_system_state(1, __three)</span>
+<span class=sd>    >>> v = sio.getvalue().splitlines()</span>
+<span class=sd>    >>> len(v)</span>
+<span class=sd>    4</span>
+<span class=sd>    >>> v[0][:20]</span>
+<span class=sd>    'now;now.year;now.mon'</span>
+<span class=sd>    >>> i = list.__len__(v[0].split(CSV_SEPARATOR))</span>
+<span class=sd>    >>> all(list.__len__(vv.split(CSV_SEPARATOR)) == i for vv in v)</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     log_system_state(1, lock=None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[0:60])</span>
+<span class=sd>    lock should be an instance of contextlib.AbstractContextMana</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     log_system_state(1, should_stop=None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    should_stop should be a callable but is None.</span>
+<span class=sd>    """</span>
+    <span class=n>interval_seconds</span> <span class=o>=</span> <span class=n>check_int_range</span><span class=p>(</span>
+        <span class=n>interval_seconds</span><span class=p>,</span> <span class=s2>"interval_seconds"</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=mi>1_000_000_000</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>should_stop</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>should_stop</span><span class=p>,</span> <span class=s2>"should_stop"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>lock</span><span class=p>,</span> <span class=n>AbstractContextManager</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>lock</span><span class=p>,</span> <span class=s2>"lock"</span><span class=p>,</span> <span class=n>AbstractContextManager</span><span class=p>)</span>
+
+    <span class=n>keys</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=p>[]</span>
+    <span class=n>collect_system_state</span><span class=p>(</span><span class=k>lambda</span> <span class=n>a</span><span class=p>,</span> <span class=n>_</span><span class=p>,</span> <span class=n>x</span><span class=o>=</span><span class=n>keys</span><span class=o>.</span><span class=n>append</span><span class=p>:</span> <span class=n>x</span><span class=p>(</span><span class=n>a</span><span class=p>))</span>  <span class=c1># type: ignore</span>
+    <span class=nb>print</span><span class=p>(</span><span class=n>CSV_SEPARATOR</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>keys</span><span class=p>))</span>  <span class=c1># noqa: T201</span>
+    <span class=n>current</span><span class=p>:</span> <span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=p>{}</span>
+
+    <span class=k>while</span> <span class=ow>not</span> <span class=n>should_stop</span><span class=p>():</span>
+        <span class=n>collect_system_state</span><span class=p>(</span><span class=n>current</span><span class=o>.</span><span class=fm>__setitem__</span><span class=p>)</span>
+        <span class=nb>print</span><span class=p>(</span><span class=n>CSV_SEPARATOR</span><span class=o>.</span><span class=n>join</span><span class=p>(</span>  <span class=c1># noqa: T201</span>
+            <span class=n>current</span><span class=p>[</span><span class=n>k</span><span class=p>]</span> <span class=k>for</span> <span class=n>k</span> <span class=ow>in</span> <span class=n>keys</span> <span class=k>if</span> <span class=n>k</span> <span class=ow>in</span> <span class=n>current</span><span class=p>))</span>
+        <span class=n>current</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+        <span class=k>if</span> <span class=n>should_stop</span><span class=p>():</span>
+            <span class=k>return</span>
+        <span class=n>sleep</span><span class=p>(</span><span class=n>interval_seconds</span><span class=p>)</span></div>
+
+
+
+<span class=c1># Run documentation generation process if executed as script</span>
+<span class=k>if</span> <span class=vm>__name__</span> <span class=o>==</span> <span class=s2>"__main__"</span><span class=p>:</span>
+    <span class=n>parser</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>ArgumentParser</span><span class=p>]</span> <span class=o>=</span> <span class=n>pycommons_argparser</span><span class=p>(</span>
+        <span class=vm>__file__</span><span class=p>,</span>
+        <span class=s2>"Print the System State"</span><span class=p>,</span>
+        <span class=s2>"A program printing the state of the system in fixed intervals."</span><span class=p>)</span>
+    <span class=n>parser</span><span class=o>.</span><span class=n>add_argument</span><span class=p>(</span>
+        <span class=s2>"--interval"</span><span class=p>,</span> <span class=n>nargs</span><span class=o>=</span><span class=s2>"?"</span><span class=p>,</span> <span class=nb>type</span><span class=o>=</span><span class=nb>int</span><span class=p>,</span> <span class=n>default</span><span class=o>=</span><span class=mi>300</span><span class=p>,</span>
+        <span class=n>help</span><span class=o>=</span><span class=s2>"the interval between printing the state in seconds"</span><span class=p>)</span>
+    <span class=n>args</span> <span class=o>=</span> <span class=n>parser</span><span class=o>.</span><span class=n>parse_args</span><span class=p>()</span>
+    <span class=n>log_system_state</span><span class=p>(</span><span class=n>args</span><span class=o>.</span><span class=n>interval</span><span class=p>)</span>
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.processes.system_state</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

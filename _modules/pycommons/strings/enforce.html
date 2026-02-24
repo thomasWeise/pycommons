@@ -1,0 +1,118 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.strings.enforce — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/strings/enforce.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.strings.enforce</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.strings.enforce</h1><div class=highlight><pre>
+<span></span><span class=sd>"""Routines for checking whether a value is a non-empty string w/o spaces."""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Any</span><span class=p>,</span> <span class=n>Final</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.strings.chars</span><span class=w> </span><span class=kn>import</span> <span class=n>WHITESPACE_OR_NEWLINE</span>
+
+
+<div class=viewcode-block id=enforce_non_empty_str>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.enforce.enforce_non_empty_str>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>enforce_non_empty_str</span><span class=p>(</span><span class=n>value</span><span class=p>:</span> <span class=n>Any</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Enforce that a text is a non-empty string.</span>
+
+<span class=sd>    :param value: the value to be checked whether it is a non-empty string</span>
+<span class=sd>    :returns: the value, but as type `str`</span>
+<span class=sd>    :raises TypeError: if `value` is not a `str`</span>
+<span class=sd>    :raises ValueError: if `value` is empty</span>
+
+<span class=sd>    >>> enforce_non_empty_str("1")</span>
+<span class=sd>    '1'</span>
+<span class=sd>    >>> enforce_non_empty_str(" 1 1 ")</span>
+<span class=sd>    ' 1 1 '</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     enforce_non_empty_str("")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Non-empty str expected, but got empty string.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     enforce_non_empty_str(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     enforce_non_empty_str(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>value</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Non-empty str expected, but got empty string."</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>value</span></div>
+
+
+
+<div class=viewcode-block id=enforce_non_empty_str_without_ws>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.enforce.enforce_non_empty_str_without_ws>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>enforce_non_empty_str_without_ws</span><span class=p>(</span><span class=n>value</span><span class=p>:</span> <span class=n>Any</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Enforce that a text is a non-empty string without white space.</span>
+
+<span class=sd>    :param value: the value to be checked whether it is a non-empty string</span>
+<span class=sd>        without any white space</span>
+<span class=sd>    :returns: the value, but as type `str`</span>
+<span class=sd>    :raises TypeError: if `value` is not a `str`</span>
+<span class=sd>    :raises ValueError: if `value` is empty or contains any white space</span>
+<span class=sd>        characters</span>
+
+<span class=sd>    >>> enforce_non_empty_str_without_ws("1")</span>
+<span class=sd>    '1'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     enforce_non_empty_str_without_ws(" 1 1 ")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    No white space allowed in string, but got ' 1 1 '.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     enforce_non_empty_str_without_ws("a\tb")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    No white space allowed in string, but got 'a\tb'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     enforce_non_empty_str_without_ws("012345678901234567890 12345678")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    No white space allowed in string, but got '012345678901234567890 12345678'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     enforce_non_empty_str_without_ws(</span>
+<span class=sd>    ...         "012345678901234567890 1234567801234567890123456789012345678")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[10:])</span>
+<span class=sd>    pace allowed in string, but got '012345678901234567890 12345678...'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     enforce_non_empty_str_without_ws("")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Non-empty str expected, but got empty string.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     enforce_non_empty_str_without_ws(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     enforce_non_empty_str_without_ws(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+<span class=sd>    """</span>
+    <span class=n>strlen</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>value</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>strlen</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Non-empty str expected, but got empty string."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=nb>any</span><span class=p>(</span><span class=nb>map</span><span class=p>(</span><span class=n>value</span><span class=o>.</span><span class=fm>__contains__</span><span class=p>,</span> <span class=n>WHITESPACE_OR_NEWLINE</span><span class=p>)):</span>
+        <span class=k>if</span> <span class=n>strlen</span> <span class=o>></span> <span class=mi>32</span><span class=p>:</span>  <span class=c1># take care of strings that are too long</span>
+            <span class=n>value</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__getitem__</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>slice</span><span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=mi>30</span><span class=p>,</span> <span class=mi>1</span><span class=p>))</span> <span class=o>+</span> <span class=s2>"..."</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"No white space allowed in string, but got </span><span class=si>{</span><span class=n>value</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>value</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.strings.enforce</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

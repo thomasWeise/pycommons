@@ -1,0 +1,250 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.processes.fork — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/processes/fork.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.processes.fork</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.processes.fork</h1><div class=highlight><pre>
+<span></span><span class=sd>"""</span>
+<span class=sd>Fork a Python interpreter process multiple times.</span>
+
+<span class=sd>The use case for this tool is when you have a main script in your Python</span>
+<span class=sd>program and want to allow a user to launch it multiple times with the sme</span>
+<span class=sd>parameters.</span>
+<span class=sd>In this case, she would simply provide the argument `--fork NNN`, where</span>
+<span class=sd>`NNN` is either the absolute number of times the program should be launched</span>
+<span class=sd>or a fraction in (0, 1) of the available logical cores to use.</span>
+
+<span class=sd>You would use the normal :class:`~argparse.ArgumentParser` in your main</span>
+<span class=sd>code piece, i.e., do something like</span>
+<span class=sd>`if __name__ == "__main__":` followed by</span>
+<span class=sd>`    parser: Final[ArgumentParser] = ...`.</span>
+
+<span class=sd>Then, you would invoke `args = fork(parser)`, where :func:`fork` is the</span>
+<span class=sd>function provided here.</span>
+<span class=sd>This function will return `None` if it has detected the `--fork` argument.</span>
+<span class=sd>In that case, it will have launched the process again the appropriate</span>
+<span class=sd>number of times and waited for its completion already.</span>
+<span class=sd>If it did not detect the `--fork` argument, it will return the</span>
+<span class=sd>:class:`~argparse.Namespace` instance with the normal arguments.</span>
+<span class=sd>Actually, it will do exactly this in the launched copies of the process.</span>
+
+<span class=sd>So from the outside, this looks pretty much like the good old `fork`</span>
+<span class=sd>command on Unix systems.</span>
+<span class=sd>However, it can do a little bit more.</span>
+<span class=sd>For each process copy (except the original process), the `args.fork_id`</span>
+<span class=sd>will hold a unique ID of the forked process.</span>
+
+<span class=sd>Also, you can provide the command `--fork-log-dir YYY` to the original</span>
+<span class=sd>process. In this case, each of the forked processes will not be launched</span>
+<span class=sd>normally. Instead, its stdout and stderr will be piped into two different</span>
+<span class=sd>files inside the directory `YYY`. This makes working with experiments, like</span>
+<span class=sd>in the *moptipy* framework (see &LThttps://thomasweise.github.io/moptipy>)</span>
+<span class=sd>easier.</span>
+
+<span class=sd>The gist is this: Under the hood, this looks as if you can do Unix-style</span>
+<span class=sd>forks of the Python interpreter. Actually, it launches separate interpreter</span>
+<span class=sd>processes with the same arguments (plus the `fork_id` parameter and minus</span>
+<span class=sd>the forking-arguments).</span>
+
+<span class=sd>Side note: If you do not provide a logging directory and the number of</span>
+<span class=sd>processes to launch would be 1, then no forking takes place. This then</span>
+<span class=sd>just returns the normal arguments as if no forking parameters were provided</span>
+<span class=sd>at all.</span>
+<span class=sd>"""</span>
+<span class=kn>import</span><span class=w> </span><span class=nn>sys</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>argparse</span><span class=w> </span><span class=kn>import</span> <span class=n>ArgumentParser</span><span class=p>,</span> <span class=n>Namespace</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>math</span><span class=w> </span><span class=kn>import</span> <span class=n>isfinite</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os</span><span class=w> </span><span class=kn>import</span> <span class=n>cpu_count</span><span class=p>,</span> <span class=n>environ</span><span class=p>,</span> <span class=n>getpid</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>platform</span><span class=w> </span><span class=kn>import</span> <span class=n>node</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Final</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.console</span><span class=w> </span><span class=kn>import</span> <span class=n>logger</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.path</span><span class=w> </span><span class=kn>import</span> <span class=n>Path</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.processes.multishell</span><span class=w> </span><span class=kn>import</span> <span class=n>multi_execute</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.processes.python</span><span class=w> </span><span class=kn>import</span> <span class=n>PYTHON_ENV</span><span class=p>,</span> <span class=n>PYTHON_INTERPRETER</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.processes.shell</span><span class=w> </span><span class=kn>import</span> <span class=n>STREAM_FORWARD</span><span class=p>,</span> <span class=n>Command</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.processes.shell_to_file</span><span class=w> </span><span class=kn>import</span> <span class=n>to_files</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.strings.string_tools</span><span class=w> </span><span class=kn>import</span> <span class=n>replace_str</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>type_error</span>
+
+
+<div class=viewcode-block id=get_cores>
+<a class=viewcode-back href=../../../pycommons.processes.html#pycommons.processes.fork.get_cores>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>get_cores</span><span class=p>(</span><span class=n>use</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span> <span class=n>n_cpu</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Compute the number of CPU cores to be used (for forking).</span>
+
+<span class=sd>    :param use: the usage number, either a float between 0 and 1 denoting a</span>
+<span class=sd>        fraction of cores to be used, or the absolute number.</span>
+<span class=sd>    :param n_cpu: the number of CPU cores available, or `None` if we should</span>
+<span class=sd>        determine it automatically.</span>
+<span class=sd>    :return: the number of cores</span>
+
+<span class=sd>    >>> get_cores(1)</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> get_cores(2)</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> get_cores(2.3)</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> get_cores(2.6)</span>
+<span class=sd>    3</span>
+<span class=sd>    >>> get_cores(0.5, 10)</span>
+<span class=sd>    5</span>
+<span class=sd>    >>> get_cores(0.3, 10)</span>
+<span class=sd>    3</span>
+<span class=sd>    >>> get_cores(0.5, 16)</span>
+<span class=sd>    8</span>
+<span class=sd>    >>> get_cores(0.5, 1)</span>
+<span class=sd>    1</span>
+
+<span class=sd>    >>> 0 < get_cores(0.5) < 10000</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     get_cores("a")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    use should be an instance of any in {float, int} but is str, namely 'a'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     get_cores(0.3, "a")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    n_cpu should be an instance of int but is str, namely 'a'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     get_cores(-1)</span>
+<span class=sd>    ... except ValueError as v:</span>
+<span class=sd>    ...     print(v)</span>
+<span class=sd>    Invalid value -1 for number of cores to use.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>use</span><span class=p>,</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>use</span><span class=p>,</span> <span class=s2>"use"</span><span class=p>,</span> <span class=p>(</span><span class=nb>int</span><span class=p>,</span> <span class=nb>float</span><span class=p>))</span>
+    <span class=k>if</span> <span class=p>(</span><span class=ow>not</span> <span class=n>isfinite</span><span class=p>(</span><span class=n>use</span><span class=p>))</span> <span class=ow>or</span> <span class=p>(</span><span class=n>use</span> <span class=o><=</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>use</span> <span class=o>></span> <span class=mi>1000</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid value </span><span class=si>{</span><span class=n>use</span><span class=si>!r}</span><span class=s2> for number of cores to use."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>use</span> <span class=o><</span> <span class=mi>1</span><span class=p>:</span>
+        <span class=k>if</span> <span class=n>n_cpu</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>n_cpu</span> <span class=o>=</span> <span class=n>cpu_count</span><span class=p>()</span>
+            <span class=k>if</span> <span class=n>n_cpu</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=k>return</span> <span class=mi>1</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>n_cpu</span><span class=p>,</span> <span class=nb>int</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>n_cpu</span><span class=p>,</span> <span class=s2>"n_cpu"</span><span class=p>,</span> <span class=nb>int</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>n_cpu</span> <span class=o><</span> <span class=mi>1</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid value </span><span class=si>{</span><span class=n>n_cpu</span><span class=si>!r}</span><span class=s2> for n_cpu."</span><span class=p>)</span>
+        <span class=k>return</span> <span class=nb>max</span><span class=p>(</span><span class=mi>1</span><span class=p>,</span> <span class=nb>min</span><span class=p>(</span><span class=n>n_cpu</span> <span class=o>-</span> <span class=mi>1</span><span class=p>,</span> <span class=nb>round</span><span class=p>(</span><span class=n>use</span> <span class=o>*</span> <span class=n>n_cpu</span><span class=p>)))</span>
+    <span class=k>return</span> <span class=nb>round</span><span class=p>(</span><span class=n>use</span><span class=p>)</span></div>
+
+
+
+<div class=viewcode-block id=fork>
+<a class=viewcode-back href=../../../pycommons.processes.html#pycommons.processes.fork.fork>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>fork</span><span class=p>(</span><span class=n>parser</span><span class=p>:</span> <span class=n>ArgumentParser</span><span class=p>)</span> <span class=o>-></span> <span class=n>Namespace</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Launch this Python process multiple times if requested to.</span>
+
+<span class=sd>    If the user provided an argument `--fork NNN`, where `NNN` is either an</span>
+<span class=sd>    absolute number of processes to launch or a fraction in (0, 1) of logical</span>
+<span class=sd>    CPU cores to use, then this function will invoke the interpreter the</span>
+<span class=sd>    corresponding number of times with exactly the same command line arguments</span>
+<span class=sd>    except the forking parameters.</span>
+
+<span class=sd>    You can provide an argument `--fork-log-dir DDD`, where `DDD` is a</span>
+<span class=sd>    directory. If you do this, then the stdout and stderr of each launched</span>
+<span class=sd>    process are piped into files inside this directory.</span>
+
+<span class=sd>    If forking is done, then each forked process gets an additional argument</span>
+<span class=sd>    `fork_id` with a unique identifier.</span>
+
+<span class=sd>    If no forking arguments are provided, of if we would fork just 1 process</span>
+<span class=sd>    without logging directory, then no forking is done.</span>
+<span class=sd>    In this case, this routine just returns the :class:`~argparse.Namespace`</span>
+<span class=sd>    instance with the command line arguments.</span>
+<span class=sd>    If this actually already is a forked process, then, too, the</span>
+<span class=sd>    :class:`~argparse.Namespace` instance with the arguments (plus the</span>
+<span class=sd>    `fork_id`) is returned.</span>
+<span class=sd>    If this is the root process from which the forks were started, then `None`</span>
+<span class=sd>    is returned. In that case, the function returns after all sub-processes</span>
+<span class=sd>    are completed.</span>
+
+<span class=sd>    :param parser: the root argument parser</span>
+<span class=sd>    :return: `None` if the argument parser contained forking arguments and</span>
+<span class=sd>        the same process was forked multiple times, otherwise the</span>
+<span class=sd>        :class:`~argparse.Namespace` with the arguments.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>parser</span><span class=p>,</span> <span class=n>ArgumentParser</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>parser</span><span class=p>,</span> <span class=s2>"parser"</span><span class=p>,</span> <span class=n>ArgumentParser</span><span class=p>)</span>
+    <span class=n>arg_fork</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"--fork"</span>
+    <span class=n>arg_log_dir</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>arg_fork</span><span class=si>}</span><span class=s2>-log-dir"</span>
+    <span class=n>arg_fork_id</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>arg_fork</span><span class=si>}</span><span class=s2>-id"</span>
+    <span class=n>parser</span><span class=o>.</span><span class=n>add_argument</span><span class=p>(</span>
+        <span class=n>arg_fork</span><span class=p>,</span> <span class=n>nargs</span><span class=o>=</span><span class=s2>"?"</span><span class=p>,</span> <span class=nb>type</span><span class=o>=</span><span class=nb>float</span><span class=p>,</span>
+        <span class=n>help</span><span class=o>=</span><span class=p>(</span><span class=s2>"invoke this process multiple times in parallel. --fork can "</span>
+              <span class=s2>"either be an absolute number of processes to launch or a "</span>
+              <span class=s2>"fraction in (0, 1) of the available logical CPU cores."</span><span class=p>))</span>
+    <span class=n>parser</span><span class=o>.</span><span class=n>add_argument</span><span class=p>(</span><span class=n>arg_log_dir</span><span class=p>,</span> <span class=n>nargs</span><span class=o>=</span><span class=s2>"?"</span><span class=p>,</span> <span class=nb>type</span><span class=o>=</span><span class=n>Path</span><span class=p>)</span>
+    <span class=n>parser</span><span class=o>.</span><span class=n>add_argument</span><span class=p>(</span><span class=n>arg_fork_id</span><span class=p>,</span> <span class=n>nargs</span><span class=o>=</span><span class=s2>"?"</span><span class=p>,</span> <span class=nb>type</span><span class=o>=</span><span class=nb>int</span><span class=p>)</span>
+    <span class=n>args</span><span class=p>:</span> <span class=n>Namespace</span> <span class=o>=</span> <span class=n>parser</span><span class=o>.</span><span class=n>parse_args</span><span class=p>()</span>
+
+    <span class=k>if</span> <span class=n>args</span><span class=o>.</span><span class=n>fork</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>return</span> <span class=n>args</span>
+    <span class=k>if</span> <span class=n>args</span><span class=o>.</span><span class=n>fork_id</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Cannot recursively fork."</span><span class=p>)</span>
+
+    <span class=c1># Get number of processes.</span>
+    <span class=k>try</span><span class=p>:</span>
+        <span class=n>nfork</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>get_cores</span><span class=p>(</span><span class=n>args</span><span class=o>.</span><span class=n>fork</span><span class=p>)</span>
+    <span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid value </span><span class=si>{</span><span class=n>args</span><span class=o>.</span><span class=n>fork</span><span class=si>}</span><span class=s2> for </span><span class=si>{</span><span class=n>arg_fork</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=nn>ve</span>
+
+    <span class=n>ld</span><span class=p>:</span> <span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>args</span><span class=o>.</span><span class=n>fork_log_dir</span>
+    <span class=k>if</span> <span class=n>nfork</span> <span class=o><=</span> <span class=mi>1</span><span class=p>:</span>
+        <span class=k>if</span> <span class=n>ld</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>logger</span><span class=p>(</span><span class=s2>"No need to fork: There would be just 1 process "</span>
+                   <span class=s2>"and no log directory."</span><span class=p>)</span>
+            <span class=k>return</span> <span class=n>args</span>
+        <span class=n>nfork</span> <span class=o>=</span> <span class=mi>1</span>
+
+    <span class=n>msg</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"Forking </span><span class=si>{</span><span class=n>nfork</span><span class=si>}</span><span class=s2> processes"</span>
+    <span class=k>if</span> <span class=n>ld</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>msg</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>msg</span><span class=si>}</span><span class=s2> without specific log directory."</span>
+    <span class=k>else</span><span class=p>:</span>
+        <span class=n>msg</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>msg</span><span class=si>}</span><span class=s2> with log directory </span><span class=si>{</span><span class=n>ld</span><span class=si>!r}</span><span class=s2>."</span>
+    <span class=n>logger</span><span class=p>(</span><span class=n>msg</span><span class=p>)</span>
+
+    <span class=c1># creating and cleaning up arguments</span>
+    <span class=n>fork_args</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>list</span><span class=p>(</span><span class=n>sys</span><span class=o>.</span><span class=n>argv</span><span class=p>)</span>
+    <span class=n>i</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>fork_args</span><span class=o>.</span><span class=n>index</span><span class=p>(</span><span class=n>arg_fork</span><span class=p>)</span>
+    <span class=k>del</span> <span class=n>fork_args</span><span class=p>[</span><span class=n>i</span><span class=p>]</span>
+    <span class=k>del</span> <span class=n>fork_args</span><span class=p>[</span><span class=n>i</span><span class=p>]</span>
+    <span class=k>if</span> <span class=n>ld</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>i</span> <span class=o>=</span> <span class=n>fork_args</span><span class=o>.</span><span class=n>index</span><span class=p>(</span><span class=n>arg_log_dir</span><span class=p>)</span>
+        <span class=k>del</span> <span class=n>fork_args</span><span class=p>[</span><span class=n>i</span><span class=p>]</span>
+        <span class=k>del</span> <span class=n>fork_args</span><span class=p>[</span><span class=n>i</span><span class=p>]</span>
+    <span class=n>fork_args</span><span class=o>.</span><span class=n>insert</span><span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=n>PYTHON_INTERPRETER</span><span class=p>)</span>
+    <span class=n>fork_args</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>arg_fork_id</span><span class=p>)</span>
+
+    <span class=n>use_env</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=nb>dict</span><span class=p>(</span><span class=n>environ</span><span class=p>)</span>
+    <span class=n>use_env</span><span class=o>.</span><span class=n>update</span><span class=p>(</span><span class=n>PYTHON_ENV</span><span class=p>)</span>
+
+    <span class=n>commands</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=n>Command</span><span class=p>]]</span> <span class=o>=</span> <span class=p>[]</span>
+
+    <span class=k>for</span> <span class=n>i</span> <span class=ow>in</span> <span class=nb>range</span><span class=p>(</span><span class=n>nfork</span><span class=p>):</span>
+        <span class=n>fork_args</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=nb>str</span><span class=p>(</span><span class=n>i</span><span class=p>))</span>
+        <span class=n>commands</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>Command</span><span class=p>(</span>
+            <span class=n>command</span><span class=o>=</span><span class=n>fork_args</span><span class=p>,</span>
+            <span class=n>stdout</span><span class=o>=</span><span class=n>STREAM_FORWARD</span><span class=p>,</span>
+            <span class=n>stderr</span><span class=o>=</span><span class=n>STREAM_FORWARD</span><span class=p>,</span>
+            <span class=n>env</span><span class=o>=</span><span class=n>use_env</span><span class=p>))</span>
+        <span class=k>del</span> <span class=n>fork_args</span><span class=p>[</span><span class=o>-</span><span class=mi>1</span><span class=p>]</span>
+
+    <span class=k>if</span> <span class=n>ld</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>ld</span><span class=o>.</span><span class=n>ensure_dir_exists</span><span class=p>()</span>
+        <span class=n>prefix</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>lower</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>node</span><span class=p>()</span><span class=si>}</span><span class=s2>_</span><span class=si>{</span><span class=n>getpid</span><span class=p>()</span><span class=si>}</span><span class=s2>_fork_"</span><span class=p>)</span>
+        <span class=k>for</span> <span class=n>ch</span> <span class=ow>in</span> <span class=s2>"- </span><span class=se>\\</span><span class=s2>/</span><span class=se>\t</span><span class=s2>.+*%!#"</span><span class=p>:</span>
+            <span class=n>prefix</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=n>prefix</span><span class=p>,</span> <span class=n>ch</span><span class=p>,</span> <span class=s2>"_"</span><span class=p>)</span>
+        <span class=n>prefix</span> <span class=o>=</span> <span class=n>replace_str</span><span class=p>(</span><span class=s2>"__"</span><span class=p>,</span> <span class=s2>"_"</span><span class=p>,</span> <span class=n>prefix</span><span class=p>)</span>
+        <span class=k>for</span> <span class=n>i</span><span class=p>,</span> <span class=n>cmd</span> <span class=ow>in</span> <span class=nb>enumerate</span><span class=p>(</span><span class=n>commands</span><span class=p>):</span>
+            <span class=n>commands</span><span class=p>[</span><span class=n>i</span><span class=p>]</span> <span class=o>=</span> <span class=n>to_files</span><span class=p>(</span>
+                <span class=n>command</span><span class=o>=</span><span class=n>cmd</span><span class=p>,</span>
+                <span class=n>stdout</span><span class=o>=</span><span class=n>ld</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>prefix</span><span class=si>}{</span><span class=n>i</span><span class=si>}</span><span class=s2>_stdout.txt"</span><span class=p>),</span>
+                <span class=n>stderr</span><span class=o>=</span><span class=n>ld</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>prefix</span><span class=si>}{</span><span class=n>i</span><span class=si>}</span><span class=s2>_stderr.txt"</span><span class=p>))</span>
+
+    <span class=n>multi_execute</span><span class=p>(</span><span class=n>commands</span><span class=p>,</span> <span class=kc>True</span><span class=p>)</span>
+    <span class=k>return</span> <span class=kc>None</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.processes.fork</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

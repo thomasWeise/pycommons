@@ -1,0 +1,755 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.dev.url_replacer — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/dev/url_replacer.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.url_replacer</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.dev.url_replacer</h1><div class=highlight><pre>
+<span></span><span class=sd>"""</span>
+<span class=sd>Process a markdown file in order to make it useful for distribution.</span>
+
+<span class=sd>In order to let sphinx properly load and insert the `README.md` file into the</span>
+<span class=sd>project's documentation, we need to process this file from the GitHub style</span>
+<span class=sd>markdown to a variant suitable for the myst parser used in sphinx. While we</span>
+<span class=sd>are at it, we can also turn absolute URLs from the GitHub-`README.md` file</span>
+<span class=sd>that point to the documentation URL to relative URLs.</span>
+<span class=sd>"""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>itertools</span><span class=w> </span><span class=kn>import</span> <span class=n>chain</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>re</span><span class=w> </span><span class=kn>import</span> <span class=n>Match</span><span class=p>,</span> <span class=n>Pattern</span><span class=p>,</span> <span class=n>escape</span><span class=p>,</span> <span class=n>subn</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>re</span><span class=w> </span><span class=kn>import</span> <span class=nb>compile</span> <span class=k>as</span> <span class=n>re_compile</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Any</span><span class=p>,</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>,</span> <span class=n>Mapping</span><span class=p>,</span> <span class=n>cast</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.net.url</span><span class=w> </span><span class=kn>import</span> <span class=n>URL</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>type_error</span>
+
+<span class=c1>#: the separators for URLs in html</span>
+<span class=n>__HTML_URL_SEPARTORS</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>],</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=p>(</span>
+    <span class=p>(</span><span class=sa>r</span><span class=s1>'\s+href\s*=\s*"\s*'</span><span class=p>,</span> <span class=sa>r</span><span class=s1>'\s*"'</span><span class=p>,</span> <span class=s1>' href="'</span><span class=p>,</span> <span class=s1>'"'</span><span class=p>),</span>
+    <span class=p>(</span><span class=sa>r</span><span class=s2>"\s+href\s*=\s*'\s*"</span><span class=p>,</span> <span class=sa>r</span><span class=s2>"\s*'"</span><span class=p>,</span> <span class=s1>' href="'</span><span class=p>,</span> <span class=s1>'"'</span><span class=p>),</span>
+    <span class=p>(</span><span class=sa>r</span><span class=s1>'\s+src\s*=\s*"\s*'</span><span class=p>,</span> <span class=sa>r</span><span class=s1>'\s*"'</span><span class=p>,</span> <span class=s1>' src="'</span><span class=p>,</span> <span class=s1>'"'</span><span class=p>),</span>
+    <span class=p>(</span><span class=sa>r</span><span class=s2>"\s+src\s*=\s*'\s*"</span><span class=p>,</span> <span class=sa>r</span><span class=s2>"\s*'"</span><span class=p>,</span> <span class=s1>' src="'</span><span class=p>,</span> <span class=s1>'"'</span><span class=p>),</span>
+<span class=p>)</span>
+
+<span class=c1>#: the separators for URLs in markdown</span>
+<span class=n>__MD_URL_SEPARTORS</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>],</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=p>(</span>
+    <span class=p>(</span><span class=sa>r</span><span class=s2>"\s*\]\s*\(\s*"</span><span class=p>,</span> <span class=sa>r</span><span class=s2>"\s*\)"</span><span class=p>,</span> <span class=sa>r</span><span class=s2>"]("</span><span class=p>,</span> <span class=sa>r</span><span class=s2>")"</span><span class=p>),</span>
+    <span class=p>(</span><span class=sa>r</span><span class=s2>"<\s*"</span><span class=p>,</span> <span class=sa>r</span><span class=s2>"\s*>"</span><span class=p>,</span> <span class=s2>"<"</span><span class=p>,</span> <span class=s2>">"</span><span class=p>),</span>
+<span class=p>)</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__make_base_url_replacer</span><span class=p>(</span>
+        <span class=n>collector</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span>
+            <span class=nb>tuple</span><span class=p>[</span><span class=n>Pattern</span><span class=p>,</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>Match</span><span class=p>],</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=nb>str</span><span class=p>]],</span> <span class=n>Any</span><span class=p>],</span>
+        <span class=n>base_url_to_replace</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span>
+        <span class=n>replace_base_url_with</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=s2>"./"</span><span class=p>,</span>
+        <span class=n>for_markdown</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Make `(Pattern, Callable)` tuples that replace base URLs in Markdown.</span>
+
+<span class=sd>    :param collector: the collector (e.g. :meth:`list.append`) to receive the</span>
+<span class=sd>        tuple</span>
+<span class=sd>    :param base_url_to_replace: the base url to be replaced</span>
+<span class=sd>    :param replace_base_url_with: the string with which the base URL should be</span>
+<span class=sd>        replaced</span>
+<span class=sd>    :param for_markdown: should replacers for Markdown be add (`True`) or only</span>
+<span class=sd>        for HTML (`False`)</span>
+
+<span class=sd>    >>> from re import sub</span>
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_base_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x", "./")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com/x\\/?(.*)\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com/x\\/?(.*)\\s*>'</span>
+<span class=sd>    >>> sub(coll[3][0], coll[3][1], " src= ' https://example.com/x/y '")</span>
+<span class=sd>    ' src="./y"'</span>
+<span class=sd>    >>> sub(coll[1][0], coll[1][1], " href ='http://example.com/x/y  '")</span>
+<span class=sd>    ' href="./y"'</span>
+<span class=sd>    >>> sub(coll[2][0], coll[2][1], ' src ="https://example.com/x/y"')</span>
+<span class=sd>    ' src="./y"'</span>
+<span class=sd>    >>> sub(coll[0][0], coll[0][1], '  href ="http://example.com/x/y"')</span>
+<span class=sd>    ' href="./y"'</span>
+<span class=sd>    >>> sub(coll[4][0], coll[4][1], '[l](  https://example.com/x/y)')</span>
+<span class=sd>    '[l](./y)'</span>
+<span class=sd>    >>> sub(coll[4][0], coll[4][1], '![xx ] (http://example.com/x/y/g.jpg)')</span>
+<span class=sd>    '![xx](./y/g.jpg)'</span>
+<span class=sd>    >>> sub(coll[5][0], coll[5][1], '<  https://example.com/x/y >')</span>
+<span class=sd>    '<./y>'</span>
+<span class=sd>    >>> sub(coll[3][0], coll[3][1], "src='https://example.com/x/y ")</span>
+<span class=sd>    "src='https://example.com/x/y "</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_base_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x/", "./")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com/x\\/?(.*)\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com/x\\/?(.*)\\s*>'</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_base_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x/", "./", False)</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_base_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x/", "/")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com/x\\/?(.*)\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com/x\\/?(.*)\\s*>'</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_base_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x/", "/", False)</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_base_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x/", "bb")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x(.*)\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x(.*)\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com/x(.*)\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com/x(.*)\\s*>'</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_base_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x/", "bb", False)</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x(.*)\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x(.*)\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_base_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x", "./")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com/x\\/?(.*)\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com/x\\/?(.*)\\s*>'</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_base_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x", "./", False)</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_base_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x", "/")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com/x\\/?(.*)\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com/x\\/?(.*)\\s*>'</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_base_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x", "/", False)</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\/?(.*)\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\/?(.*)\\s*'"</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_base_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x", "bb")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x(.*)\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x(.*)\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com/x(.*)\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com/x(.*)\\s*>'</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_base_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x", "bb", False)</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x(.*)\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x(.*)\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x(.*)\\s*'"</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_base_url_replacer(None, "https://example.com/x", "bb")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    collector should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_base_url_replacer(1, "https://example.com/x", "bb")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    collector should be a callable but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_base_url_replacer(coll.append, None, "bb")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_base_url_replacer(coll.append, 1, "bb")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_base_url_replacer(</span>
+<span class=sd>    ...         coll.append, "https://example.com/x", None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_base_url_replacer(coll.append, "https://example.com/x", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_base_url_replacer(coll.append, "tweise@hfuu.edu.cn", "x")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid scheme 'mailto' for url 'tweise@hfuu.edu.cn'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_base_url_replacer(coll.append, "https://example.com/x",</span>
+<span class=sd>    ...         "./", None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    for_markdown should be an instance of bool but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_base_url_replacer(coll.append, "https://example.com/x",</span>
+<span class=sd>    ...         "./", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    for_markdown should be an instance of bool but is int, namely 1.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>collector</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>collector</span><span class=p>,</span> <span class=s2>"collector"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>for_markdown</span><span class=p>,</span> <span class=nb>bool</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>for_markdown</span><span class=p>,</span> <span class=s2>"for_markdown"</span><span class=p>,</span> <span class=nb>bool</span><span class=p>)</span>
+    <span class=n>url</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>URL</span><span class=p>]</span> <span class=o>=</span> <span class=n>URL</span><span class=p>(</span><span class=n>base_url_to_replace</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>url</span><span class=o>.</span><span class=n>scheme</span> <span class=ow>not</span> <span class=ow>in</span> <span class=p>{</span><span class=s2>"http"</span><span class=p>,</span> <span class=s2>"https"</span><span class=p>}:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"Invalid scheme </span><span class=si>{</span><span class=n>url</span><span class=o>.</span><span class=n>scheme</span><span class=si>!r}</span><span class=s2> for url </span><span class=si>{</span><span class=n>base_url_to_replace</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>use_repl</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>replace_base_url_with</span><span class=p>)</span>
+
+    <span class=n>use_url</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"https?</span><span class=si>{</span><span class=n>escape</span><span class=p>(</span><span class=n>url</span><span class=p>[</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>url</span><span class=o>.</span><span class=n>scheme</span><span class=p>):])</span><span class=si>}</span><span class=s2>"</span>
+    <span class=k>if</span> <span class=n>use_repl</span><span class=o>.</span><span class=n>startswith</span><span class=p>((</span><span class=s2>"/"</span><span class=p>,</span> <span class=s2>"./"</span><span class=p>)):</span>
+        <span class=n>use_url</span> <span class=o>+=</span> <span class=s2>"?"</span> <span class=k>if</span> <span class=n>use_url</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=s2>"/"</span><span class=p>)</span> <span class=k>else</span> <span class=sa>r</span><span class=s2>"\/?"</span>
+
+    <span class=k>for</span> <span class=n>sr</span><span class=p>,</span> <span class=n>er</span><span class=p>,</span> <span class=n>ss</span><span class=p>,</span> <span class=n>es</span> <span class=ow>in</span> <span class=n>chain</span><span class=p>(</span><span class=n>__HTML_URL_SEPARTORS</span><span class=p>,</span> <span class=n>__MD_URL_SEPARTORS</span><span class=p>)</span> \
+            <span class=k>if</span> <span class=n>for_markdown</span> <span class=k>else</span> <span class=n>__HTML_URL_SEPARTORS</span><span class=p>:</span>
+        <span class=n>collector</span><span class=p>((</span>
+            <span class=n>cast</span><span class=p>(</span><span class=s2>"Pattern"</span><span class=p>,</span> <span class=n>re_compile</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>sr</span><span class=si>}{</span><span class=n>use_url</span><span class=si>}</span><span class=s2>(.*)</span><span class=si>{</span><span class=n>er</span><span class=si>}</span><span class=s2>"</span><span class=p>)),</span>
+            <span class=n>cast</span><span class=p>(</span><span class=s2>"Callable[[Match], str]"</span><span class=p>,</span>
+                 <span class=k>lambda</span> <span class=n>mm</span><span class=p>,</span> <span class=n>_ss</span><span class=o>=</span><span class=n>ss</span><span class=p>,</span> <span class=n>_es</span><span class=o>=</span><span class=n>es</span><span class=p>,</span> <span class=n>_rr</span><span class=o>=</span><span class=n>use_repl</span><span class=p>:</span>
+                 <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>_ss</span><span class=si>}{</span><span class=n>_rr</span><span class=si>}{</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>mm</span><span class=o>.</span><span class=n>group</span><span class=p>(</span><span class=mi>1</span><span class=p>))</span><span class=si>}{</span><span class=n>_es</span><span class=si>}</span><span class=s2>"</span><span class=p>)))</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__make_full_url_replacer</span><span class=p>(</span>
+        <span class=n>collector</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span>
+            <span class=nb>tuple</span><span class=p>[</span><span class=n>Pattern</span><span class=p>,</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>Match</span><span class=p>],</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=nb>str</span><span class=p>]],</span> <span class=n>Any</span><span class=p>],</span>
+        <span class=n>url_to_replace</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>replace_url_with</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=s2>"./"</span><span class=p>,</span>
+        <span class=n>for_markdown</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Make `(Pattern, Callable)` tuples that replace full URLs in Markdown.</span>
+
+<span class=sd>    :param collector: the collector (e.g. :meth:`list.append`) to receive the</span>
+<span class=sd>        tuple</span>
+<span class=sd>    :param url_to_replace: the full url to be replaced</span>
+<span class=sd>    :param replace_url_with: the string with which the URL should be</span>
+<span class=sd>        replaced</span>
+<span class=sd>    :param for_markdown: should replacers for Markdown be add (`True`) or only</span>
+<span class=sd>        for HTML (`False`)</span>
+
+<span class=sd>    >>> from re import sub</span>
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/x.jpg", "x.jpg")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com/x\\.jpg\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com/x\\.jpg\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com/x\\.jpg\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com/x\\.jpg\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com/x\\.jpg\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com/x\\.jpg\\s*>'</span>
+<span class=sd>    >>> sub(coll[1][0], coll[1][1], " href= ' https://example.com/x.jpg '")</span>
+<span class=sd>    ' href="x.jpg"'</span>
+<span class=sd>    >>> sub(coll[1][0], coll[1][1], " href='https://example.com/x.jpg  '")</span>
+<span class=sd>    ' href="x.jpg"'</span>
+<span class=sd>    >>> sub(coll[2][0], coll[2][1], ' src="https://example.com/x.jpg"')</span>
+<span class=sd>    ' src="x.jpg"'</span>
+<span class=sd>    >>> sub(coll[2][0], coll[2][1], ' src="https://example.com/x.jpg"')</span>
+<span class=sd>    ' src="x.jpg"'</span>
+<span class=sd>    >>> sub(coll[4][0], coll[4][1], '[l](  https://example.com/x.jpg)')</span>
+<span class=sd>    '[l](x.jpg)'</span>
+<span class=sd>    >>> sub(coll[4][0], coll[4][1], '![xx ] (https://example.com/x.jpg)')</span>
+<span class=sd>    '![xx](x.jpg)'</span>
+<span class=sd>    >>> sub(coll[5][0], coll[5][1], '<  https://example.com/x.jpg>')</span>
+<span class=sd>    '&LTx.jpg>'</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/", "./x")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com\\/?\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com\\/?\\s*>'</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/", "./x", False)</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/", "/x")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com\\/?\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com\\/?\\s*>'</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/", "/x", False)</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/", "bb")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com\\s*>'</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com/", "bb", False)</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\s*'"</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com", "./x")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com\\/?\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com\\/?\\s*>'</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com", "./x", False)</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com", "/x")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com\\/?\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com\\/?\\s*>'</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com", "/x", False)</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\/?\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\/?\\s*'"</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com", "bb")</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\s*'"</span>
+<span class=sd>    '\\s*\\]\\s*\\(\\s*https?://example\\.com\\s*\\)'</span>
+<span class=sd>    '<\\s*https?://example\\.com\\s*>'</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(</span>
+<span class=sd>    ...     coll.append, "https://example.com", "bb", False)</span>
+<span class=sd>    >>> for k, y in coll:</span>
+<span class=sd>    ...     print(repr(k.pattern))</span>
+<span class=sd>    '\\s+href\\s*=\\s*"\\s*https?://example\\.com\\s*"'</span>
+<span class=sd>    "\\s+href\\s*=\\s*'\\s*https?://example\\.com\\s*'"</span>
+<span class=sd>    '\\s+src\\s*=\\s*"\\s*https?://example\\.com\\s*"'</span>
+<span class=sd>    "\\s+src\\s*=\\s*'\\s*https?://example\\.com\\s*'"</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_full_url_replacer(None, "https://example.com", "bb")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    collector should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_full_url_replacer(1, "https://example.com", "bb")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    collector should be a callable but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_full_url_replacer(coll.append, None, "bb")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_full_url_replacer(coll.append, 1, "bb")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_full_url_replacer(coll.append, "http://example.com", None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_full_url_replacer(coll.append, "http://example.com", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_full_url_replacer(coll.append, "tweise@hfuu.edu.cn", "1")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid scheme 'mailto' for url 'tweise@hfuu.edu.cn'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_full_url_replacer(coll.append, "http://example.com", " ")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Cannot replace URL 'http://example.com' with ' '.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_full_url_replacer(coll.append, "http://example.com",</span>
+<span class=sd>    ...         ".", None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    for_markdown should be an instance of bool but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_full_url_replacer(coll.append, "http://example.com",</span>
+<span class=sd>    ...         ".", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    for_markdown should be an instance of bool but is int, namely 1.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>collector</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>collector</span><span class=p>,</span> <span class=s2>"collector"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>for_markdown</span><span class=p>,</span> <span class=nb>bool</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>for_markdown</span><span class=p>,</span> <span class=s2>"for_markdown"</span><span class=p>,</span> <span class=nb>bool</span><span class=p>)</span>
+    <span class=n>url</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>URL</span><span class=p>]</span> <span class=o>=</span> <span class=n>URL</span><span class=p>(</span><span class=n>url_to_replace</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>url</span><span class=o>.</span><span class=n>scheme</span> <span class=ow>not</span> <span class=ow>in</span> <span class=p>{</span><span class=s2>"http"</span><span class=p>,</span> <span class=s2>"https"</span><span class=p>}:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"Invalid scheme </span><span class=si>{</span><span class=n>url</span><span class=o>.</span><span class=n>scheme</span><span class=si>!r}</span><span class=s2> for url </span><span class=si>{</span><span class=n>url_to_replace</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>use_repl</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>replace_url_with</span><span class=p>)</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>use_repl</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"Cannot replace URL </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2> with </span><span class=si>{</span><span class=n>replace_url_with</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>use_url</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"https?</span><span class=si>{</span><span class=n>escape</span><span class=p>(</span><span class=n>url</span><span class=p>[</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>url</span><span class=o>.</span><span class=n>scheme</span><span class=p>):])</span><span class=si>}</span><span class=s2>"</span>
+    <span class=k>if</span> <span class=n>use_repl</span><span class=o>.</span><span class=n>startswith</span><span class=p>((</span><span class=s2>"/"</span><span class=p>,</span> <span class=s2>"./"</span><span class=p>)):</span>
+        <span class=n>use_url</span> <span class=o>+=</span> <span class=s2>"?"</span> <span class=k>if</span> <span class=n>use_url</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=s2>"/"</span><span class=p>)</span> <span class=k>else</span> <span class=sa>r</span><span class=s2>"\/?"</span>
+
+    <span class=k>for</span> <span class=n>sr</span><span class=p>,</span> <span class=n>er</span><span class=p>,</span> <span class=n>ss</span><span class=p>,</span> <span class=n>es</span> <span class=ow>in</span> <span class=n>chain</span><span class=p>(</span><span class=n>__HTML_URL_SEPARTORS</span><span class=p>,</span> <span class=n>__MD_URL_SEPARTORS</span><span class=p>)</span> \
+            <span class=k>if</span> <span class=n>for_markdown</span> <span class=k>else</span> <span class=n>__HTML_URL_SEPARTORS</span><span class=p>:</span>
+        <span class=n>collector</span><span class=p>((</span>
+            <span class=n>cast</span><span class=p>(</span><span class=s2>"Pattern"</span><span class=p>,</span> <span class=n>re_compile</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>sr</span><span class=si>}{</span><span class=n>use_url</span><span class=si>}{</span><span class=n>er</span><span class=si>}</span><span class=s2>"</span><span class=p>)),</span>
+            <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>ss</span><span class=si>}{</span><span class=n>use_repl</span><span class=si>}{</span><span class=n>es</span><span class=si>}</span><span class=s2>"</span><span class=p>))</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__make_replacer</span><span class=p>(</span><span class=n>replacers</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span>
+        <span class=n>Pattern</span><span class=p>,</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>Match</span><span class=p>],</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=nb>str</span><span class=p>]])</span> <span class=o>-></span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=nb>str</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Make a function that replaces all URL parts in a string.</span>
+
+<span class=sd>    :param replacers: the replacers patterns</span>
+<span class=sd>    :returns: the function that can apply the replacers</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(coll.append, "https://example.com/log.txt",</span>
+<span class=sd>    ...                        "https://example.org/log.txt")</span>
+<span class=sd>    >>> __make_base_url_replacer(coll.append, "https://example.com/", "./")</span>
+<span class=sd>    >>> f = __make_replacer(coll)</span>
+<span class=sd>    >>> f("bla &LTa href='https://example.com/log.txt'>x&LT/a> bla")</span>
+<span class=sd>    'bla &LTa href="https://example.org/log.txt">x&LT/a> bla'</span>
+<span class=sd>    >>> f("bla &LTa href='https://example.com/xlog.txt'>x&LT/a> bla")</span>
+<span class=sd>    'bla &LTa href="./xlog.txt">x&LT/a> bla'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     f(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'rstrip' for 'str' objects doesn't apply to a 'NoneType' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     f(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'rstrip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> coll.append((None, coll[0][1]))</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_replacer(coll)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    pattern should be an instance of re.Pattern but is None.</span>
+
+<span class=sd>    >>> coll[-1] = (1, coll[0][1])</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_replacer(coll)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    pattern should be an instance of re.Pattern but is int, namely 1.</span>
+
+<span class=sd>    >>> coll[-1] = (coll[0][0], None)</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_replacer(coll)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    replacer should be an instance of str or a callable but is None.</span>
+
+<span class=sd>    >>> coll[-1] = (coll[0][0], 1)</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_replacer(coll)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    replacer should be an instance of str or a callable but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_replacer(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    replacers should be an instance of typing.Iterable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __make_replacer(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    replacers should be an instance of typing.Iterable but is int, namely 1.</span>
+
+<span class=sd>    >>> coll = list()</span>
+<span class=sd>    >>> __make_full_url_replacer(coll.append, "https://example.com",</span>
+<span class=sd>    ...                        "https://example.com")</span>
+<span class=sd>    >>> f = __make_replacer(coll)</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     f("&LTa href='http://example.com' />")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:60])</span>
+<span class=sd>    Endless loop: "&LTa href='http://example.com' />" -> '&LTa href=</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>replacers</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>replacers</span><span class=p>,</span> <span class=s2>"replacers"</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>)</span>
+
+    <span class=n>pats</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=n>Pattern</span><span class=p>,</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>Match</span><span class=p>],</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=nb>str</span><span class=p>],</span>
+                <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=nb>tuple</span><span class=p>(</span><span class=n>replacers</span><span class=p>)</span>
+    <span class=k>for</span> <span class=n>pattern</span><span class=p>,</span> <span class=n>replacer</span> <span class=ow>in</span> <span class=n>pats</span><span class=p>:</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>pattern</span><span class=p>,</span> <span class=n>Pattern</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>pattern</span><span class=p>,</span> <span class=s2>"pattern"</span><span class=p>,</span> <span class=n>Pattern</span><span class=p>)</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=p>(</span><span class=nb>isinstance</span><span class=p>(</span><span class=n>replacer</span><span class=p>,</span> <span class=nb>str</span><span class=p>)</span> <span class=ow>or</span> <span class=nb>callable</span><span class=p>(</span><span class=n>replacer</span><span class=p>)):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>replacer</span><span class=p>,</span> <span class=s2>"replacer"</span><span class=p>,</span> <span class=nb>str</span><span class=p>,</span> <span class=kc>True</span><span class=p>)</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>__func</span><span class=p>(</span><span class=n>text</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>__pats</span><span class=o>=</span><span class=n>pats</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+        <span class=n>out_str</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>rstrip</span><span class=p>(</span><span class=n>text</span><span class=p>)</span>  <span class=c1># enforce string</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>out_str</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>return</span> <span class=s2>""</span>
+        <span class=n>rc</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>1</span>
+        <span class=n>iteration</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=k>while</span> <span class=n>rc</span> <span class=o>></span> <span class=mi>0</span><span class=p>:</span>
+            <span class=n>rc</span> <span class=o>=</span> <span class=mi>0</span>
+            <span class=k>for</span> <span class=n>pp</span><span class=p>,</span> <span class=n>rr</span> <span class=ow>in</span> <span class=n>__pats</span><span class=p>:</span>
+                <span class=n>out_str</span><span class=p>,</span> <span class=n>nn</span> <span class=o>=</span> <span class=n>subn</span><span class=p>(</span><span class=n>pp</span><span class=p>,</span> <span class=n>rr</span><span class=p>,</span> <span class=n>out_str</span><span class=p>)</span>
+                <span class=n>rc</span> <span class=o>+=</span> <span class=n>nn</span>
+            <span class=n>iteration</span> <span class=o>+=</span> <span class=mi>1</span>
+            <span class=k>if</span> <span class=n>iteration</span> <span class=o>></span> <span class=mi>100</span><span class=p>:</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Endless loop: </span><span class=si>{</span><span class=n>text</span><span class=si>!r}</span><span class=s2> -> </span><span class=si>{</span><span class=n>out_str</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>return</span> <span class=nb>str</span><span class=o>.</span><span class=n>rstrip</span><span class=p>(</span><span class=n>out_str</span><span class=p>)</span>  <span class=c1># enforce string</span>
+
+    <span class=k>return</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"Callable[[str], str]"</span><span class=p>,</span> <span class=n>__func</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=make_url_replacer>
+<a class=viewcode-back href=../../../pycommons.dev.html#pycommons.dev.url_replacer.make_url_replacer>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>make_url_replacer</span><span class=p>(</span><span class=n>base_urls</span><span class=p>:</span> <span class=n>Mapping</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+                      <span class=n>full_urls</span><span class=p>:</span> <span class=n>Mapping</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+                      <span class=n>for_markdown</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span><span class=p>)</span> \
+        <span class=o>-></span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=nb>str</span><span class=p>]:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Create the url replacers that fix absolute to relative URLs.</span>
+
+<span class=sd>    :param base_urls: a mapping of basic urls to shortcuts</span>
+<span class=sd>    :param full_urls: a mapping of full urls to abbreviations</span>
+<span class=sd>    :param for_markdown: should the replace be for Markdown (`True`) or for</span>
+<span class=sd>        HTML only (`False`)</span>
+<span class=sd>    :returns: a single callable that can process strings and fix the URLs</span>
+<span class=sd>        therein</span>
+<span class=sd>    :raises TypeError: if any of the inputs is of the wrong type</span>
+<span class=sd>    :raises ValueError: if any of the inputs is incorrect</span>
+
+<span class=sd>    >>> f = make_url_replacer(None, None)</span>
+<span class=sd>    >>> f("1")</span>
+<span class=sd>    '1'</span>
+
+<span class=sd>    >>> f = make_url_replacer({"https://example.com/1": "./a/",</span>
+<span class=sd>    ...                          "https://example.com": "./"},</span>
+<span class=sd>    ...                         {"https://example.com/1/1.txt": "y.txt",</span>
+<span class=sd>    ...                          "https://example.com/x/1.txt": "z.txt"})</span>
+<span class=sd>    >>> f("&LTa href='http://example.com/1/2.txt' />")</span>
+<span class=sd>    '&LTa href="./a/2.txt" />'</span>
+<span class=sd>    >>> f("&LTa href='http://example.com/1' />")</span>
+<span class=sd>    '&LTa href="./a/" />'</span>
+<span class=sd>    >>> f("&LTa href='http://example.com' />")</span>
+<span class=sd>    '&LTa href="./" />'</span>
+<span class=sd>    >>> f("&LTa href='http://example.com/x.txt' />")</span>
+<span class=sd>    '&LTa href="./x.txt" />'</span>
+<span class=sd>    >>> f("&LTa href='http://example.com/1/1.txt' />")</span>
+<span class=sd>    '&LTa href="y.txt" />'</span>
+<span class=sd>    >>> f("&LTa href='http://example.com/x/1.txt' />")</span>
+<span class=sd>    '&LTa href="z.txt" />'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_url_replacer(1, None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    base_urls should be an instance of typing.Mapping but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_url_replacer(None, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    full_urls should be an instance of typing.Mapping but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_url_replacer(None, None, None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    for_markdown should be an instance of bool but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_url_replacer(None, None, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    for_markdown should be an instance of bool but is int, namely 1.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>for_markdown</span><span class=p>,</span> <span class=nb>bool</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>for_markdown</span><span class=p>,</span> <span class=s2>"for_markdown"</span><span class=p>,</span> <span class=nb>bool</span><span class=p>)</span>
+    <span class=n>keys</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>bool</span><span class=p>]]</span> <span class=o>=</span> <span class=p>[]</span>
+
+    <span class=k>if</span> <span class=n>base_urls</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>base_urls</span><span class=p>,</span> <span class=n>Mapping</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>base_urls</span><span class=p>,</span> <span class=s2>"base_urls"</span><span class=p>,</span> <span class=n>Mapping</span><span class=p>)</span>
+        <span class=n>keys</span><span class=o>.</span><span class=n>extend</span><span class=p>((</span><span class=n>kk</span><span class=p>,</span> <span class=kc>False</span><span class=p>)</span> <span class=k>for</span> <span class=n>kk</span> <span class=ow>in</span> <span class=n>base_urls</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>full_urls</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>full_urls</span><span class=p>,</span> <span class=n>Mapping</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>full_urls</span><span class=p>,</span> <span class=s2>"full_urls"</span><span class=p>,</span> <span class=n>Mapping</span><span class=p>)</span>
+        <span class=n>keys</span><span class=o>.</span><span class=n>extend</span><span class=p>((</span><span class=n>kk</span><span class=p>,</span> <span class=kc>True</span><span class=p>)</span> <span class=k>for</span> <span class=n>kk</span> <span class=ow>in</span> <span class=n>full_urls</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=nb>list</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>keys</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>  <span class=c1># no need to do anything</span>
+        <span class=k>return</span> <span class=k>lambda</span> <span class=n>s</span><span class=p>:</span> <span class=n>s</span>
+
+    <span class=c1># long keys and full urls first</span>
+    <span class=n>keys</span><span class=o>.</span><span class=n>sort</span><span class=p>(</span><span class=n>key</span><span class=o>=</span><span class=k>lambda</span> <span class=n>tt</span><span class=p>:</span> <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>tt</span><span class=p>[</span><span class=mi>0</span><span class=p>]),</span> <span class=n>tt</span><span class=p>[</span><span class=mi>1</span><span class=p>],</span> <span class=n>tt</span><span class=p>[</span><span class=mi>0</span><span class=p>]),</span> <span class=n>reverse</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=n>mappings</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=n>Pattern</span><span class=p>,</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>Match</span><span class=p>],</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=p>[]</span>
+    <span class=k>for</span> <span class=n>k</span><span class=p>,</span> <span class=n>w</span> <span class=ow>in</span> <span class=n>keys</span><span class=p>:</span>
+        <span class=k>if</span> <span class=n>w</span><span class=p>:</span>
+            <span class=n>__make_full_url_replacer</span><span class=p>(</span><span class=n>mappings</span><span class=o>.</span><span class=n>append</span><span class=p>,</span> <span class=n>k</span><span class=p>,</span> <span class=n>full_urls</span><span class=p>[</span><span class=n>k</span><span class=p>],</span>
+                                     <span class=n>for_markdown</span><span class=p>)</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>__make_base_url_replacer</span><span class=p>(</span><span class=n>mappings</span><span class=o>.</span><span class=n>append</span><span class=p>,</span> <span class=n>k</span><span class=p>,</span> <span class=n>base_urls</span><span class=p>[</span><span class=n>k</span><span class=p>],</span>
+                                     <span class=n>for_markdown</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>__make_replacer</span><span class=p>(</span><span class=n>mappings</span><span class=p>)</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.url_replacer</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

@@ -1,0 +1,274 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.strings.chars — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/strings/chars.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.strings.chars</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.strings.chars</h1><div class=highlight><pre>
+<span></span><span class=sd>"""Constants for common characters."""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span>
+
+<span class=c1>#: A constant for non-breaking space</span>
+<span class=n>NBSP</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"</span><span class=se>\xa0</span><span class=s2>"</span>
+<span class=c1>#: A non-breaking hyphen</span>
+<span class=n>NBDASH</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"</span><span class=se>\u2011</span><span class=s2>"</span>
+
+<span class=c1>#: A regular expression matching all characters that are non-line breaking</span>
+<span class=c1>#: white space.</span>
+<span class=n>WHITESPACE</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=p>(</span>
+    <span class=s2>"</span><span class=se>\t\x0b\x0c</span><span class=s2> </span><span class=se>\xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007</span><span class=s2>"</span>
+    <span class=s2>"</span><span class=se>\u2008\u2009\u200a\u202f\u205f\u3000</span><span class=s2>"</span><span class=p>)</span>
+
+<span class=c1>#: A regular expression matching all characters that are non-line breaking</span>
+<span class=c1>#: white space.</span>
+<span class=n>NEWLINE</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"</span><span class=se>\n\r\x85\u2028\u2029</span><span class=s2>"</span>
+
+<span class=c1>#: A regular expression matching any white space or newline character.</span>
+<span class=n>WHITESPACE_OR_NEWLINE</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=p>(</span>
+    <span class=s2>"</span><span class=se>\t\n\x0b\x0c\r</span><span class=s2> </span><span class=se>\x85\xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006</span><span class=s2>"</span>
+    <span class=s2>"</span><span class=se>\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000</span><span class=s2>"</span><span class=p>)</span>
+
+
+<span class=c1>#: the internal table for converting normal characters to unicode superscripts</span>
+<span class=n>__SUPERSCRIPT</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=p>{</span>
+    <span class=c1># numbers from 0 to 9</span>
+    <span class=s2>"</span><span class=se>\x30</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2070</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 0</span>
+    <span class=s2>"</span><span class=se>\x31</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\xb9</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 1</span>
+    <span class=s2>"</span><span class=se>\x32</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\xb2</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 2</span>
+    <span class=s2>"</span><span class=se>\x33</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\xb3</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 3</span>
+    <span class=s2>"</span><span class=se>\x34</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2074</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 4</span>
+    <span class=s2>"</span><span class=se>\x35</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2075</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 5</span>
+    <span class=s2>"</span><span class=se>\x36</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2076</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 6</span>
+    <span class=s2>"</span><span class=se>\x37</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2077</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 7</span>
+    <span class=s2>"</span><span class=se>\x38</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2078</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 8</span>
+    <span class=s2>"</span><span class=se>\x39</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2079</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 9</span>
+    <span class=c1># +/-/=/(/)</span>
+    <span class=s2>"</span><span class=se>\x2b</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u207A</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># +</span>
+    <span class=s2>"</span><span class=se>\x2d</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u207b</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># -</span>
+    <span class=s2>"</span><span class=se>\x3d</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u207c</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># =</span>
+    <span class=s2>"</span><span class=se>\x28</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u207d</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># (</span>
+    <span class=s2>"</span><span class=se>\x29</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u207e</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># )</span>
+    <span class=c1># upper case letters</span>
+    <span class=s2>"</span><span class=se>\x41</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d2c</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># A</span>
+    <span class=s2>"</span><span class=se>\x42</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d2e</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># B</span>
+    <span class=s2>"</span><span class=se>\x43</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\ua7f2</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># C</span>
+    <span class=s2>"</span><span class=se>\x44</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d30</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># D</span>
+    <span class=s2>"</span><span class=se>\x45</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d31</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># E</span>
+    <span class=s2>"</span><span class=se>\x46</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\ua7f3</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># F</span>
+    <span class=s2>"</span><span class=se>\x47</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d33</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># G</span>
+    <span class=s2>"</span><span class=se>\x48</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d34</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># H</span>
+    <span class=s2>"</span><span class=se>\x49</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d35</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># I</span>
+    <span class=s2>"</span><span class=se>\x4a</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d36</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># J</span>
+    <span class=s2>"</span><span class=se>\x4b</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d37</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># K</span>
+    <span class=s2>"</span><span class=se>\x4c</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d38</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># L</span>
+    <span class=s2>"</span><span class=se>\x4d</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d39</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># M</span>
+    <span class=s2>"</span><span class=se>\x4e</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d3a</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># N</span>
+    <span class=s2>"</span><span class=se>\x4f</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d3c</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># O</span>
+    <span class=s2>"</span><span class=se>\x50</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d3e</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># P</span>
+    <span class=s2>"</span><span class=se>\x51</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\ua7f4</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># Q</span>
+    <span class=s2>"</span><span class=se>\x52</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d3f</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># R</span>
+    <span class=s2>"</span><span class=se>\x53</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\ua7f1</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># S</span>
+    <span class=s2>"</span><span class=se>\x54</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d40</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># T</span>
+    <span class=s2>"</span><span class=se>\x55</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d41</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># U</span>
+    <span class=s2>"</span><span class=se>\x56</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2c7d</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># V</span>
+    <span class=s2>"</span><span class=se>\x57</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d42</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># W</span>
+    <span class=c1># lower case letters</span>
+    <span class=s2>"</span><span class=se>\x61</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d43</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># a</span>
+    <span class=s2>"</span><span class=se>\x62</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d47</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># b</span>
+    <span class=s2>"</span><span class=se>\x63</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d9c</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># c</span>
+    <span class=s2>"</span><span class=se>\x64</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d48</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># d</span>
+    <span class=s2>"</span><span class=se>\x65</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d49</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># e</span>
+    <span class=s2>"</span><span class=se>\x66</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1da0</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># f</span>
+    <span class=s2>"</span><span class=se>\x67</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d4d</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># g</span>
+    <span class=s2>"</span><span class=se>\x68</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u02b0</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># h</span>
+    <span class=s2>"</span><span class=se>\x69</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2071</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># i</span>
+    <span class=s2>"</span><span class=se>\x6a</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u02b2</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># j</span>
+    <span class=s2>"</span><span class=se>\x6b</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d4f</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># k</span>
+    <span class=s2>"</span><span class=se>\x6c</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1da9</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># l; alternative": "\u2e1</span>
+    <span class=s2>"</span><span class=se>\x6d</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d50</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># m</span>
+    <span class=s2>"</span><span class=se>\x6e</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u207f</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># n</span>
+    <span class=s2>"</span><span class=se>\x6f</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d52</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># o</span>
+    <span class=s2>"</span><span class=se>\x70</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d56</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># p</span>
+    <span class=s2>"</span><span class=se>\x71</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u107a</span><span class=s2>5"</span><span class=p>,</span>  <span class=c1># q</span>
+    <span class=s2>"</span><span class=se>\x72</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u02b3</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># r</span>
+    <span class=s2>"</span><span class=se>\x73</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u02e2</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># s</span>
+    <span class=s2>"</span><span class=se>\x74</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d57</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># t</span>
+    <span class=s2>"</span><span class=se>\x75</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d58</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># u</span>
+    <span class=s2>"</span><span class=se>\x76</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d5b</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># v</span>
+    <span class=s2>"</span><span class=se>\x77</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u02b7</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># w</span>
+    <span class=s2>"</span><span class=se>\x78</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u02e3</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># x</span>
+    <span class=s2>"</span><span class=se>\x79</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u02b8</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># y</span>
+    <span class=s2>"</span><span class=se>\x7a</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1dbb</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># z</span>
+    <span class=c1># white space</span>
+    <span class=s2>" "</span><span class=p>:</span> <span class=s2>" "</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\t</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\t</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\x0b</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\x0b</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\x0c</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\x0c</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\r</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\r</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\x85</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\x85</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\xa0</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\xa0</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u1680</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1680</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2000</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2000</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2001</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2001</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2002</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2002</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2003</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2003</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2004</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2004</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2005</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2005</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2006</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2006</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2007</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2007</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2008</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2008</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2009</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2009</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u200a</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u200a</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2028</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2028</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2029</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2029</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u202f</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u202f</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u205f</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u205f</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u3000</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u3000</span><span class=s2>"</span><span class=p>,</span>
+<span class=p>}</span><span class=o>.</span><span class=fm>__getitem__</span>
+
+
+<div class=viewcode-block id=superscript>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.chars.superscript>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>superscript</span><span class=p>(</span><span class=n>s</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Transform a string into Unicode-based superscript.</span>
+
+<span class=sd>    All characters that can be represented as superscript in unicode will be</span>
+<span class=sd>    translated to superscript. Notice that only a subset of the latin</span>
+<span class=sd>    characters can be converted to unicode superscropt. If any character</span>
+<span class=sd>    cannot be translated, it will  raise a :class:`KeyError`. White space is</span>
+<span class=sd>    preserved.</span>
+
+<span class=sd>    :param s: the string</span>
+<span class=sd>    :returns: the string in subscript</span>
+<span class=sd>    :raises KeyError: if a character cannot be converted</span>
+<span class=sd>    :raises TypeError: if `s` is not a string</span>
+
+<span class=sd>    >>> superscript("a0 =4(e)")</span>
+<span class=sd>    '\u1d43\u2070 \u207c\u2074\u207d\u1d49\u207e'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     superscript("a0=4(e)Y")</span>
+<span class=sd>    ... except KeyError as ke:</span>
+<span class=sd>    ...     print(ke)</span>
+<span class=sd>    'Y'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     superscript(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__iter__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     superscript(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__iter__' requires a 'str' object but received a 'int'</span>
+<span class=sd>    """</span>
+    <span class=k>return</span> <span class=s2>""</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=nb>map</span><span class=p>(</span><span class=n>__SUPERSCRIPT</span><span class=p>,</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__iter__</span><span class=p>(</span><span class=n>s</span><span class=p>)))</span></div>
+
+
+
+<span class=c1>#: the internal table for converting normal characters to unicode subscripts</span>
+<span class=n>__SUBSCRIPT</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=p>{</span>
+    <span class=c1># numbers from 0 to 9</span>
+    <span class=s2>"</span><span class=se>\x30</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2080</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 0</span>
+    <span class=s2>"</span><span class=se>\x31</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2081</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 1</span>
+    <span class=s2>"</span><span class=se>\x32</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2082</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 2</span>
+    <span class=s2>"</span><span class=se>\x33</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2083</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 3</span>
+    <span class=s2>"</span><span class=se>\x34</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2084</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 4</span>
+    <span class=s2>"</span><span class=se>\x35</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2085</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 5</span>
+    <span class=s2>"</span><span class=se>\x36</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2086</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 6</span>
+    <span class=s2>"</span><span class=se>\x37</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2087</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 7</span>
+    <span class=s2>"</span><span class=se>\x38</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2088</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 8</span>
+    <span class=s2>"</span><span class=se>\x39</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2089</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># 9</span>
+    <span class=c1># +/-/=/(/)</span>
+    <span class=s2>"</span><span class=se>\x2b</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u208a</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># +</span>
+    <span class=s2>"</span><span class=se>\x2d</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u208b</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># -</span>
+    <span class=s2>"</span><span class=se>\x3d</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u208c</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># =</span>
+    <span class=s2>"</span><span class=se>\x28</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u208d</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># (</span>
+    <span class=s2>"</span><span class=se>\x29</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u208e</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># )</span>
+    <span class=c1># lower case letters</span>
+    <span class=s2>"</span><span class=se>\x61</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2090</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># a</span>
+    <span class=s2>"</span><span class=se>\x65</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2091</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># e</span>
+    <span class=s2>"</span><span class=se>\x68</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2095</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># h</span>
+    <span class=s2>"</span><span class=se>\x69</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d62</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># i</span>
+    <span class=s2>"</span><span class=se>\x6a</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2c7c</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># j</span>
+    <span class=s2>"</span><span class=se>\x6b</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2096</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># k</span>
+    <span class=s2>"</span><span class=se>\x6c</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2097</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># l</span>
+    <span class=s2>"</span><span class=se>\x6d</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2098</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># m</span>
+    <span class=s2>"</span><span class=se>\x6e</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2099</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># n</span>
+    <span class=s2>"</span><span class=se>\x6f</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2092</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># o</span>
+    <span class=s2>"</span><span class=se>\x70</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u209a</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># p</span>
+    <span class=s2>"</span><span class=se>\x73</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u209b</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># s</span>
+    <span class=s2>"</span><span class=se>\x74</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u209c</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># t</span>
+    <span class=s2>"</span><span class=se>\x75</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d64</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># u</span>
+    <span class=s2>"</span><span class=se>\x76</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1d65</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># v</span>
+    <span class=s2>"</span><span class=se>\x78</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2093</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># x</span>
+    <span class=s2>"</span><span class=se>\u018f</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2094</span><span class=s2>"</span><span class=p>,</span>  <span class=c1># letter schwa", upside-down "e"</span>
+    <span class=c1># white space</span>
+    <span class=s2>" "</span><span class=p>:</span> <span class=s2>" "</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\t</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\t</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\x0b</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\x0b</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\x0c</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\x0c</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\r</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\r</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\x85</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\x85</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\xa0</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\xa0</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u1680</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u1680</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2000</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2000</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2001</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2001</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2002</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2002</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2003</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2003</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2004</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2004</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2005</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2005</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2006</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2006</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2007</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2007</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2008</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2008</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2009</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2009</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u200a</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u200a</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2028</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2028</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u2029</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u2029</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u202f</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u202f</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u205f</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u205f</span><span class=s2>"</span><span class=p>,</span>
+    <span class=s2>"</span><span class=se>\u3000</span><span class=s2>"</span><span class=p>:</span> <span class=s2>"</span><span class=se>\u3000</span><span class=s2>"</span><span class=p>,</span>
+<span class=p>}</span><span class=o>.</span><span class=fm>__getitem__</span>
+
+
+<div class=viewcode-block id=subscript>
+<a class=viewcode-back href=../../../pycommons.strings.html#pycommons.strings.chars.subscript>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>subscript</span><span class=p>(</span><span class=n>s</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Transform a string into Unicode-based subscript.</span>
+
+<span class=sd>    All characters that can be represented as subscript in unicode will be</span>
+<span class=sd>    translated to subscript.  Notice that only a subset of the latin</span>
+<span class=sd>    characters can be converted to unicode subscript. If any character</span>
+<span class=sd>    cannot be translated, it will  raise a :class:`KeyError`. White space is</span>
+<span class=sd>    preserved.</span>
+
+<span class=sd>    :param s: the string</span>
+<span class=sd>    :returns: the string in subscript</span>
+<span class=sd>    :raises KeyError: if a character cannot be converted</span>
+<span class=sd>    :raises TypeError: if `s` is not a string</span>
+
+<span class=sd>    >>> subscript("a0= 4(e)")</span>
+<span class=sd>    '\u2090\u2080\u208c \u2084\u208d\u2091\u208e'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     subscript("a0=4(e)Y")</span>
+<span class=sd>    ... except KeyError as ke:</span>
+<span class=sd>    ...     print(ke)</span>
+<span class=sd>    'Y'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     subscript(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__iter__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     superscript(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__iter__' requires a 'str' object but received a 'int'</span>
+<span class=sd>    """</span>
+    <span class=k>return</span> <span class=s2>""</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=nb>map</span><span class=p>(</span><span class=n>__SUBSCRIPT</span><span class=p>,</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__iter__</span><span class=p>(</span><span class=n>s</span><span class=p>)))</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.strings.chars</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

@@ -1,0 +1,685 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.net.url — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/net/url.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.net.url</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.net.url</h1><div class=highlight><pre>
+<span></span><span class=sd>"""</span>
+<span class=sd>A string class representing a URL.</span>
+
+<span class=sd>Like the class :class:`~pycommons.io.path.Path` in</span>
+<span class=sd>:mod:`pycommons.io.path` does for paths in the file system, the class</span>
+<span class=sd>:class:`~pycommons.net.url.URL` offers some sort of canonical and very</span>
+<span class=sd>conservative representation of URLs, which, at the same time, is also a</span>
+<span class=sd>string.</span>
+<span class=sd>This makes it convenient pass the instances of this class into functions</span>
+<span class=sd>that otherwise expect strings.</span>
+<span class=sd>It also allows you to write functions that expect strings and URLs as</span>
+<span class=sd>parameter.</span>
+
+<span class=sd>>>> u = URL("https://thomasweise.github.io/contact/#address-in-english")</span>
+<span class=sd>>>> u</span>
+<span class=sd>'https://thomasweise.github.io/contact/#address-in-english'</span>
+<span class=sd>>>> u.scheme</span>
+<span class=sd>'https'</span>
+<span class=sd>>>> u.host</span>
+<span class=sd>'thomasweise.github.io'</span>
+<span class=sd>>>> u.path</span>
+<span class=sd>'/contact/'</span>
+<span class=sd>>>> u.fragment</span>
+<span class=sd>'address-in-english'</span>
+
+<span class=sd>>>> u = URL("http://thomasweise.github.io/contact/")</span>
+<span class=sd>>>> u</span>
+<span class=sd>'http://thomasweise.github.io/contact'</span>
+<span class=sd>>>> u.scheme</span>
+<span class=sd>'http'</span>
+<span class=sd>>>> u.host</span>
+<span class=sd>'thomasweise.github.io'</span>
+<span class=sd>>>> u.path</span>
+<span class=sd>'/contact'</span>
+<span class=sd>>>> print(u.fragment)</span>
+<span class=sd>None</span>
+<span class=sd>"""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>re</span><span class=w> </span><span class=kn>import</span> <span class=n>Match</span><span class=p>,</span> <span class=n>search</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>re</span><span class=w> </span><span class=kn>import</span> <span class=nb>compile</span> <span class=k>as</span> <span class=n>_compile</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=p>(</span>
+    <span class=n>Any</span><span class=p>,</span>
+    <span class=n>Final</span><span class=p>,</span>
+    <span class=n>Pattern</span><span class=p>,</span>
+    <span class=n>cast</span><span class=p>,</span>
+<span class=p>)</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>urllib.parse</span><span class=w> </span><span class=kn>import</span> <span class=n>ParseResult</span><span class=p>,</span> <span class=n>urljoin</span><span class=p>,</span> <span class=n>urlparse</span>
+
+<span class=c1># noinspection PyPackageRequirements</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.strings.chars</span><span class=w> </span><span class=kn>import</span> <span class=n>WHITESPACE_OR_NEWLINE</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>check_int_range</span>
+
+<span class=c1>#: text that is forbidden in a URL</span>
+<span class=n>_FORBIDDEN_IN_RELATIVE_URL</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Pattern</span><span class=p>]</span> <span class=o>=</span> <span class=n>_compile</span><span class=p>(</span>
+    <span class=sa>f</span><span class=s2>"@.*@|[</span><span class=si>{</span><span class=n>WHITESPACE_OR_NEWLINE</span><span class=si>}</span><span class=s2>"</span>
+    <span class=sa>r</span><span class=s2>"</span><span class=se>\\</span><span class=s2>%*?&+</span><span class=se>\"</span><span class=s2>'=$§!,;|<>\[\]()</span><span class=si>{}</span><span class=s2>²³°^]+|://.*://"</span><span class=p>)</span>
+
+<span class=c1>#: text that is forbidden in a fully-expanded URL</span>
+<span class=n>_FORBIDDEN_IN_FULL_URL</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Pattern</span><span class=p>]</span> <span class=o>=</span> <span class=n>_compile</span><span class=p>(</span>
+    <span class=n>_FORBIDDEN_IN_RELATIVE_URL</span><span class=o>.</span><span class=n>pattern</span> <span class=o>+</span> <span class=sa>r</span><span class=s2>"|\.\.|\/\.+\/|\A\.+\Z"</span><span class=p>)</span>
+
+<span class=c1>#: text that is forbidden in a fragment</span>
+<span class=n>_FORBIDDEN_IN_FRAGMENT</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Pattern</span><span class=p>]</span> <span class=o>=</span> <span class=n>_compile</span><span class=p>(</span>
+    <span class=n>_FORBIDDEN_IN_FULL_URL</span><span class=o>.</span><span class=n>pattern</span> <span class=o>+</span> <span class=sa>r</span><span class=s2>"|#"</span><span class=p>)</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>_check_url_part</span><span class=p>(</span><span class=n>part</span><span class=p>:</span> <span class=n>Any</span><span class=p>,</span> <span class=n>forbidden</span><span class=p>:</span> <span class=n>Pattern</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Check an url part.</span>
+
+<span class=sd>    :param part: the part</span>
+<span class=sd>    :param forbidden: the pattern of forbidden text</span>
+<span class=sd>    :returns: the url as str</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     _check_url_part("", _FORBIDDEN_IN_RELATIVE_URL)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part '' has invalid length 0.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     _check_url_part(" ", _FORBIDDEN_IN_RELATIVE_URL)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part ' ' contains the forbidden text ' '.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     _check_url_part("Äquator", _FORBIDDEN_IN_RELATIVE_URL)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'Äquator' contains non-ASCII characters.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     _check_url_part("2" * 260, _FORBIDDEN_IN_RELATIVE_URL)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:60])</span>
+<span class=sd>    URL part '22222222222222222222222222222222222222222222222222</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     _check_url_part(None, _FORBIDDEN_IN_RELATIVE_URL)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     _check_url_part(2, _FORBIDDEN_IN_RELATIVE_URL)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> isinstance(_check_url_part("123", _FORBIDDEN_IN_RELATIVE_URL), str)</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     _check_url_part(3, _FORBIDDEN_IN_RELATIVE_URL)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     _check_url_part("3", 5)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    first argument must be string or compiled pattern</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=p>(</span><span class=mi>0</span> <span class=o><</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>part</span><span class=p>)</span> <span class=o><</span> <span class=mi>255</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"URL part </span><span class=si>{</span><span class=n>part</span><span class=si>!r}</span><span class=s2> has invalid length </span><span class=si>{</span><span class=nb>len</span><span class=p>(</span><span class=n>part</span><span class=p>)</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>the_match</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Match</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>search</span><span class=p>(</span><span class=n>forbidden</span><span class=p>,</span> <span class=n>part</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>the_match</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"URL part </span><span class=si>{</span><span class=n>part</span><span class=si>!r}</span><span class=s2> contains the forbidden "</span>
+                         <span class=sa>f</span><span class=s2>"text </span><span class=si>{</span><span class=n>the_match</span><span class=o>.</span><span class=n>group</span><span class=p>()</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>urlstr</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"str"</span><span class=p>,</span> <span class=n>part</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>urlstr</span><span class=o>.</span><span class=n>isascii</span><span class=p>():</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"URL part </span><span class=si>{</span><span class=n>urlstr</span><span class=si>!r}</span><span class=s2> contains non-ASCII characters."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>urlstr</span><span class=o>.</span><span class=n>endswith</span><span class=p>((</span><span class=s2>"#"</span><span class=p>,</span> <span class=s2>"@"</span><span class=p>)):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"URL part must not end in </span><span class=si>{</span><span class=n>urlstr</span><span class=p>[</span><span class=o>-</span><span class=mi>1</span><span class=p>]</span><span class=si>!r}</span><span class=s2>, but </span><span class=si>{</span><span class=n>urlstr</span><span class=si>!r}</span><span class=s2> does."</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>urlstr</span>
+
+
+<span class=c1>#: the mailto scheme</span>
+<span class=n>_MAILTO_1</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"mailto"</span>
+<span class=c1>#: the mailto prefix</span>
+<span class=n>_MAILTO_2</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>_MAILTO_1</span> <span class=o>+</span> <span class=s2>":"</span>
+<span class=c1>#: the mailto full prefix</span>
+<span class=n>_MAILTO_3</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>_MAILTO_2</span> <span class=o>+</span> <span class=s2>"//"</span>
+<span class=c1>#: the ssh scheme</span>
+<span class=n>_SSH</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"ssh"</span>
+
+<span class=c1>#: the schemes that require usernames</span>
+<span class=n>_REQUIRE_USER_NAME_SCHEMES</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>set</span><span class=p>]</span> <span class=o>=</span> <span class=p>{</span><span class=n>_MAILTO_1</span><span class=p>,</span> <span class=n>_SSH</span><span class=p>}</span>
+
+<span class=c1>#: the permitted URL schemes without '@'</span>
+<span class=n>_ALLOWED_SCHEMES</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>set</span><span class=p>]</span> <span class=o>=</span> <span class=p>{</span><span class=s2>"http"</span><span class=p>,</span> <span class=s2>"https"</span><span class=p>}</span><span class=o>.</span><span class=n>union</span><span class=p>(</span>
+    <span class=n>_REQUIRE_USER_NAME_SCHEMES</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=URL>
+<a class=viewcode-back href=../../../pycommons.net.html#pycommons.net.url.URL>[docs]</a>
+<span class=k>class</span><span class=w> </span><span class=nc>URL</span><span class=p>(</span><span class=nb>str</span><span class=p>):</span>  <span class=c1># noqa: SLOT000</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    A normalized and expanded URL.</span>
+
+<span class=sd>    This is a very strict URL parsing routine. The idea is that it will only</span>
+<span class=sd>    produce URLs that are safe for use in almost any environment and throw</span>
+<span class=sd>    exceptions otherwise.</span>
+
+<span class=sd>    We limit the URLs to very few different types and allowed schemes.</span>
+<span class=sd>    Non-ASCII characters are not allowed, and neither are spaces, `'%'`,</span>
+<span class=sd>    `'*'`, `'?'`, `'+'`, `'&'`, `'<'`, `'>'`, `','`, `'$'`, `'§'`, `"'"`,</span>
+<span class=sd>    `'"'`, `'['`, `']'`, `'{'`, `'}'`, `'('`, `')'`, ` nor `'\'` and a few</span>
+<span class=sd>    more.</span>
+
+<span class=sd>    We also allow `'@'` to occur at most once. This means that URLs cannot</span>
+<span class=sd>    have any parameters and also that URL-escaping non-ASCII characters is not</span>
+<span class=sd>    possible either. We thus limit the URLs to mainly static content pointers.</span>
+
+<span class=sd>    We also only permit simple schemes such as `http`, `https`, `mailto`, and</span>
+<span class=sd>    `ssh`.</span>
+
+<span class=sd>    The final URL also cannot contain any `'/./'` or `'/../'` or consist of</span>
+<span class=sd>    any component that equals `'..'`. No URL or component must be longer than</span>
+<span class=sd>    255 characters either. It is also not allowed that `'://'` occurs twice.</span>
+<span class=sd>    If the URL is a `mailto` or `ssh` URL, it must provide a username</span>
+<span class=sd>    component.</span>
+
+<span class=sd>    If a port is provided, it must be greater than 0 and less than 65536.</span>
+<span class=sd>    If a port is specified, a host must be specified as well.</span>
+<span class=sd>    Only if a netloc is found, then a port or a host may be specified.</span>
+
+<span class=sd>    The URL `value` may be a relative URL that is turned into an absolute URL</span>
+<span class=sd>    using the base URL `base_url`. Of course, then the same restrictions apply</span>
+<span class=sd>    to the relative original URL, the base URL, and the final absolute URL.</span>
+
+<span class=sd>    This function tries to detect email addresses and turns them into valid</span>
+<span class=sd>    `mailto://` urls.</span>
+<span class=sd>    This function gobbles up single trailing `/` characters.</span>
+
+<span class=sd>    An instance of `URL` is also an instance of :class:`str`, so you can use</span>
+<span class=sd>    it as string whereever you want. It additionally offers the following</span>
+<span class=sd>    attributes:</span>
+
+<span class=sd>    - :attr:`~URL.scheme`: the URL scheme, e.g., `"http"`</span>
+<span class=sd>    - :attr:`~URL.netloc`: the URL network location, including user (if any),</span>
+<span class=sd>        host, and port (if any)</span>
+<span class=sd>    - :attr:`~URL.host`: the host of the URL</span>
+<span class=sd>    - :attr:`~URL.port`: the port of the URL, or `None` if no port is</span>
+<span class=sd>        specified</span>
+<span class=sd>    - :attr:`~URL.path`: the path part of the URL (without the</span>
+<span class=sd>        :attr:`~URL.fragment` part, if any), or `None` if no path part is</span>
+<span class=sd>        specified</span>
+<span class=sd>    - :attr:`~URL.fragment`: the fragment part of the path, or `None` if the</span>
+<span class=sd>        path has no fragment</span>
+
+
+<span class=sd>    >>> u1 = URL("mailto:tweise@hfuu.edu.cn")</span>
+<span class=sd>    >>> print(u1)</span>
+<span class=sd>    mailto://tweise@hfuu.edu.cn</span>
+<span class=sd>    >>> print(u1.scheme)</span>
+<span class=sd>    mailto</span>
+<span class=sd>    >>> print(u1.netloc)</span>
+<span class=sd>    tweise@hfuu.edu.cn</span>
+<span class=sd>    >>> print(u1.host)</span>
+<span class=sd>    hfuu.edu.cn</span>
+<span class=sd>    >>> print(u1.port)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(u1.path)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(u1.fragment)</span>
+<span class=sd>    None</span>
+
+<span class=sd>    >>> u = URL("tweise@hfuu.edu.cn")</span>
+<span class=sd>    >>> print(u)</span>
+<span class=sd>    mailto://tweise@hfuu.edu.cn</span>
+<span class=sd>    >>> print(u.scheme)</span>
+<span class=sd>    mailto</span>
+<span class=sd>    >>> print(u.netloc)</span>
+<span class=sd>    tweise@hfuu.edu.cn</span>
+<span class=sd>    >>> print(u.host)</span>
+<span class=sd>    hfuu.edu.cn</span>
+<span class=sd>    >>> print(u.port)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(u.path)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(u.fragment)</span>
+<span class=sd>    None</span>
+
+<span class=sd>    >>> URL("mailto://tweise@hfuu.edu.cn")</span>
+<span class=sd>    'mailto://tweise@hfuu.edu.cn'</span>
+
+<span class=sd>    >>> u2 = URL("https://example.com/abc")</span>
+<span class=sd>    >>> print(u2)</span>
+<span class=sd>    https://example.com/abc</span>
+<span class=sd>    >>> print(u2.scheme)</span>
+<span class=sd>    https</span>
+<span class=sd>    >>> print(u2.netloc)</span>
+<span class=sd>    example.com</span>
+<span class=sd>    >>> print(u2.host)</span>
+<span class=sd>    example.com</span>
+<span class=sd>    >>> print(u2.port)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(u2.path)</span>
+<span class=sd>    /abc</span>
+<span class=sd>    >>> print(u2.fragment)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> u1.host != u2.host</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> u = URL("https://example.com/abc/")</span>
+<span class=sd>    >>> print(u)</span>
+<span class=sd>    https://example.com/abc</span>
+<span class=sd>    >>> print(u.scheme)</span>
+<span class=sd>    https</span>
+<span class=sd>    >>> print(u.netloc)</span>
+<span class=sd>    example.com</span>
+<span class=sd>    >>> print(u.host)</span>
+<span class=sd>    example.com</span>
+<span class=sd>    >>> print(u.port)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(u.path)</span>
+<span class=sd>    /abc</span>
+<span class=sd>    >>> print(u.fragment)</span>
+<span class=sd>    None</span>
+
+<span class=sd>    >>> u = URL("https://example.com/")</span>
+<span class=sd>    >>> print(u)</span>
+<span class=sd>    https://example.com</span>
+<span class=sd>    >>> print(u.scheme)</span>
+<span class=sd>    https</span>
+<span class=sd>    >>> print(u.netloc)</span>
+<span class=sd>    example.com</span>
+<span class=sd>    >>> print(u.host)</span>
+<span class=sd>    example.com</span>
+<span class=sd>    >>> print(u.port)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(u.path)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(u.fragment)</span>
+<span class=sd>    None</span>
+
+<span class=sd>    >>> u = URL("ssh://git@example.com/abc")</span>
+<span class=sd>    >>> print(u)</span>
+<span class=sd>    ssh://git@example.com/abc</span>
+<span class=sd>    >>> print(u.scheme)</span>
+<span class=sd>    ssh</span>
+<span class=sd>    >>> print(u.netloc)</span>
+<span class=sd>    git@example.com</span>
+<span class=sd>    >>> print(u.host)</span>
+<span class=sd>    example.com</span>
+<span class=sd>    >>> print(u.port)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> print(u.path)</span>
+<span class=sd>    /abc</span>
+<span class=sd>    >>> print(u.fragment)</span>
+<span class=sd>    None</span>
+
+<span class=sd>    >>> URL("1.txt", "http://example.com/thomasWeise")</span>
+<span class=sd>    'http://example.com/1.txt'</span>
+
+<span class=sd>    >>> URL("1.txt", "http://example.com/thomasWeise/")</span>
+<span class=sd>    'http://example.com/thomasWeise/1.txt'</span>
+
+<span class=sd>    >>> URL("../1.txt", "http://example.com/thomasWeise/")</span>
+<span class=sd>    'http://example.com/1.txt'</span>
+
+<span class=sd>    >>> URL("https://example.com/1.txt",</span>
+<span class=sd>    ...     "http://github.com/thomasWeise/")</span>
+<span class=sd>    'https://example.com/1.txt'</span>
+
+<span class=sd>    >>> URL("http://example.com:123/1")</span>
+<span class=sd>    'http://example.com:123/1'</span>
+
+<span class=sd>    >>> u = URL("http://example.com:34/index.html#1")</span>
+<span class=sd>    >>> print(u)</span>
+<span class=sd>    http://example.com:34/index.html#1</span>
+<span class=sd>    >>> print(u.scheme)</span>
+<span class=sd>    http</span>
+<span class=sd>    >>> print(u.netloc)</span>
+<span class=sd>    example.com:34</span>
+<span class=sd>    >>> print(u.host)</span>
+<span class=sd>    example.com</span>
+<span class=sd>    >>> print(u.port)</span>
+<span class=sd>    34</span>
+<span class=sd>    >>> print(u.path)</span>
+<span class=sd>    /index.html</span>
+<span class=sd>    >>> print(u.fragment)</span>
+<span class=sd>    1</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("tweise@@hfuu.edu.cn")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'tweise@@hfuu.edu.cn' contains the forbidden text '@@'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://example.com/index.html#")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part must not end in '#', but 'http://example.com/index.html#' does.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://example.com/index.html@")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part must not end in '@', but 'http://example.com/index.html@' does.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("https://example.com/abc(/23")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'https://example.com/abc(/23' contains the forbidden text '('.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("https://example.com/abc]/23")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'https://example.com/abc]/23' contains the forbidden text ']'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("https://example.com/abcä/23")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'https://example.com/abcä/23' contains non-ASCII characters.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("https://example.com/abc/./23")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'https://example.com/abc/./23' contains the forbidden text '/./'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("https://example.com/abc/../1.txt")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:-4])</span>
+<span class=sd>    URL part 'https://example.com/abc/../1.txt' contains the forbidden text '/.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL(r"https://example.com/abc\./23")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'https://example.com/abc\\./23' contains the forbidden text '\\'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("https://1.2.com/abc/23/../r")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'https://1.2.com/abc/23/../r' contains the forbidden text '/../'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("https://exa mple.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'https://exa mple.com' contains the forbidden text ' '.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("ftp://example.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:66])</span>
+<span class=sd>    Invalid scheme 'ftp' of url 'ftp://example.com' under base None, o</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://example.com%32")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve))</span>
+<span class=sd>    URL part 'http://example.com%32' contains the forbidden text '%'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("mailto://example.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:66])</span>
+<span class=sd>    'mailto' url 'mailto://example.com' must contain '@' and have user</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("ssh://example.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:65])</span>
+<span class=sd>    'ssh' url 'ssh://example.com' must contain '@' and have username,</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("ftp://example.com*32")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve))</span>
+<span class=sd>    URL part 'ftp://example.com*32' contains the forbidden text '*'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://example.com/https://h")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:74])</span>
+<span class=sd>    URL part 'http://example.com/https://h' contains the forbidden text '://ex</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://user@example.com")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:66])</span>
+<span class=sd>    'http' url 'http://user@example.com' must not contain '@' and have</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://" + ("a" * 250))</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[-30:])</span>
+<span class=sd>    aaaaa' has invalid length 257.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://.")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part '.' contains the forbidden text '.'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://..")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'http://..' contains the forbidden text '..'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://www.example.com/../1")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'http://www.example.com/../1' contains the forbidden text '/../'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://www.example.com/./1")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'http://www.example.com/./1' contains the forbidden text '/./'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://user@example.com/@1")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:-9])</span>
+<span class=sd>    URL part 'http://user@example.com/@1' contains the forbidden text '@exampl</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://:45/1.txt")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL 'http://:45/1.txt' has no host?</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://example.com:-3/@1")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Port could not be cast to integer value as '-3'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://example.com:0/@1")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    port=0 is invalid, must be in 1..65535.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://example.com:65536/@1")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Port out of range 0-65535</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http::/1.txt", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http::/1.txt?x=1")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'http::/1.txt?x=1' contains the forbidden text '?'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http::/1.txt&x=1")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'http::/1.txt&x=1' contains the forbidden text '&'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http::/1.+txt&x=1")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'http::/1.+txt&x=1' contains the forbidden text '+'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http::/1*.+txt&x=1")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part 'http::/1*.+txt&x=1' contains the forbidden text '*'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     URL("http://example.com#1#2")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    URL part '1#2' contains the forbidden text '#'.</span>
+<span class=sd>    """</span>
+
+    <span class=c1>#: the protocol scheme, e.g., `"https"`</span>
+    <span class=n>scheme</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span>  <span class=c1># type: ignore</span>
+    <span class=c1>#: the network location, usually of the form `"user@host:port"`, i.e.,</span>
+    <span class=c1>#: composed of user name (if present), host, and port (if present)</span>
+    <span class=n>netloc</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span>  <span class=c1># type: ignore</span>
+    <span class=c1>#: the host str</span>
+    <span class=n>host</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span>  <span class=c1># type: ignore</span>
+    <span class=c1>#: the port, if any (else `None`)</span>
+    <span class=n>port</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span>  <span class=c1># type: ignore</span>
+    <span class=c1>#: the path, if any (else `None`), but without the fragment component</span>
+    <span class=n>path</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span>  <span class=c1># type: ignore</span>
+    <span class=c1>#: the path fragment, i.e., the part following a `"#"`, if any (else</span>
+    <span class=c1>#: `None`)</span>
+    <span class=n>fragment</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span>  <span class=c1># type: ignore</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__new__</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>value</span><span class=p>:</span> <span class=n>Any</span><span class=p>,</span> <span class=n>base_url</span><span class=p>:</span> <span class=n>Any</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>):</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Create the URL.</span>
+
+<span class=sd>        :param value: either the full absolute URL or a URL that should be</span>
+<span class=sd>            resolved against the URL `base_url`</span>
+<span class=sd>        :param base_url: the base URL to resolve `value` against, or `None` if</span>
+<span class=sd>            `value` is already an absolute URL</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=n>URL</span><span class=p>):</span>
+            <span class=k>return</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"URL"</span><span class=p>,</span> <span class=n>value</span><span class=p>)</span>
+
+        <span class=n>url</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>_check_url_part</span><span class=p>(</span>
+            <span class=n>value</span><span class=p>,</span> <span class=n>_FORBIDDEN_IN_FULL_URL</span> <span class=k>if</span> <span class=n>base_url</span> <span class=ow>is</span> <span class=kc>None</span>
+            <span class=k>else</span> <span class=n>_FORBIDDEN_IN_RELATIVE_URL</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>base_url</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>url</span> <span class=o>=</span> <span class=n>_check_url_part</span><span class=p>(</span><span class=n>urljoin</span><span class=p>(</span><span class=n>_check_url_part</span><span class=p>(</span>
+                <span class=n>base_url</span><span class=p>,</span> <span class=n>_FORBIDDEN_IN_FULL_URL</span><span class=p>),</span> <span class=n>url</span><span class=p>),</span>
+                <span class=n>_FORBIDDEN_IN_FULL_URL</span><span class=p>)</span>
+
+        <span class=n>url</span> <span class=o>=</span> <span class=n>url</span><span class=o>.</span><span class=n>removesuffix</span><span class=p>(</span><span class=s2>"/"</span><span class=p>)</span>
+
+        <span class=c1># normalize mailto URLs that do not contain //</span>
+        <span class=n>is_mailto</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=n>url</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=n>_MAILTO_2</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>is_mailto</span> <span class=ow>and</span> <span class=p>(</span><span class=ow>not</span> <span class=n>url</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=n>_MAILTO_3</span><span class=p>)):</span>
+            <span class=n>url</span> <span class=o>=</span> <span class=n>_MAILTO_3</span> <span class=o>+</span> <span class=n>url</span><span class=p>[</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>_MAILTO_2</span><span class=p>):]</span>
+
+        <span class=n>res</span><span class=p>:</span> <span class=n>ParseResult</span> <span class=o>=</span> <span class=n>urlparse</span><span class=p>(</span><span class=n>url</span><span class=p>)</span>
+        <span class=n>scheme</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>res</span><span class=o>.</span><span class=n>scheme</span>
+        <span class=k>if</span> <span class=p>((</span><span class=n>scheme</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>scheme</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>))</span> <span class=ow>and</span> <span class=p>(</span>
+                <span class=n>url</span><span class=o>.</span><span class=n>count</span><span class=p>(</span><span class=s2>"@"</span><span class=p>)</span> <span class=o>==</span> <span class=mi>1</span><span class=p>):</span>
+            <span class=n>res</span> <span class=o>=</span> <span class=n>urlparse</span><span class=p>(</span><span class=n>_MAILTO_3</span> <span class=o>+</span> <span class=n>url</span><span class=p>)</span>
+            <span class=n>scheme</span> <span class=o>=</span> <span class=n>res</span><span class=o>.</span><span class=n>scheme</span>
+            <span class=n>is_mailto</span> <span class=o>=</span> <span class=kc>True</span>
+        <span class=n>scheme</span> <span class=o>=</span> <span class=n>_check_url_part</span><span class=p>(</span><span class=n>scheme</span><span class=p>,</span> <span class=n>_FORBIDDEN_IN_FULL_URL</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=n>scheme</span> <span class=ow>not</span> <span class=ow>in</span> <span class=n>_ALLOWED_SCHEMES</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"Invalid scheme </span><span class=si>{</span><span class=n>scheme</span><span class=si>!r}</span><span class=s2> of url </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2> under base "</span>
+                <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>base_url</span><span class=si>!r}</span><span class=s2>, only </span><span class=si>{</span><span class=n>_ALLOWED_SCHEMES</span><span class=si>!r}</span><span class=s2> are "</span>
+                <span class=s2>"permitted."</span><span class=p>)</span>
+
+        <span class=n>netloc</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>_check_url_part</span><span class=p>(</span>
+            <span class=n>res</span><span class=o>.</span><span class=n>netloc</span><span class=p>,</span> <span class=n>_FORBIDDEN_IN_FULL_URL</span><span class=p>)</span>
+
+        <span class=n>host</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>res</span><span class=o>.</span><span class=n>hostname</span>
+        <span class=k>if</span> <span class=n>host</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"URL </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2> has no host?"</span><span class=p>)</span>
+        <span class=n>_check_url_part</span><span class=p>(</span><span class=n>host</span><span class=p>,</span> <span class=n>_FORBIDDEN_IN_FULL_URL</span><span class=p>)</span>
+        <span class=n>port</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>res</span><span class=o>.</span><span class=n>port</span>
+        <span class=k>if</span> <span class=n>port</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>check_int_range</span><span class=p>(</span><span class=n>port</span><span class=p>,</span> <span class=s2>"port"</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=mi>65535</span><span class=p>)</span>
+
+        <span class=n>path</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>res</span><span class=o>.</span><span class=n>path</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>path</span><span class=p>)</span> <span class=o>></span> <span class=mi>0</span><span class=p>:</span>
+            <span class=n>_check_url_part</span><span class=p>(</span><span class=n>path</span><span class=p>,</span> <span class=n>_FORBIDDEN_IN_FULL_URL</span><span class=p>)</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>path</span> <span class=o>=</span> <span class=kc>None</span>
+
+        <span class=k>if</span> <span class=n>is_mailto</span> <span class=o>!=</span> <span class=p>(</span><span class=n>scheme</span> <span class=o>==</span> <span class=n>_MAILTO_1</span><span class=p>):</span>  <span class=c1># this should be impossible</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"url </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2> has scheme </span><span class=si>{</span><span class=n>scheme</span><span class=si>!r}</span><span class=s2>?"</span><span class=p>)</span>
+        <span class=n>requires_at</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>bool</span><span class=p>]</span> <span class=o>=</span> <span class=n>is_mailto</span> <span class=ow>or</span> <span class=p>(</span>
+            <span class=n>scheme</span> <span class=ow>in</span> <span class=n>_REQUIRE_USER_NAME_SCHEMES</span><span class=p>)</span>
+        <span class=n>has_at</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>bool</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"@"</span> <span class=ow>in</span> <span class=n>netloc</span>
+        <span class=n>has_user</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>bool</span><span class=p>]</span> <span class=o>=</span> <span class=p>(</span><span class=n>res</span><span class=o>.</span><span class=n>username</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span>
+            <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>res</span><span class=o>.</span><span class=n>username</span><span class=p>)</span> <span class=o>></span> <span class=mi>0</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>requires_at</span> <span class=o>!=</span> <span class=p>(</span><span class=n>has_at</span> <span class=ow>and</span> <span class=n>has_user</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>scheme</span><span class=si>!r}</span><span class=s2> url </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2> must </span><span class=si>{</span><span class=s1>''</span><span class=w> </span><span class=k>if</span><span class=w> </span><span class=n>requires_at</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=s1>'not '</span><span class=si>}</span><span class=s2>"</span>
+                <span class=sa>f</span><span class=s2>"contain '@' and have username, but got "</span>
+                <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=s1>'@'</span><span class=w> </span><span class=k>if</span><span class=w> </span><span class=n>has_at</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=s1>'no @'</span><span class=si>}</span><span class=s2> and "</span>
+                <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=nb>repr</span><span class=p>(</span><span class=n>res</span><span class=o>.</span><span class=n>username</span><span class=p>)</span><span class=w> </span><span class=k>if</span><span class=w> </span><span class=n>has_user</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=s1>'no username'</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=p>((</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>res</span><span class=o>.</span><span class=n>query</span><span class=p>)</span> <span class=o>!=</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>res</span><span class=o>.</span><span class=n>params</span><span class=p>)</span> <span class=o>!=</span> <span class=mi>0</span><span class=p>)</span>
+                <span class=ow>or</span> <span class=p>(</span><span class=n>res</span><span class=o>.</span><span class=n>password</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)):</span>
+            <span class=c1># should be impossible, as our regex check already picks this up</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"Query/parameters/password found in url </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+        <span class=n>fragment</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>res</span><span class=o>.</span><span class=n>fragment</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>fragment</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=n>fragment</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>_check_url_part</span><span class=p>(</span><span class=n>fragment</span><span class=p>,</span> <span class=n>_FORBIDDEN_IN_FRAGMENT</span><span class=p>)</span>
+
+        <span class=n>result</span> <span class=o>=</span> <span class=nb>super</span><span class=p>()</span><span class=o>.</span><span class=fm>__new__</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>_check_url_part</span><span class=p>(</span>
+            <span class=n>res</span><span class=o>.</span><span class=n>geturl</span><span class=p>(),</span> <span class=n>_FORBIDDEN_IN_FULL_URL</span><span class=p>))</span>
+
+        <span class=c1>#: the protocol scheme</span>
+        <span class=n>result</span><span class=o>.</span><span class=n>scheme</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>scheme</span>  <span class=c1># type: ignore</span>
+        <span class=c1>#: the network location: user@host:port</span>
+        <span class=n>result</span><span class=o>.</span><span class=n>netloc</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>netloc</span>  <span class=c1># type: ignore</span>
+        <span class=c1>#: the host</span>
+        <span class=n>result</span><span class=o>.</span><span class=n>host</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>host</span>  <span class=c1># type: ignore</span>
+        <span class=c1>#: the port, if any (else `None`)</span>
+        <span class=n>result</span><span class=o>.</span><span class=n>port</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>port</span>  <span class=c1># type: ignore</span>
+        <span class=c1>#: the path, if any (else `None`)</span>
+        <span class=n>result</span><span class=o>.</span><span class=n>path</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>path</span>  <span class=c1># type: ignore</span>
+        <span class=c1>#: the path fragment, if any (else `None`)</span>
+        <span class=n>result</span><span class=o>.</span><span class=n>fragment</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>fragment</span>  <span class=c1># type: ignore</span>
+        <span class=k>return</span> <span class=n>result</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.net.url</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

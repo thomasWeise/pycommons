@@ -1,0 +1,1664 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.io.path — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/io/path.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.io.path</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.io.path</h1><div class=highlight><pre>
+<span></span><span class=sd>"""</span>
+<span class=sd>The class `Path` for handling paths to files and directories.</span>
+
+<span class=sd>The instances of :class:`Path` identify file system paths.</span>
+<span class=sd>They are always fully canonicalized with all relative components resolved.</span>
+<span class=sd>They thus allow the clear and unique identification of files and directories.</span>
+<span class=sd>They also offer support for opening streams, creating paths to sub-folders,</span>
+<span class=sd>and so on.</span>
+
+<span class=sd>The first goal is to encapsulate the functionality of the :mod:`os.path`</span>
+<span class=sd>module into a single class.</span>
+<span class=sd>The second goal is to make sure that we do not run into any dodgy situation</span>
+<span class=sd>with paths pointing to security-sensitive locations or something due to</span>
+<span class=sd>strange `.` and `..` trickery.</span>
+<span class=sd>If you try to resolve a path inside a directory and the resulting canonical</span>
+<span class=sd>path is outside that directory, you get an error raised, for example.</span>
+
+<span class=sd>>>> Path("/tmp/x/../1.txt")</span>
+<span class=sd>'/tmp/1.txt'</span>
+<span class=sd>"""</span>
+
+<span class=kn>import</span><span class=w> </span><span class=nn>codecs</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>io</span><span class=w> </span><span class=kn>import</span> <span class=n>TextIOBase</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os</span><span class=w> </span><span class=kn>import</span> <span class=n>O_CREAT</span><span class=p>,</span> <span class=n>O_EXCL</span><span class=p>,</span> <span class=n>O_TRUNC</span><span class=p>,</span> <span class=n>makedirs</span><span class=p>,</span> <span class=n>scandir</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os</span><span class=w> </span><span class=kn>import</span> <span class=n>close</span> <span class=k>as</span> <span class=n>osclose</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os</span><span class=w> </span><span class=kn>import</span> <span class=nb>open</span> <span class=k>as</span> <span class=n>osopen</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os</span><span class=w> </span><span class=kn>import</span> <span class=n>remove</span> <span class=k>as</span> <span class=n>osremove</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os.path</span><span class=w> </span><span class=kn>import</span> <span class=p>(</span>
+    <span class=n>abspath</span><span class=p>,</span>
+    <span class=n>commonpath</span><span class=p>,</span>
+    <span class=n>dirname</span><span class=p>,</span>
+    <span class=n>expanduser</span><span class=p>,</span>
+    <span class=n>expandvars</span><span class=p>,</span>
+    <span class=n>isdir</span><span class=p>,</span>
+    <span class=n>isfile</span><span class=p>,</span>
+    <span class=n>join</span><span class=p>,</span>
+    <span class=n>normcase</span><span class=p>,</span>
+    <span class=n>realpath</span><span class=p>,</span>
+    <span class=n>relpath</span><span class=p>,</span>
+<span class=p>)</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os.path</span><span class=w> </span><span class=kn>import</span> <span class=n>basename</span> <span class=k>as</span> <span class=n>osbasename</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os.path</span><span class=w> </span><span class=kn>import</span> <span class=n>exists</span> <span class=k>as</span> <span class=n>osexists</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>shutil</span><span class=w> </span><span class=kn>import</span> <span class=n>rmtree</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=p>(</span>
+    <span class=n>Any</span><span class=p>,</span>
+    <span class=n>Callable</span><span class=p>,</span>
+    <span class=n>Final</span><span class=p>,</span>
+    <span class=n>Generator</span><span class=p>,</span>
+    <span class=n>Iterable</span><span class=p>,</span>
+    <span class=n>Iterator</span><span class=p>,</span>
+    <span class=n>TextIO</span><span class=p>,</span>
+    <span class=n>cast</span><span class=p>,</span>
+<span class=p>)</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>check_int_range</span><span class=p>,</span> <span class=n>type_error</span>
+
+<span class=c1>#: the UTF-8 encoding</span>
+<span class=n>UTF8</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"utf-8-sig"</span>
+
+<span class=c1>#: The list of possible text encodings</span>
+<span class=n>__ENCODINGS</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>bytes</span><span class=p>,</span> <span class=o>...</span><span class=p>],</span> <span class=nb>str</span><span class=p>],</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> \
+    <span class=p>(((</span><span class=n>codecs</span><span class=o>.</span><span class=n>BOM_UTF8</span><span class=p>,),</span> <span class=n>UTF8</span><span class=p>),</span>
+     <span class=p>((</span><span class=n>codecs</span><span class=o>.</span><span class=n>BOM_UTF32_LE</span><span class=p>,</span> <span class=n>codecs</span><span class=o>.</span><span class=n>BOM_UTF32_BE</span><span class=p>),</span> <span class=s2>"utf-32"</span><span class=p>),</span>
+     <span class=p>((</span><span class=n>codecs</span><span class=o>.</span><span class=n>BOM_UTF16_LE</span><span class=p>,</span> <span class=n>codecs</span><span class=o>.</span><span class=n>BOM_UTF16_BE</span><span class=p>),</span> <span class=s2>"utf-16"</span><span class=p>))</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>_get_text_encoding</span><span class=p>(</span><span class=n>filename</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Get the text encoding from a BOM if present.</span>
+
+<span class=sd>    If no encoding BOM can be found, we return the standard UTF-8 encoding.</span>
+<span class=sd>    Adapted from https://stackoverflow.com/questions/13590749.</span>
+
+<span class=sd>    :param filename: the filename</span>
+<span class=sd>    :returns: the encoding</span>
+
+<span class=sd>    >>> from tempfile import mkstemp</span>
+<span class=sd>    >>> from os import close as osxclose</span>
+<span class=sd>    >>> from os import remove as osremove</span>
+<span class=sd>    >>> (h, tf) = mkstemp()</span>
+<span class=sd>    >>> osxclose(h)</span>
+<span class=sd>    >>> with open(tf, "wb") as out:</span>
+<span class=sd>    ...     out.write(b'\xef\xbb\xbf')</span>
+<span class=sd>    3</span>
+<span class=sd>    >>> _get_text_encoding(tf)</span>
+<span class=sd>    'utf-8-sig'</span>
+
+<span class=sd>    >>> with open(tf, "wb") as out:</span>
+<span class=sd>    ...     out.write(b'\xff\xfe\x00\x00')</span>
+<span class=sd>    4</span>
+<span class=sd>    >>> _get_text_encoding(tf)</span>
+<span class=sd>    'utf-32'</span>
+
+<span class=sd>    >>> with open(tf, "wb") as out:</span>
+<span class=sd>    ...     out.write(b'\x00\x00\xfe\xff')</span>
+<span class=sd>    4</span>
+<span class=sd>    >>> _get_text_encoding(tf)</span>
+<span class=sd>    'utf-32'</span>
+
+<span class=sd>    >>> with open(tf, "wb") as out:</span>
+<span class=sd>    ...     out.write(b'\xff\xfe')</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> _get_text_encoding(tf)</span>
+<span class=sd>    'utf-16'</span>
+
+<span class=sd>    >>> with open(tf, "wb") as out:</span>
+<span class=sd>    ...     out.write(b'\xfe\xff')</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> _get_text_encoding(tf)</span>
+<span class=sd>    'utf-16'</span>
+
+<span class=sd>    >>> with open(tf, "wb") as out:</span>
+<span class=sd>    ...     out.write(b'\xaa\xf3')</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> _get_text_encoding(tf)</span>
+<span class=sd>    'utf-8-sig'</span>
+
+<span class=sd>    >>> osremove(tf)</span>
+<span class=sd>    """</span>
+    <span class=k>with</span> <span class=nb>open</span><span class=p>(</span><span class=n>filename</span><span class=p>,</span> <span class=s2>"rb"</span><span class=p>)</span> <span class=k>as</span> <span class=n>f</span><span class=p>:</span>
+        <span class=n>header</span> <span class=o>=</span> <span class=n>f</span><span class=o>.</span><span class=n>read</span><span class=p>(</span><span class=mi>4</span><span class=p>)</span>  <span class=c1># Read just the first four bytes.</span>
+    <span class=k>for</span> <span class=n>boms</span><span class=p>,</span> <span class=n>encoding</span> <span class=ow>in</span> <span class=n>__ENCODINGS</span><span class=p>:</span>
+        <span class=k>for</span> <span class=n>bom</span> <span class=ow>in</span> <span class=n>boms</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>header</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=n>bom</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>:</span>
+                <span class=k>return</span> <span class=n>encoding</span>
+    <span class=k>return</span> <span class=n>UTF8</span>
+
+
+<div class=viewcode-block id=Path>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path>[docs]</a>
+<span class=k>class</span><span class=w> </span><span class=nc>Path</span><span class=p>(</span><span class=nb>str</span><span class=p>):</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    An immutable representation of a canonical path.</span>
+
+<span class=sd>    All instances of this class identify a fully-qualified path which does not</span>
+<span class=sd>    contain any relative parts (`"."` or `".."`), is fully expanded, and, if</span>
+<span class=sd>    the file system is case-insensitive, has the case normalized. A path is</span>
+<span class=sd>    also an instance of `str`, so it can be used wherever strings are required</span>
+<span class=sd>    and functions can be designed to accept `str` and receive `Path` instances</span>
+<span class=sd>    instead.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Path(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Path(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Path("")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Path must not be empty.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Path(" ")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Path must not start or end with white space, but ' ' does.</span>
+
+<span class=sd>    >>> from os.path import dirname</span>
+<span class=sd>    >>> Path(dirname(realpath(__file__)) + '/..') == \</span>
+<span class=sd>dirname(dirname(realpath(__file__)))</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> Path(dirname(realpath(__file__)) + "/.") == \</span>
+<span class=sd>dirname(realpath(__file__))</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> Path(__file__) == realpath(__file__)</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> from os import getcwd</span>
+<span class=sd>    >>> Path(".") == realpath(getcwd())</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> from os import getcwd</span>
+<span class=sd>    >>> Path("..") == dirname(realpath(getcwd()))</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> from os import getcwd</span>
+<span class=sd>    >>> Path("../.") == dirname(realpath(getcwd()))</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> from os import getcwd</span>
+<span class=sd>    >>> Path("../1.txt") == \</span>
+<span class=sd>join(dirname(realpath(getcwd())), "1.txt")</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> from os import getcwd</span>
+<span class=sd>    >>> Path("./1.txt") == join(realpath(getcwd()), "1.txt")</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> from os.path import isabs</span>
+<span class=sd>    >>> isabs(Path(".."))</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+
+    <span class=c1># see https://docs.astral.sh/ruff/rules/no-slots-in-str-subclass/</span>
+    <span class=vm>__slots__</span> <span class=o>=</span> <span class=p>()</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__new__</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>value</span><span class=p>:</span> <span class=n>Any</span><span class=p>):</span>  <span class=c1># noqa</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Construct the path object by normalizing the path string.</span>
+
+<span class=sd>        :param value: the string value</span>
+<span class=sd>        :raises TypeError: if `value` is not a string</span>
+<span class=sd>        :raises ValueError: if `value` is not a proper path</span>
+
+<span class=sd>        >>> isinstance(Path("."), Path)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> isinstance(Path("."), str)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> isinstance(Path(".")[-2:], Path)</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> isinstance(Path(".")[-2:], str)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> isinstance(Path(__file__).strip(), Path)</span>
+<span class=sd>        False</span>
+
+<span class=sd>        >>> isinstance(__file__, Path)</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> isinstance(Path(__file__), Path)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> p = Path(__file__)</span>
+<span class=sd>        >>> Path(p) is p</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(1)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path("")</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        Path must not be empty.</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=n>Path</span><span class=p>):</span>
+            <span class=k>return</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"Path"</span><span class=p>,</span> <span class=n>value</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>value</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Path must not be empty."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>value</span><span class=p>)</span> <span class=o>!=</span> <span class=n>value</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Path must not start or end with white space, "</span>
+                             <span class=sa>f</span><span class=s2>"but </span><span class=si>{</span><span class=n>value</span><span class=si>!r}</span><span class=s2> does."</span><span class=p>)</span>
+        <span class=n>value</span> <span class=o>=</span> <span class=n>normcase</span><span class=p>(</span><span class=n>abspath</span><span class=p>(</span><span class=n>realpath</span><span class=p>(</span><span class=n>expanduser</span><span class=p>(</span><span class=n>expandvars</span><span class=p>(</span><span class=n>value</span><span class=p>)))))</span>
+        <span class=k>if</span> <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>value</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>value</span> <span class=ow>in</span> <span class=p>{</span><span class=s2>"."</span><span class=p>,</span> <span class=s2>".."</span><span class=p>}):</span>  <span class=c1># impossible!</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Canonicalization cannot yield </span><span class=si>{</span><span class=n>value</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+        <span class=k>return</span> <span class=nb>super</span><span class=p>()</span><span class=o>.</span><span class=fm>__new__</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>value</span><span class=p>)</span>
+
+<div class=viewcode-block id=Path.exists>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.exists>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>exists</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Check if this path identifies an existing file or directory.</span>
+
+<span class=sd>        See also :meth:`~Path.is_file` and :meth:`~Path.is_dir`.</span>
+
+<span class=sd>        :returns: `True` if this path identifies an existing file, `False`</span>
+<span class=sd>            otherwise.</span>
+
+<span class=sd>        >>> Path(__file__).exists()</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> Path(dirname(__file__)).exists()</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> from tempfile import mkstemp</span>
+<span class=sd>        >>> from os import close as osxclose</span>
+<span class=sd>        >>> from os import remove as osremove</span>
+<span class=sd>        >>> (h, tf) = mkstemp()</span>
+<span class=sd>        >>> osxclose(h)</span>
+<span class=sd>        >>> p = Path(tf)</span>
+<span class=sd>        >>> p.exists()</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> osremove(p)</span>
+<span class=sd>        >>> p.exists()</span>
+<span class=sd>        False</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=n>osexists</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=Path.is_file>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.is_file>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>is_file</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Check if this path identifies an existing file.</span>
+
+<span class=sd>        See also :meth:`~enforce_file`, which raises an error if the `is_file`</span>
+<span class=sd>        is not `True`.</span>
+
+<span class=sd>        :returns: `True` if this path identifies an existing file, `False`</span>
+<span class=sd>            otherwise.</span>
+
+<span class=sd>        >>> Path(__file__).is_file()</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> Path(dirname(__file__)).is_file()</span>
+<span class=sd>        False</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=n>isfile</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=Path.enforce_file>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.enforce_file>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>enforce_file</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Raise an error if the path does not reference an existing file.</span>
+
+<span class=sd>        This function uses :meth:`is_file` internally and raises a</span>
+<span class=sd>        `ValueError` if it returns `False`. It is therefore a shorthand</span>
+<span class=sd>        for situations where you want to have an error if a path does</span>
+<span class=sd>        not identify a file.</span>
+
+<span class=sd>        :raises ValueError:  if this path does not reference an existing file</span>
+
+<span class=sd>        >>> Path(__file__).enforce_file()   # nothing happens</span>
+<span class=sd>        >>> from os import getcwd</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(getcwd()).enforce_file()</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[-25:])</span>
+<span class=sd>        does not identify a file.</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=bp>self</span><span class=o>.</span><span class=n>is_file</span><span class=p>():</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Path </span><span class=si>{</span><span class=bp>self</span><span class=si>!r}</span><span class=s2> does not identify a file."</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=Path.is_dir>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.is_dir>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>is_dir</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Check if this path identifies an existing directory.</span>
+
+<span class=sd>        The method :meth:`~enforce_dir` also checks this, but raises an</span>
+<span class=sd>        exception if it is not `True`.</span>
+
+<span class=sd>        :returns: `True` if this path identifies an existing directory,</span>
+<span class=sd>            `False` otherwise.</span>
+
+<span class=sd>        >>> Path(__file__).is_dir()</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> Path(dirname(__file__)).is_dir()</span>
+<span class=sd>        True</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=n>isdir</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=Path.enforce_dir>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.enforce_dir>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>enforce_dir</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Raise an error if the path does not reference an existing directory.</span>
+
+<span class=sd>        This function uses :meth:`is_dir` internally and raises a</span>
+<span class=sd>        `ValueError` if it returns `False`. It is therefore a shorthand</span>
+<span class=sd>        for situations where you want to have an error if a path does</span>
+<span class=sd>        not identify a directory.</span>
+
+<span class=sd>        :raises ValueError:  if this path does not reference an existing</span>
+<span class=sd>            directory</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(__file__).enforce_dir()</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[-30:])</span>
+<span class=sd>        does not identify a directory.</span>
+
+<span class=sd>        >>> from os import getcwd</span>
+<span class=sd>        >>> Path(getcwd()).enforce_dir()   # nothing happens</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=bp>self</span><span class=o>.</span><span class=n>is_dir</span><span class=p>():</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Path </span><span class=si>{</span><span class=bp>self</span><span class=si>!r}</span><span class=s2> does not identify a directory."</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=Path.contains>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.contains>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>contains</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>other</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>        Check whether this path is a directory and contains another path.</span>
+
+<span class=sd>        A file can never contain anything else. A directory contains itself as</span>
+<span class=sd>        well as any sub-directories, i.e., `a/b/` contains `a/b/` and `a/b/c`.</span>
+<span class=sd>        The function :meth:`~enforce_contains` throws an exception if the</span>
+<span class=sd>        path does not contain `other`.</span>
+
+<span class=sd>        :param other: the other path</span>
+<span class=sd>        :returns: `True` is this path contains the other path, `False` of not</span>
+
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> Path(dirname(__file__)).contains(__file__)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> Path(__file__).contains(__file__)</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> Path(dirname(__file__)).contains(dirname(__file__))</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> Path(__file__).contains(dirname(__file__))</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> Path(join(dirname(__file__), "a")).contains(</span>
+<span class=sd>        ...     join(dirname(__file__), "b"))</span>
+<span class=sd>        False</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(dirname(__file__)).contains(1)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(dirname(__file__)).contains(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(dirname(__file__)).contains("")</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        Path must not be empty.</span>
+
+<span class=sd>        >>> Path("E:\\").contains("C:\\")</span>
+<span class=sd>        False</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=bp>self</span><span class=o>.</span><span class=n>is_dir</span><span class=p>():</span>
+            <span class=k>return</span> <span class=kc>False</span>
+        <span class=n>other_path</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>Path</span><span class=p>(</span><span class=n>other</span><span class=p>)</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=k>return</span> <span class=n>commonpath</span><span class=p>([</span><span class=bp>self</span><span class=p>])</span> <span class=o>==</span> <span class=n>commonpath</span><span class=p>([</span><span class=bp>self</span><span class=p>,</span> <span class=n>other_path</span><span class=p>])</span>
+        <span class=k>except</span> <span class=ne>ValueError</span><span class=p>:</span>  <span class=c1># this happens if paths are on different drives</span>
+            <span class=k>return</span> <span class=kc>False</span>    <span class=c1># This cannot be reached on Linux systems.</span></div>
+
+
+<div class=viewcode-block id=Path.enforce_contains>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.enforce_contains>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>enforce_contains</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>other</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Raise an exception if this is not a directory containing another path.</span>
+
+<span class=sd>        The method :meth:`contains` checks whether this path is a directory</span>
+<span class=sd>        and contains the other path and returns the result of this check as a</span>
+<span class=sd>        `bool`. This function here raises an exception if that check fails.</span>
+
+<span class=sd>        :param other: the other path</span>
+<span class=sd>        :raises ValueError: if `other` is not a sub-path of this path.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(__file__).enforce_contains(__file__)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[-25:])</span>
+<span class=sd>        not identify a directory.</span>
+
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> Path(dirname(__file__)).enforce_contains(__file__)  # nothing</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(join(dirname(__file__), "a")).enforce_contains(\</span>
+<span class=sd>Path(join(dirname(__file__), "b")))</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[-25:])</span>
+<span class=sd>        not identify a directory.</span>
+
+<span class=sd>        >>> Path(dirname(__file__)).enforce_contains(Path(join(dirname(\</span>
+<span class=sd>__file__), "b")))  # nothing happens</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(dirname(__file__)).enforce_contains(dirname(\</span>
+<span class=sd>dirname(__file__)))</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[:4])</span>
+<span class=sd>        ...     print("does not contain" in str(ve))</span>
+<span class=sd>        Path</span>
+<span class=sd>        True</span>
+<span class=sd>        """</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>enforce_dir</span><span class=p>()</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=bp>self</span><span class=o>.</span><span class=n>contains</span><span class=p>(</span><span class=n>other</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Path </span><span class=si>{</span><span class=bp>self</span><span class=si>!r}</span><span class=s2> does not contain </span><span class=si>{</span><span class=n>other</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=Path.resolve_inside>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.resolve_inside>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>resolve_inside</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>relative_path</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=s2>"Path"</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Resolve a relative path to an absolute path inside this path.</span>
+
+<span class=sd>        Resolve the relative path inside this path. This path must identify</span>
+<span class=sd>        a directory. The relative path cannot contain anything that makes it</span>
+<span class=sd>        leave the directory, e.g., any `".."`. The paths are joined and then</span>
+<span class=sd>        it is enforced that this path must contain the result via</span>
+<span class=sd>        :meth:`enforce_contains` and otherwise an error is raised.</span>
+
+<span class=sd>        :param relative_path: the path to resolve</span>
+<span class=sd>        :returns: the resolved child path</span>
+<span class=sd>        :raises TypeError: If the `relative_path` is not a string.</span>
+<span class=sd>        :raises ValueError: If the `relative_path` would resolve to something</span>
+<span class=sd>            outside of this path and/or if it is empty.</span>
+
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> Path(dirname(__file__)).resolve_inside("a.txt")[-5:]</span>
+<span class=sd>        'a.txt'</span>
+
+<span class=sd>        >>> from os.path import basename</span>
+<span class=sd>        >>> Path(dirname(__file__)).resolve_inside(basename(__file__)) \</span>
+<span class=sd>== Path(__file__)</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(dirname(__file__)).resolve_inside("..")</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print("does not contain" in str(ve))</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(__file__).resolve_inside("..")</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print("does not identify a directory" in str(ve))</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(dirname(__file__)).resolve_inside(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(dirname(__file__)).resolve_inside(2)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(__file__).resolve_inside("")</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        Relative path must not be empty.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(__file__).resolve_inside(" ")</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        Relative path must not start or end with white space, but ' ' does.</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>relative_path</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Relative path must not be empty."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>relative_path</span><span class=p>)</span> <span class=o>!=</span> <span class=n>relative_path</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Relative path must not start or end with white "</span>
+                             <span class=sa>f</span><span class=s2>"space, but </span><span class=si>{</span><span class=n>relative_path</span><span class=si>!r}</span><span class=s2> does."</span><span class=p>)</span>
+        <span class=n>opath</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>Path</span><span class=p>(</span><span class=n>join</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>relative_path</span><span class=p>))</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>enforce_contains</span><span class=p>(</span><span class=n>opath</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>opath</span></div>
+
+
+<div class=viewcode-block id=Path.ensure_file_exists>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.ensure_file_exists>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>ensure_file_exists</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Atomically ensure that the file exists and create it otherwise.</span>
+
+<span class=sd>        While :meth:`is_file` checks if the path identifies an existing file</span>
+<span class=sd>        and :meth:`enforce_file` raises an error if it does not, this method</span>
+<span class=sd>        here creates the file if it does not exist. The method can only create</span>
+<span class=sd>        the file if the directory already exists.</span>
+
+<span class=sd>        :returns: `True` if the file already existed and</span>
+<span class=sd>            `False` if it was newly and atomically created.</span>
+<span class=sd>        :raises: ValueError if anything goes wrong during the file creation</span>
+
+<span class=sd>        >>> print(Path(__file__).ensure_file_exists())</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(dirname(__file__)).ensure_file_exists()</span>
+<span class=sd>        ...     print("??")</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print("does not identify a file." in str(ve))</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(join(join(dirname(__file__), "a"), "b"))\</span>
+<span class=sd>.ensure_file_exists()</span>
+<span class=sd>        ...     print("??")</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print("Error when trying to create file" in str(ve))</span>
+<span class=sd>        True</span>
+<span class=sd>        """</span>
+        <span class=n>existed</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>False</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=n>osclose</span><span class=p>(</span><span class=n>osopen</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>O_CREAT</span> <span class=o>|</span> <span class=n>O_EXCL</span><span class=p>))</span>
+        <span class=k>except</span> <span class=ne>FileExistsError</span><span class=p>:</span>
+            <span class=n>existed</span> <span class=o>=</span> <span class=kc>True</span>
+        <span class=k>except</span> <span class=ne>Exception</span> <span class=k>as</span> <span class=n>err</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"Error when trying to create file </span><span class=si>{</span><span class=bp>self</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=nn>err</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>enforce_file</span><span class=p>()</span>
+        <span class=k>return</span> <span class=n>existed</span></div>
+
+
+<div class=viewcode-block id=Path.create_file_or_truncate>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.create_file_or_truncate>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>create_file_or_truncate</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Create the file identified by this path and truncate it if it exists.</span>
+
+<span class=sd>        :raises: ValueError if anything goes wrong during the file creation</span>
+
+<span class=sd>        >>> from tempfile import mkstemp</span>
+<span class=sd>        >>> from os import close as osxclose</span>
+<span class=sd>        >>> from os import remove as osremove</span>
+<span class=sd>        >>> (h, tf) = mkstemp()</span>
+<span class=sd>        >>> osxclose(h)</span>
+
+<span class=sd>        >>> pth = Path(tf)</span>
+<span class=sd>        >>> pth.write_all_str("test")</span>
+<span class=sd>        >>> print(pth.read_all_str())</span>
+<span class=sd>        test</span>
+<span class=sd>        &LTBLANKLINE></span>
+
+<span class=sd>        >>> pth.create_file_or_truncate()</span>
+<span class=sd>        >>> pth.is_file()</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     pth.read_all_str()</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[-17:])</span>
+<span class=sd>        contains no text.</span>
+
+<span class=sd>        >>> osremove(pth)</span>
+<span class=sd>        >>> pth.is_file()</span>
+<span class=sd>        False</span>
+
+<span class=sd>        >>> pth.create_file_or_truncate()</span>
+<span class=sd>        >>> pth.is_file()</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> osremove(pth)</span>
+
+<span class=sd>        >>> from os import makedirs as osmkdir</span>
+<span class=sd>        >>> from os import rmdir as osrmdir</span>
+<span class=sd>        >>> osmkdir(pth)</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     pth.create_file_or_truncate()</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[:35])</span>
+<span class=sd>        Error when truncating/creating file</span>
+
+<span class=sd>        >>> osrmdir(pth)</span>
+<span class=sd>        """</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=n>osclose</span><span class=p>(</span><span class=n>osopen</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>O_CREAT</span> <span class=o>|</span> <span class=n>O_TRUNC</span><span class=p>))</span>
+        <span class=k>except</span> <span class=ne>BaseException</span> <span class=k>as</span> <span class=n>err</span><span class=p>:</span>  <span class=c1># noqa</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"Error when truncating/creating file </span><span class=si>{</span><span class=bp>self</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=nn>err</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>enforce_file</span><span class=p>()</span></div>
+
+
+<div class=viewcode-block id=Path.ensure_dir_exists>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.ensure_dir_exists>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>ensure_dir_exists</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Make sure that the directory exists, create it otherwise.</span>
+
+<span class=sd>        Method :meth:`is_dir` checks whether the path identifies an</span>
+<span class=sd>        existing directory, method :meth:`enforce_dir` raises an error if not,</span>
+<span class=sd>        and this method creates the directory if it does not exist.</span>
+
+<span class=sd>        :raises ValueError: if the directory did not exist and creation failed</span>
+
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> Path(dirname(__file__)).ensure_dir_exists()  # nothing happens</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(__file__).ensure_dir_exists()</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print("does not identify a directory" in str(ve))</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(join(__file__, "a")).ensure_dir_exists()</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print("Error when trying to create directory" in str(ve))</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> from tempfile import mkdtemp</span>
+<span class=sd>        >>> from os import rmdir as osrmdirx</span>
+<span class=sd>        >>> td = mkdtemp()</span>
+<span class=sd>        >>> Path(td).ensure_dir_exists()</span>
+<span class=sd>        >>> osrmdirx(td)</span>
+<span class=sd>        >>> Path(td).ensure_dir_exists()</span>
+<span class=sd>        >>> p = Path(td).resolve_inside("a")</span>
+<span class=sd>        >>> p.ensure_dir_exists()</span>
+<span class=sd>        >>> p2 = p.resolve_inside("b")</span>
+<span class=sd>        >>> p2.ensure_dir_exists()</span>
+<span class=sd>        >>> osrmdirx(p2)</span>
+<span class=sd>        >>> osrmdirx(p)</span>
+<span class=sd>        >>> osrmdirx(td)</span>
+<span class=sd>        >>> p2.ensure_dir_exists()</span>
+<span class=sd>        >>> osrmdirx(p2)</span>
+<span class=sd>        >>> osrmdirx(p)</span>
+<span class=sd>        >>> osrmdirx(td)</span>
+<span class=sd>        """</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=n>makedirs</span><span class=p>(</span><span class=n>name</span><span class=o>=</span><span class=bp>self</span><span class=p>,</span> <span class=n>exist_ok</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+        <span class=k>except</span> <span class=ne>FileExistsError</span><span class=p>:</span>
+            <span class=k>pass</span>
+        <span class=k>except</span> <span class=ne>Exception</span> <span class=k>as</span> <span class=n>err</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"Error when trying to create directory </span><span class=si>{</span><span class=bp>self</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=nn>err</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>enforce_dir</span><span class=p>()</span></div>
+
+
+<div class=viewcode-block id=Path.ensure_parent_dir_exists>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.ensure_parent_dir_exists>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>ensure_parent_dir_exists</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=s2>"Path"</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Make sure that the parent directory exists, create it otherwise.</span>
+
+<span class=sd>        This path may identify a file or directory to be created that does not</span>
+<span class=sd>        yet exist. The parent directory of this path is ensured to exist,</span>
+<span class=sd>        i.e., if it already exists, nothing happens, but if it does not yet</span>
+<span class=sd>        exist, it is created. If the parent directory cannot be created, a</span>
+<span class=sd>        :class:`ValueError` is raised.</span>
+
+<span class=sd>        :returns: the parent dir</span>
+<span class=sd>        :raises ValueError: if the directory did not exist and creation failed</span>
+
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> _ = Path(__file__).ensure_parent_dir_exists()  # nothing happens</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     _ = Path(join(__file__, "a")).ensure_parent_dir_exists()</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print("does not identify a directory" in str(ve))</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> from tempfile import mkdtemp</span>
+<span class=sd>        >>> from os import rmdir as osrmdirx</span>
+<span class=sd>        >>> td = mkdtemp()</span>
+<span class=sd>        >>> tf = Path(join(td, "xxx"))</span>
+<span class=sd>        >>> _ = tf.ensure_parent_dir_exists()</span>
+<span class=sd>        >>> osrmdirx(td)</span>
+<span class=sd>        >>> isdir(dirname(tf))</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> _ = tf.ensure_parent_dir_exists()</span>
+<span class=sd>        >>> isdir(dirname(tf))</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> osrmdirx(td)</span>
+
+<span class=sd>        >>> td = mkdtemp()</span>
+<span class=sd>        >>> isdir(td)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> td2 = join(td, "xxx")</span>
+<span class=sd>        >>> isdir(td2)</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> tf = join(td2, "xxx")</span>
+<span class=sd>        >>> _ = Path(tf).ensure_parent_dir_exists()</span>
+<span class=sd>        >>> isdir(td2)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> osrmdirx(td2)</span>
+<span class=sd>        >>> osrmdirx(td)</span>
+
+<span class=sd>        >>> td = mkdtemp()</span>
+<span class=sd>        >>> isdir(td)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> td2 = join(td, "xxx")</span>
+<span class=sd>        >>> isdir(td2)</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> td3 = join(td2, "xxx")</span>
+<span class=sd>        >>> isdir(td3)</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> tf = join(td3, "xxx")</span>
+<span class=sd>        >>> _ = Path(tf).ensure_parent_dir_exists()</span>
+<span class=sd>        >>> isdir(td3)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> isdir(td2)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> osrmdirx(td3)</span>
+<span class=sd>        >>> osrmdirx(td2)</span>
+<span class=sd>        >>> osrmdirx(td)</span>
+<span class=sd>        """</span>
+        <span class=n>pd</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>Path</span><span class=p>(</span><span class=n>dirname</span><span class=p>(</span><span class=bp>self</span><span class=p>))</span>
+        <span class=n>Path</span><span class=o>.</span><span class=n>ensure_dir_exists</span><span class=p>(</span><span class=n>pd</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>pd</span></div>
+
+
+<div class=viewcode-block id=Path.open_for_read>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.open_for_read>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>open_for_read</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=n>TextIOBase</span><span class=p>:</span>
+<span class=w>        </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>        Open this file for reading text.</span>
+
+<span class=sd>        The resulting text stream will automatically use the right encoding</span>
+<span class=sd>        and take any encoding error serious. If the path does not identify an</span>
+<span class=sd>        existing file, an exception is thrown.</span>
+
+<span class=sd>        :returns: the file open for reading</span>
+<span class=sd>        :raises ValueError: if the path does not identify a file</span>
+
+<span class=sd>        >>> with Path(__file__).open_for_read() as rd:</span>
+<span class=sd>        ...     print(f"{len(rd.readline())}")</span>
+<span class=sd>        ...     print(f"{rd.readline()!r}")</span>
+<span class=sd>        4</span>
+<span class=sd>        'The class `Path` for handling paths to files and directories.\n'</span>
+
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     with Path(dirname(__file__)).open_for_read():</span>
+<span class=sd>        ...         pass</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[-25:])</span>
+<span class=sd>        does not identify a file.</span>
+<span class=sd>        """</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>enforce_file</span><span class=p>()</span>
+        <span class=k>return</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"TextIOBase"</span><span class=p>,</span> <span class=nb>open</span><span class=p>(</span>  <span class=c1># noqa: SIM115</span>
+            <span class=bp>self</span><span class=p>,</span> <span class=n>encoding</span><span class=o>=</span><span class=n>_get_text_encoding</span><span class=p>(</span><span class=bp>self</span><span class=p>),</span> <span class=n>errors</span><span class=o>=</span><span class=s2>"strict"</span><span class=p>))</span></div>
+
+
+<div class=viewcode-block id=Path.read_all_str>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.read_all_str>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>read_all_str</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>        </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>        Read a file as a single string.</span>
+
+<span class=sd>        Read the complete contents of a file as a single string. If the file</span>
+<span class=sd>        is empty, an exception will be raised. No modification is applied to</span>
+<span class=sd>        the text that is read.</span>
+
+<span class=sd>        :returns: the single string of text</span>
+<span class=sd>        :raises ValueError: if the path does not identify a file or if the</span>
+<span class=sd>            file it identifies is empty</span>
+
+<span class=sd>        >>> Path(__file__).read_all_str()[4:30]</span>
+<span class=sd>        'The class `Path` for handl'</span>
+
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(dirname(__file__)).read_all_str()</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[-25:])</span>
+<span class=sd>        does not identify a file.</span>
+
+<span class=sd>        >>> from tempfile import mkstemp</span>
+<span class=sd>        >>> from os import remove as osremovex</span>
+<span class=sd>        >>> h, p = mkstemp(text=True)</span>
+<span class=sd>        >>> osclose(h)</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(p).read_all_str()</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[-19:])</span>
+<span class=sd>        ' contains no text.</span>
+
+<span class=sd>        >>> with open(p, "wt") as tx:</span>
+<span class=sd>        ...     tx.write("aa\n")</span>
+<span class=sd>        ...     tx.write(" bb   ")</span>
+<span class=sd>        3</span>
+<span class=sd>        6</span>
+<span class=sd>        >>> Path(p).read_all_str()</span>
+<span class=sd>        'aa\n bb   '</span>
+<span class=sd>        >>> osremovex(p)</span>
+<span class=sd>        """</span>
+        <span class=k>with</span> <span class=bp>self</span><span class=o>.</span><span class=n>open_for_read</span><span class=p>()</span> <span class=k>as</span> <span class=n>reader</span><span class=p>:</span>
+            <span class=n>res</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>reader</span><span class=o>.</span><span class=n>read</span><span class=p>()</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>res</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"File </span><span class=si>{</span><span class=bp>self</span><span class=si>!r}</span><span class=s2> contains no text."</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>res</span></div>
+
+
+<div class=viewcode-block id=Path.open_for_write>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.open_for_write>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>open_for_write</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=n>TextIOBase</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Open the file for writing UTF-8 encoded text.</span>
+
+<span class=sd>        If the path cannot be opened for writing, some error will be raised.</span>
+
+<span class=sd>        :returns: the text io wrapper for writing</span>
+<span class=sd>        :raises ValueError: if the path does not identify a file or such a</span>
+<span class=sd>            file cannot be created</span>
+
+<span class=sd>        >>> from tempfile import mkstemp</span>
+<span class=sd>        >>> from os import remove as osremovex</span>
+<span class=sd>        >>> h, p = mkstemp(text=True)</span>
+<span class=sd>        >>> osclose(h)</span>
+<span class=sd>        >>> with Path(p).open_for_write() as wd:</span>
+<span class=sd>        ...     wd.write("1234")</span>
+<span class=sd>        4</span>
+<span class=sd>        >>> Path(p).read_all_str()</span>
+<span class=sd>        '1234'</span>
+<span class=sd>        >>> osremovex(p)</span>
+
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     with Path(dirname(__file__)).open_for_write() as wd:</span>
+<span class=sd>        ...         pass</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print("does not identify a file." in str(ve))</span>
+<span class=sd>        True</span>
+<span class=sd>        """</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>ensure_file_exists</span><span class=p>()</span>
+        <span class=k>return</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"TextIOBase"</span><span class=p>,</span> <span class=nb>open</span><span class=p>(</span>  <span class=c1># noqa: SIM115</span>
+            <span class=bp>self</span><span class=p>,</span> <span class=n>mode</span><span class=o>=</span><span class=s2>"w"</span><span class=p>,</span> <span class=n>encoding</span><span class=o>=</span><span class=s2>"utf-8"</span><span class=p>,</span> <span class=n>errors</span><span class=o>=</span><span class=s2>"strict"</span><span class=p>))</span></div>
+
+
+<div class=viewcode-block id=Path.write_all_str>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.write_all_str>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>write_all_str</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>contents</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>        Write the given string to the file.</span>
+
+<span class=sd>        The string `contents` is written to a file. If it does not end</span>
+<span class=sd>        with `\n`, then `\n` will automatically be appended. No other changes</span>
+<span class=sd>        are applied to `contents`. `contents` must be a `str` and it must not</span>
+<span class=sd>        be empty.</span>
+
+<span class=sd>        :param contents: the contents to write</span>
+<span class=sd>        :raises TypeError: if the contents are not a string or an `Iterable`</span>
+<span class=sd>            of strings</span>
+<span class=sd>        :raises ValueError: if the path is not a file or it cannot be opened</span>
+<span class=sd>            as a file or the `contents` are an empty string</span>
+
+<span class=sd>        >>> from tempfile import mkstemp</span>
+<span class=sd>        >>> from os import remove as osremovex</span>
+<span class=sd>        >>> h, p = mkstemp(text=True)</span>
+<span class=sd>        >>> osclose(h)</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(p).write_all_str(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te))</span>
+<span class=sd>        descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(p).write_all_str(["a"])</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te))</span>
+<span class=sd>        descriptor '__len__' requires a 'str' object but received a 'list'</span>
+
+<span class=sd>        >>> Path(p).write_all_str("\na\nb")</span>
+<span class=sd>        >>> Path(p).read_all_str()</span>
+<span class=sd>        '\na\nb\n'</span>
+
+<span class=sd>        >>> Path(p).write_all_str(" \na\n b ")</span>
+<span class=sd>        >>> Path(p).read_all_str()</span>
+<span class=sd>        ' \na\n b \n'</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(p).write_all_str("")</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[:34])</span>
+<span class=sd>        Cannot write empty content to file</span>
+
+<span class=sd>        >>> osremovex(p)</span>
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path(dirname(__file__)).write_all_str("a")</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print("does not identify a file." in str(ve))</span>
+<span class=sd>        True</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>contents</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Cannot write empty content to file </span><span class=si>{</span><span class=bp>self</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>with</span> <span class=bp>self</span><span class=o>.</span><span class=n>open_for_write</span><span class=p>()</span> <span class=k>as</span> <span class=n>writer</span><span class=p>:</span>
+            <span class=n>writer</span><span class=o>.</span><span class=n>write</span><span class=p>(</span><span class=n>contents</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>contents</span><span class=p>[</span><span class=o>-</span><span class=mi>1</span><span class=p>]</span> <span class=o>!=</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=p>:</span>
+                <span class=n>writer</span><span class=o>.</span><span class=n>write</span><span class=p>(</span><span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=Path.relative_to>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.relative_to>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>relative_to</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>base_path</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Compute a relative path of this path towards the given base path.</span>
+
+<span class=sd>        :param base_path: the string</span>
+<span class=sd>        :returns: a relative path</span>
+<span class=sd>        :raises ValueError: if this path is not inside `base_path` or the</span>
+<span class=sd>            relativization result is otherwise invalid</span>
+
+<span class=sd>        >>> from os.path import dirname</span>
+<span class=sd>        >>> f = file_path(__file__)</span>
+<span class=sd>        >>> d1 = directory_path(dirname(f))</span>
+<span class=sd>        >>> d2 = directory_path(dirname(d1))</span>
+<span class=sd>        >>> d3 = directory_path(dirname(d2))</span>
+<span class=sd>        >>> f.relative_to(d1)</span>
+<span class=sd>        'path.py'</span>
+<span class=sd>        >>> f.relative_to(d2)</span>
+<span class=sd>        'io/path.py'</span>
+<span class=sd>        >>> f.relative_to(d3)</span>
+<span class=sd>        'pycommons/io/path.py'</span>
+<span class=sd>        >>> d1.relative_to(d3)</span>
+<span class=sd>        'pycommons/io'</span>
+<span class=sd>        >>> d1.relative_to(d1)</span>
+<span class=sd>        '.'</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     d1.relative_to(f)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[-30:])</span>
+<span class=sd>        does not identify a directory.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     d2.relative_to(d1)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[-21:])</span>
+<span class=sd>        pycommons/pycommons'.</span>
+<span class=sd>        """</span>
+        <span class=n>opath</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>Path</span><span class=p>(</span><span class=n>base_path</span><span class=p>)</span>
+        <span class=n>opath</span><span class=o>.</span><span class=n>enforce_contains</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span>
+        <span class=n>rv</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>relpath</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>opath</span><span class=p>)</span>
+        <span class=k>if</span> <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>rv</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>rv</span><span class=p>)</span> <span class=ow>is</span> <span class=ow>not</span> <span class=n>rv</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>  <span class=c1># close to impossible</span>
+                <span class=sa>f</span><span class=s2>"Invalid relative path </span><span class=si>{</span><span class=n>rv</span><span class=si>!r}</span><span class=s2> resulting from relativizing "</span>
+                <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=si>!r}</span><span class=s2> to </span><span class=si>{</span><span class=n>base_path</span><span class=si>!r}</span><span class=s2>=</span><span class=si>{</span><span class=n>opath</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>rv</span></div>
+
+
+<div class=viewcode-block id=Path.up>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.up>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>up</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>levels</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>1</span><span class=p>)</span> <span class=o>-></span> <span class=s2>"Path"</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Go up the directory tree for a given number of times.</span>
+
+<span class=sd>        Get a `Path` identifying the containing directory, or its containing</span>
+<span class=sd>        directory, depending on the number of `levels` specified.</span>
+
+<span class=sd>        :param levels: the number levels to go up: `1` for getting the</span>
+<span class=sd>            directly containing directory, `2` for the next higher directory,</span>
+<span class=sd>            and so on.</span>
+<span class=sd>        :returns: the resulting path</span>
+
+<span class=sd>        >>> f = file_path(__file__)</span>
+<span class=sd>        >>> print(f.up()[-13:])</span>
+<span class=sd>        /pycommons/io</span>
+<span class=sd>        >>> print(f.up(1)[-13:])</span>
+<span class=sd>        /pycommons/io</span>
+<span class=sd>        >>> print(f.up(2)[-10:])</span>
+<span class=sd>        /pycommons</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     f.up(0)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        levels=0 is invalid, must be in 1..255.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     f.up(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        levels should be an instance of int but is None.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     f.up('x')</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        levels should be an instance of int but is str, namely 'x'.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     f.up(255)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[:70])</span>
+<span class=sd>        Cannot go up from directory '/' anymore when going up for 255 levels f</span>
+<span class=sd>        """</span>
+        <span class=n>s</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=bp>self</span>
+        <span class=k>for</span> <span class=n>_</span> <span class=ow>in</span> <span class=nb>range</span><span class=p>(</span><span class=n>check_int_range</span><span class=p>(</span><span class=n>levels</span><span class=p>,</span> <span class=s2>"levels"</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=mi>255</span><span class=p>)):</span>
+            <span class=n>old</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>s</span>
+            <span class=n>s</span> <span class=o>=</span> <span class=n>dirname</span><span class=p>(</span><span class=n>s</span><span class=p>)</span>
+            <span class=k>if</span> <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>s</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>s</span> <span class=o>==</span> <span class=n>old</span><span class=p>):</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                    <span class=sa>f</span><span class=s2>"Cannot go up from directory </span><span class=si>{</span><span class=n>old</span><span class=si>!r}</span><span class=s2> anymore when going "</span>
+                    <span class=sa>f</span><span class=s2>"up for </span><span class=si>{</span><span class=n>levels</span><span class=si>}</span><span class=s2> levels from </span><span class=si>{</span><span class=bp>self</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>directory_path</span><span class=p>(</span><span class=n>s</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=Path.basename>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.basename>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>basename</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the name of the file or directory identified by this path.</span>
+
+<span class=sd>        :returns: the name of the file or directory</span>
+
+<span class=sd>        >>> file_path(__file__).basename()</span>
+<span class=sd>        'path.py'</span>
+<span class=sd>        >>> file_path(__file__).up(2).basename()</span>
+<span class=sd>        'pycommons'</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Path("/").basename()</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        Invalid basename '' of path '/'.</span>
+<span class=sd>        """</span>
+        <span class=n>s</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>osbasename</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>s</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid basename </span><span class=si>{</span><span class=n>s</span><span class=si>!r}</span><span class=s2> of path </span><span class=si>{</span><span class=bp>self</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>s</span></div>
+
+
+<div class=viewcode-block id=Path.list_dir>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.Path.list_dir>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>list_dir</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>files</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span><span class=p>,</span>
+                 <span class=n>directories</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span><span class=p>)</span> <span class=o>-></span> <span class=n>Iterator</span><span class=p>[</span><span class=s2>"Path"</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        List the files and/or sub-directories in this directory.</span>
+
+<span class=sd>        :returns: an iterable with the fully-qualified paths</span>
+
+<span class=sd>        >>> from tempfile import mkstemp, mkdtemp</span>
+<span class=sd>        >>> from os import close as osxclose</span>
+
+<span class=sd>        >>> dir1 = Path(mkdtemp())</span>
+<span class=sd>        >>> dir2 = Path(mkdtemp(dir=dir1))</span>
+<span class=sd>        >>> dir3 = Path(mkdtemp(dir=dir1))</span>
+<span class=sd>        >>> (h, tf1) = mkstemp(dir=dir1)</span>
+<span class=sd>        >>> osclose(h)</span>
+<span class=sd>        >>> (h, tf2) = mkstemp(dir=dir1)</span>
+<span class=sd>        >>> osclose(h)</span>
+<span class=sd>        >>> file1 = Path(tf1)</span>
+<span class=sd>        >>> file2 = Path(tf2)</span>
+
+<span class=sd>        >>> set(dir1.list_dir()) == {dir2, dir3, file1, file2}</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> set(dir1.list_dir(files=False)) == {dir2, dir3}</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> set(dir1.list_dir(directories=False)) == {file1, file2}</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     dir1.list_dir(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        files should be an instance of bool but is None.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     dir1.list_dir(1)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        files should be an instance of bool but is int, namely 1.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     dir1.list_dir(True, None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        directories should be an instance of bool but is None.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     dir1.list_dir(True, 1)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        directories should be an instance of bool but is int, namely 1.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     dir1.list_dir(False, False)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        files and directories cannot both be False.</span>
+
+<span class=sd>        >>> delete_path(dir1)</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>files</span><span class=p>,</span> <span class=nb>bool</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>files</span><span class=p>,</span> <span class=s2>"files"</span><span class=p>,</span> <span class=nb>bool</span><span class=p>)</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>directories</span><span class=p>,</span> <span class=nb>bool</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>directories</span><span class=p>,</span> <span class=s2>"directories"</span><span class=p>,</span> <span class=nb>bool</span><span class=p>)</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=p>(</span><span class=n>files</span> <span class=ow>or</span> <span class=n>directories</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"files and directories cannot both be False."</span><span class=p>)</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>enforce_dir</span><span class=p>()</span>
+        <span class=k>return</span> <span class=nb>map</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>,</span> <span class=p>(</span>
+            <span class=n>f</span><span class=o>.</span><span class=n>name</span> <span class=k>for</span> <span class=n>f</span> <span class=ow>in</span> <span class=n>scandir</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=k>if</span> <span class=p>(</span>
+                <span class=n>directories</span> <span class=ow>and</span> <span class=n>f</span><span class=o>.</span><span class=n>is_dir</span><span class=p>(</span><span class=n>follow_symlinks</span><span class=o>=</span><span class=kc>False</span><span class=p>))</span> <span class=ow>or</span> <span class=p>(</span>
+                <span class=n>files</span> <span class=ow>and</span> <span class=n>f</span><span class=o>.</span><span class=n>is_file</span><span class=p>(</span><span class=n>follow_symlinks</span><span class=o>=</span><span class=kc>False</span><span class=p>))))</span></div>
+</div>
+
+
+
+<div class=viewcode-block id=file_path>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.file_path>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>file_path</span><span class=p>(</span><span class=n>pathstr</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=s2>"Path"</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Get a path identifying an existing file.</span>
+
+<span class=sd>    This is a shorthand for creating a :class:`~Path` and then invoking</span>
+<span class=sd>    :meth:`~Path.enforce_file`.</span>
+
+<span class=sd>    :param pathstr: the path</span>
+<span class=sd>    :returns: the file</span>
+
+<span class=sd>    >>> file_path(__file__)[-20:]</span>
+<span class=sd>    'pycommons/io/path.py'</span>
+
+<span class=sd>    >>> from os.path import dirname</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     file_path(dirname(__file__))</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print("does not identify a file." in str(ve))</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+    <span class=n>fi</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>Path</span><span class=p>(</span><span class=n>pathstr</span><span class=p>)</span>
+    <span class=n>fi</span><span class=o>.</span><span class=n>enforce_file</span><span class=p>()</span>
+    <span class=k>return</span> <span class=n>fi</span></div>
+
+
+
+<div class=viewcode-block id=directory_path>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.directory_path>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>directory_path</span><span class=p>(</span><span class=n>pathstr</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=s2>"Path"</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Get a path identifying an existing directory.</span>
+
+<span class=sd>    This is a shorthand for creating a :class:`~Path` and then invoking</span>
+<span class=sd>    :meth:`~Path.enforce_dir`.</span>
+
+<span class=sd>    :param pathstr: the path</span>
+<span class=sd>    :returns: the file</span>
+
+<span class=sd>    >>> from os.path import dirname</span>
+<span class=sd>    >>> directory_path(dirname(__file__))[-12:]</span>
+<span class=sd>    'pycommons/io'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     directory_path(__file__)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print("does not identify a directory." in str(ve))</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+    <span class=n>fi</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>Path</span><span class=p>(</span><span class=n>pathstr</span><span class=p>)</span>
+    <span class=n>fi</span><span class=o>.</span><span class=n>enforce_dir</span><span class=p>()</span>
+    <span class=k>return</span> <span class=n>fi</span></div>
+
+
+
+<span class=c1>#: the ends-with check</span>
+<span class=n>__ENDSWITH</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>],</span> <span class=nb>bool</span><span class=p>]]</span> <span class=o>=</span> <span class=n>cast</span><span class=p>(</span>
+    <span class=s2>"Callable[[str, str], bool]"</span><span class=p>,</span> <span class=nb>str</span><span class=o>.</span><span class=n>endswith</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=line_writer>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.line_writer>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>line_writer</span><span class=p>(</span><span class=n>output</span><span class=p>:</span> <span class=n>TextIO</span> <span class=o>|</span> <span class=n>TextIOBase</span><span class=p>)</span> <span class=o>-></span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=kc>None</span><span class=p>]:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Create a line-writing :class:`typing.Callable` from an output stream.</span>
+
+<span class=sd>    This function takes any string passed to it and writes it to the</span>
+<span class=sd>    :class:`typing.TextIO` instance. If the string does not end in `"\n"`,</span>
+<span class=sd>    it then writes `"\n"` as well to terminate the line. If something that</span>
+<span class=sd>    is not a :class:`str` is passed in, it will throw a :class:`TypeError`.</span>
+
+<span class=sd>    Notice that :meth:`~io.TextIOBase.write` and</span>
+<span class=sd>    :meth:`~io.IOBase.writelines` of class :class:`io.TextIOBase` do not</span>
+<span class=sd>    terminate lines that are written</span>
+<span class=sd>    with a `"\n"`. This means that, unless you manually make sure that all</span>
+<span class=sd>    lines are terminated by `"\n"`, they get written as a single line instead</span>
+<span class=sd>    of multiple lines. To solve this issue conveniently, we provide the</span>
+<span class=sd>    functions :func:`line_writer`, which wraps the</span>
+<span class=sd>    :meth:`~io.TextIOBase.write` into another function, which automatically</span>
+<span class=sd>    terminates all strings passed to it with `"\n"` unless they already end in</span>
+<span class=sd>    `"\n"`, and :func:`write_lines`, which iterates over a sequence of strings</span>
+<span class=sd>    and writes each of them to a given :class:`typing.TextIO` and automatically</span>
+<span class=sd>    adds the `"\n"` terminator to each of them if necessary.</span>
+
+<span class=sd>    :param output: the output stream</span>
+<span class=sd>    :returns: an instance of :class:`typing.Callable` that will write each</span>
+<span class=sd>        string it receives as a properly terminated line to the output</span>
+<span class=sd>        stream.</span>
+<span class=sd>    :raises TypeError: if `output` is not an instance of</span>
+<span class=sd>        :class:`io.TextIOBase`.</span>
+
+<span class=sd>    >>> from tempfile import mkstemp</span>
+<span class=sd>    >>> from os import close as osclose</span>
+<span class=sd>    >>> from os import remove as osremove</span>
+<span class=sd>    >>> (h, tf) = mkstemp()</span>
+<span class=sd>    >>> osclose(h)</span>
+
+<span class=sd>    >>> with open(tf, "wt") as out:</span>
+<span class=sd>    ...     w = line_writer(out)</span>
+<span class=sd>    ...     w("123")</span>
+<span class=sd>    >>> with open(tf, "rt") as inp:</span>
+<span class=sd>    ...     print(list(inp))</span>
+<span class=sd>    ['123\n']</span>
+
+<span class=sd>    >>> with open(tf, "wt") as out:</span>
+<span class=sd>    ...     w = line_writer(out)</span>
+<span class=sd>    ...     w("")</span>
+<span class=sd>    >>> with open(tf, "rt") as inp:</span>
+<span class=sd>    ...     print(list(inp))</span>
+<span class=sd>    ['\n']</span>
+
+<span class=sd>    >>> with open(tf, "wt") as out:</span>
+<span class=sd>    ...     w = line_writer(out)</span>
+<span class=sd>    ...     w("123\n")</span>
+<span class=sd>    >>> with open(tf, "rt") as inp:</span>
+<span class=sd>    ...     print(list(inp))</span>
+<span class=sd>    ['123\n']</span>
+
+<span class=sd>    >>> with open(tf, "wt") as out:</span>
+<span class=sd>    ...     w = line_writer(out)</span>
+<span class=sd>    ...     w("\n")</span>
+<span class=sd>    >>> with open(tf, "rt") as inp:</span>
+<span class=sd>    ...     print(list(inp))</span>
+<span class=sd>    ['\n']</span>
+
+<span class=sd>    >>> with open(tf, "wt") as out:</span>
+<span class=sd>    ...     w = line_writer(out)</span>
+<span class=sd>    ...     w("123")</span>
+<span class=sd>    ...     w("456")</span>
+<span class=sd>    >>> with open(tf, "rt") as inp:</span>
+<span class=sd>    ...     print(list(inp))</span>
+<span class=sd>    ['123\n', '456\n']</span>
+
+<span class=sd>    >>> with open(tf, "wt") as out:</span>
+<span class=sd>    ...     w = line_writer(out)</span>
+<span class=sd>    ...     w("123  ")</span>
+<span class=sd>    ...     w("")</span>
+<span class=sd>    ...     w("  456")</span>
+<span class=sd>    >>> with open(tf, "rt") as inp:</span>
+<span class=sd>    ...     print(list(inp))</span>
+<span class=sd>    ['123  \n', '\n', '  456\n']</span>
+
+<span class=sd>    >>> with open(tf, "wt") as out:</span>
+<span class=sd>    ...     w = line_writer(out)</span>
+<span class=sd>    ...     w("123  \n")</span>
+<span class=sd>    ...     w("\n")</span>
+<span class=sd>    ...     w("  456")</span>
+<span class=sd>    >>> with open(tf, "rt") as inp:</span>
+<span class=sd>    ...     print(list(inp))</span>
+<span class=sd>    ['123  \n', '\n', '  456\n']</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     with open(tf, "wt") as out:</span>
+<span class=sd>    ...         w = line_writer(out)</span>
+<span class=sd>    ...         w("123  ")</span>
+<span class=sd>    ...         w(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:-10])</span>
+<span class=sd>    descriptor 'endswith' for 'str' objects doesn't apply to a 'NoneTy</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     with open(tf, "wt") as out:</span>
+<span class=sd>    ...         w = line_writer(out)</span>
+<span class=sd>    ...         w("123  ")</span>
+<span class=sd>    ...         w(2)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'endswith' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> osremove(tf)</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     line_writer(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    output should be an instance of io.TextIOBase but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     line_writer(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    output should be an instance of io.TextIOBase but is None.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>output</span><span class=p>,</span> <span class=n>TextIOBase</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>output</span><span class=p>,</span> <span class=s2>"output"</span><span class=p>,</span> <span class=n>TextIOBase</span><span class=p>)</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>__call</span><span class=p>(</span><span class=n>s</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>__w</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=n>Any</span><span class=p>]</span> <span class=o>=</span> <span class=n>output</span><span class=o>.</span><span class=n>write</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>b</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>bool</span><span class=p>]</span> <span class=o>=</span> <span class=n>__ENDSWITH</span><span class=p>(</span><span class=n>s</span><span class=p>,</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=p>)</span>
+        <span class=n>__w</span><span class=p>(</span><span class=n>s</span><span class=p>)</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=n>b</span><span class=p>:</span>
+            <span class=n>__w</span><span class=p>(</span><span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=p>)</span>
+
+    <span class=k>return</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"Callable[[str], None]"</span><span class=p>,</span> <span class=n>__call</span><span class=p>)</span></div>
+
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__line_iterator</span><span class=p>(</span><span class=n>lines</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>])</span> <span class=o>-></span> <span class=n>Generator</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=kc>None</span><span class=p>,</span> <span class=kc>None</span><span class=p>]:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Iterate over the given lines, adding newlines where needed.</span>
+
+<span class=sd>    :param lines: the lines</span>
+<span class=sd>    :returns: the generator</span>
+
+<span class=sd>    >>> list(__line_iterator([]))</span>
+<span class=sd>    []</span>
+
+<span class=sd>    >>> list(__line_iterator(['a']))</span>
+<span class=sd>    ['a', '\n']</span>
+
+<span class=sd>    >>> list(__line_iterator(['a', 'b']))</span>
+<span class=sd>    ['a', '\n', 'b', '\n']</span>
+
+<span class=sd>    >>> list(__line_iterator(['a\n']))</span>
+<span class=sd>    ['a\n']</span>
+
+<span class=sd>    >>> list(__line_iterator(['a\n', 'b']))</span>
+<span class=sd>    ['a\n', 'b', '\n']</span>
+
+<span class=sd>    >>> list(__line_iterator(['a', 'b\n']))</span>
+<span class=sd>    ['a', '\n', 'b\n']</span>
+
+<span class=sd>    >>> list(__line_iterator(['a\n', 'b\n']))</span>
+<span class=sd>    ['a\n', 'b\n']</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     list(__line_iterator(["a", 1]))</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'endswith' for 'str' objects doesn't apply to a 'int' object</span>
+<span class=sd>    """</span>
+    <span class=k>for</span> <span class=n>line</span> <span class=ow>in</span> <span class=n>lines</span><span class=p>:</span>
+        <span class=n>b</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=n>__ENDSWITH</span><span class=p>(</span><span class=n>line</span><span class=p>,</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=p>)</span>
+        <span class=k>yield</span> <span class=n>line</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=n>b</span><span class=p>:</span>
+            <span class=k>yield</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span>
+
+
+<div class=viewcode-block id=write_lines>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.write_lines>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>write_lines</span><span class=p>(</span><span class=n>lines</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>],</span> <span class=n>output</span><span class=p>:</span> <span class=n>TextIO</span> <span class=o>|</span> <span class=n>TextIOBase</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Write all the lines in the given :class:`typing.Iterable` to the output.</span>
+
+<span class=sd>    This function takes care of properly terminating lines using `"\n"` when</span>
+<span class=sd>    writing them to an output and also performs type-checking.</span>
+
+<span class=sd>    Notice that :meth:`~io.TextIOBase.write` and</span>
+<span class=sd>    :meth:`~io.IOBase.writelines` of class :class:`io.TextIOBase` do not</span>
+<span class=sd>    terminate lines that are written with a `"\n"`. This means that, unless</span>
+<span class=sd>    you manually make sure that all lines are terminated by `"\n"`, they get</span>
+<span class=sd>    written as a single line instead of multiple lines. To solve this issue</span>
+<span class=sd>    conveniently, we provide the functions :func:`line_writer`, which wraps</span>
+<span class=sd>    the :meth:`~io.TextIOBase.write` into another function, which</span>
+<span class=sd>    automatically terminates all strings passed to it with `"\n"` unless they</span>
+<span class=sd>    already end in `"\n"`, and :func:`write_lines`, which iterates over a</span>
+<span class=sd>    sequence of strings and writes each of them to a given</span>
+<span class=sd>    :class:`typing.TextIO` and automatically adds the `"\n"` terminator to</span>
+<span class=sd>    each of them if necessary.</span>
+
+<span class=sd>    :param lines: the lines</span>
+<span class=sd>    :param output: the output</span>
+<span class=sd>    :raises TypeError: If anything is of the wrong type.</span>
+
+<span class=sd>    >>> from io import StringIO</span>
+
+<span class=sd>    >>> with StringIO() as sio:</span>
+<span class=sd>    ...     write_lines(("123", "456"), sio)</span>
+<span class=sd>    ...     print(sio.getvalue())</span>
+<span class=sd>    123</span>
+<span class=sd>    456</span>
+<span class=sd>    &LTBLANKLINE></span>
+
+<span class=sd>    >>> from io import StringIO</span>
+<span class=sd>    >>> with StringIO() as sio:</span>
+<span class=sd>    ...     write_lines(("123\n", "456"), sio)</span>
+<span class=sd>    ...     print(sio.getvalue())</span>
+<span class=sd>    123</span>
+<span class=sd>    456</span>
+<span class=sd>    &LTBLANKLINE></span>
+
+<span class=sd>    >>> from io import StringIO</span>
+<span class=sd>    >>> with StringIO() as sio:</span>
+<span class=sd>    ...     write_lines(("123\n", "456\n"), sio)</span>
+<span class=sd>    ...     print(sio.getvalue())</span>
+<span class=sd>    123</span>
+<span class=sd>    456</span>
+<span class=sd>    &LTBLANKLINE></span>
+
+<span class=sd>    >>> with StringIO() as sio:</span>
+<span class=sd>    ...     write_lines(["123"], sio)</span>
+<span class=sd>    ...     print(sio.getvalue())</span>
+<span class=sd>    123</span>
+<span class=sd>    &LTBLANKLINE></span>
+
+<span class=sd>    >>> with StringIO() as sio:</span>
+<span class=sd>    ...     write_lines(["123\n"], sio)</span>
+<span class=sd>    ...     print(sio.getvalue())</span>
+<span class=sd>    123</span>
+<span class=sd>    &LTBLANKLINE></span>
+
+<span class=sd>    >>> with StringIO() as sio:</span>
+<span class=sd>    ...     write_lines("123", sio)</span>
+<span class=sd>    ...     print(sio.getvalue())</span>
+<span class=sd>    1</span>
+<span class=sd>    2</span>
+<span class=sd>    3</span>
+<span class=sd>    &LTBLANKLINE></span>
+
+<span class=sd>    >>> with StringIO() as sio:</span>
+<span class=sd>    ...     write_lines((sss for sss in ["123", "abc"]), sio)</span>
+<span class=sd>    ...     print(sio.getvalue())</span>
+<span class=sd>    123</span>
+<span class=sd>    abc</span>
+<span class=sd>    &LTBLANKLINE></span>
+
+<span class=sd>    >>> with StringIO() as sio:</span>
+<span class=sd>    ...     write_lines("", sio)</span>
+<span class=sd>    ...     print(sio.getvalue())</span>
+<span class=sd>    &LTBLANKLINE></span>
+
+<span class=sd>    >>> from tempfile import mkstemp</span>
+<span class=sd>    >>> from os import close as osclose</span>
+<span class=sd>    >>> from os import remove as osremove</span>
+<span class=sd>    >>> (h, tf) = mkstemp()</span>
+<span class=sd>    >>> osclose(h)</span>
+
+<span class=sd>    >>> with open(tf, "wt") as out:</span>
+<span class=sd>    ...     write_lines(["123"], out)</span>
+<span class=sd>    >>> with open(tf, "rt") as inp:</span>
+<span class=sd>    ...     print(list(inp))</span>
+<span class=sd>    ['123\n']</span>
+
+<span class=sd>    >>> with open(tf, "wt") as out:</span>
+<span class=sd>    ...     write_lines([""], out)</span>
+<span class=sd>    >>> with open(tf, "rt") as inp:</span>
+<span class=sd>    ...     print(repr(inp.read()))</span>
+<span class=sd>    '\n'</span>
+
+<span class=sd>    >>> with open(tf, "wt") as out:</span>
+<span class=sd>    ...     write_lines(["\n"], out)</span>
+<span class=sd>    >>> with open(tf, "rt") as inp:</span>
+<span class=sd>    ...     print(repr(inp.read()))</span>
+<span class=sd>    '\n'</span>
+
+<span class=sd>    >>> with open(tf, "wt") as out:</span>
+<span class=sd>    ...     write_lines([" \n"], out)</span>
+<span class=sd>    >>> with open(tf, "rt") as inp:</span>
+<span class=sd>    ...     print(repr(inp.read()))</span>
+<span class=sd>    ' \n'</span>
+
+<span class=sd>    >>> osremove(tf)</span>
+
+<span class=sd>    >>> with StringIO() as sio:</span>
+<span class=sd>    ...     write_lines(["\n"], sio)</span>
+<span class=sd>    ...     print(repr(sio.getvalue()))</span>
+<span class=sd>    '\n'</span>
+
+<span class=sd>    >>> with StringIO() as sio:</span>
+<span class=sd>    ...     write_lines([""], sio)</span>
+<span class=sd>    ...     print(repr(sio.getvalue()))</span>
+<span class=sd>    '\n'</span>
+
+<span class=sd>    >>> sio = StringIO()</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     write_lines(None, sio)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    lines should be an instance of typing.Iterable but is None.</span>
+
+<span class=sd>    >>> sio = StringIO()</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     write_lines(123, sio)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    lines should be an instance of typing.Iterable but is int, namely 123.</span>
+
+<span class=sd>    >>> sio = StringIO()</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     write_lines([1, "sdf"], sio)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'endswith' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> sio = StringIO()</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     write_lines(["sdf", 1], sio)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'endswith' for 'str' objects doesn't apply to a 'int' object</span>
+<span class=sd>    >>> print(repr(sio.getvalue()))</span>
+<span class=sd>    'sdf\n'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     write_lines("x", None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    output should be an instance of io.TextIOBase but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     write_lines("x", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    output should be an instance of io.TextIOBase but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     write_lines(2, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    lines should be an instance of typing.Iterable but is int, namely 2.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>lines</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>lines</span><span class=p>,</span> <span class=s2>"lines"</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>output</span><span class=p>,</span> <span class=n>TextIOBase</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>output</span><span class=p>,</span> <span class=s2>"output"</span><span class=p>,</span> <span class=n>TextIOBase</span><span class=p>)</span>
+    <span class=n>output</span><span class=o>.</span><span class=n>writelines</span><span class=p>(</span><span class=n>__line_iterator</span><span class=p>(</span><span class=n>lines</span><span class=p>))</span></div>
+
+
+
+<div class=viewcode-block id=delete_path>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.path.delete_path>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>delete_path</span><span class=p>(</span><span class=n>path</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Delete a path, completely, and recursively.</span>
+
+<span class=sd>    This is intentionally inserted as an additional function and not a member</span>
+<span class=sd>    of the :class:`Path` in order make the deletion more explicit and to avoid</span>
+<span class=sd>    any form of accidental deleting. This function will not raise an error if</span>
+<span class=sd>    the file deletion fails.</span>
+
+<span class=sd>    :param path: The path to be deleted</span>
+<span class=sd>    :raises ValueError: if `path` does not refer to an existing file or</span>
+<span class=sd>        directory</span>
+<span class=sd>    :raises TypeError: if `path` is not a string</span>
+
+<span class=sd>    >>> from tempfile import mkstemp, mkdtemp</span>
+<span class=sd>    >>> from os import close as osxclose</span>
+
+<span class=sd>    >>> (h, tf) = mkstemp()</span>
+<span class=sd>    >>> isfile(tf)</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> delete_path(tf)</span>
+<span class=sd>    >>> isfile(tf)</span>
+<span class=sd>    False</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     delete_path(tf)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve).endswith("is neither file nor directory."))</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> td = mkdtemp()</span>
+<span class=sd>    >>> isdir(td)</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> delete_path(td)</span>
+<span class=sd>    >>> isdir(td)</span>
+<span class=sd>    False</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     delete_path(tf)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve).endswith("is neither file nor directory."))</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+    <span class=n>p</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>Path</span><span class=p>(</span><span class=n>path</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>isfile</span><span class=p>(</span><span class=n>p</span><span class=p>):</span>
+        <span class=n>osremove</span><span class=p>(</span><span class=n>p</span><span class=p>)</span>
+    <span class=k>elif</span> <span class=n>isdir</span><span class=p>(</span><span class=n>p</span><span class=p>):</span>
+        <span class=n>rmtree</span><span class=p>(</span><span class=n>p</span><span class=p>,</span> <span class=n>ignore_errors</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=k>else</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>path</span><span class=si>!r}</span><span class=s2> is neither file nor directory."</span><span class=p>)</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.io.path</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

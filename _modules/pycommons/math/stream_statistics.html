@@ -1,0 +1,1873 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.math.stream_statistics — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/math/stream_statistics.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.math.stream_statistics</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.math.stream_statistics</h1><div class=highlight><pre>
+<span></span><span class=sd>"""</span>
+<span class=sd>An immutable record for statistics computed over a stream of data.</span>
+
+<span class=sd>Stream statistics, represented by class</span>
+<span class=sd>:class:`~pycommons.math.stream_statistics.StreamStatistics` are statistics</span>
+<span class=sd>that are computed over a stream of data. During the computation, only a</span>
+<span class=sd>minimal amount of data is actually kept in memory, such as a running sum,</span>
+<span class=sd>the overall minimum and maximum, etc.</span>
+<span class=sd>This makes these statistics suitable</span>
+
+<span class=sd>- if the amount of data is large and</span>
+<span class=sd>- the required accuracy is not very high and/or</span>
+<span class=sd>- the available computational budget or memory are limited.</span>
+
+<span class=sd>In this case, using the</span>
+<span class=sd>:class:`~pycommons.math.stream_statistics.StreamStatistics` routines are</span>
+<span class=sd>very suitable.</span>
+<span class=sd>You could, e.g., use the method</span>
+<span class=sd>:meth:`~pycommons.math.stream_statistics.StreamStatistics.aggregate` to</span>
+<span class=sd>obtain an aggregation object. This object allows you to iteratively append</span>
+<span class=sd>data to the current statistics computation via its `add` method and to obtain</span>
+<span class=sd>the current (or final) statistics result via the `result` method.</span>
+
+<span class=sd>Such a result is an instance of the class</span>
+<span class=sd>:class:`~pycommons.math.stream_statistics.StreamStatistics`.</span>
+<span class=sd>It stores the</span>
+<span class=sd>:attr:`~pycommons.math.stream_statistics.StreamStatistics.minimum` and the</span>
+<span class=sd>:attr:`~pycommons.math.stream_statistics.StreamStatistics.maximum` of the</span>
+<span class=sd>data, as well as the number</span>
+<span class=sd>:attr:`~pycommons.math.stream_statistics.StreamStatistics.n` of observed data</span>
+<span class=sd>samples.</span>
+<span class=sd>It also offers the approximations of the arithmetic mean as attribute</span>
+<span class=sd>:attr:`~pycommons.math.stream_statistics.StreamStatistics.mean_arith` and</span>
+<span class=sd>the approximation of the standard deviation as attribute</span>
+<span class=sd>:attr:`~pycommons.math.stream_statistics.StreamStatistics.stddev`.</span>
+
+<span class=sd>There is an absolute order defined upon these records.</span>
+<span class=sd>They are hashable and immutable.</span>
+<span class=sd>We provide methods to store them to CSV format via the class</span>
+<span class=sd>:class:`~pycommons.math.stream_statistics.CsvWriter`</span>
+<span class=sd>and to load them from CSV data via the class</span>
+<span class=sd>:class:`~pycommons.math.stream_statistics.CsvReader`.</span>
+<span class=sd>Functions that access attributes can be obtained via</span>
+<span class=sd>:meth:`~pycommons.math.stream_statistics.StreamStatistics.getter`.</span>
+
+<span class=sd>If you require high-accuracy statistics or values such as the median, you</span>
+<span class=sd>should use</span>
+<span class=sd>:class:`~pycommons.math.sample_statistics.SampleStatistics` instead.</span>
+
+<span class=sd>>>> ag = StreamStatistics.aggregate()</span>
+<span class=sd>>>> ag.update((1, 2, 3))</span>
+<span class=sd>>>> ag.add(4)</span>
+<span class=sd>>>> ag.add(5)</span>
+<span class=sd>>>> r1 = ag.result()</span>
+<span class=sd>>>> repr(r1)</span>
+<span class=sd>'StreamStatistics(n=5, minimum=1, mean_arith=3, maximum=5, \</span>
+<span class=sd>stddev=1.5811388300841898)'</span>
+<span class=sd>>>> str(r1)</span>
+<span class=sd>'5;1;3;5;1.5811388300841898'</span>
+
+<span class=sd>>>> r2 = StreamStatistics.from_samples((1, 2, 3, 4, 5))</span>
+<span class=sd>>>> r1 == r2</span>
+<span class=sd>True</span>
+
+<span class=sd>>>> ag.reset()</span>
+<span class=sd>>>> try:</span>
+<span class=sd>...     ag.result()</span>
+<span class=sd>... except ValueError as ve:</span>
+<span class=sd>...     print(ve)</span>
+<span class=sd>n=0 is invalid, must be in 1..9223372036854775808.</span>
+
+<span class=sd>>>> print(ag.result_or_none())</span>
+<span class=sd>None</span>
+<span class=sd>"""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>dataclasses</span><span class=w> </span><span class=kn>import</span> <span class=n>dataclass</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>math</span><span class=w> </span><span class=kn>import</span> <span class=n>inf</span><span class=p>,</span> <span class=n>isfinite</span><span class=p>,</span> <span class=n>sqrt</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>,</span> <span class=n>TypeVar</span><span class=p>,</span> <span class=n>Union</span><span class=p>,</span> <span class=n>cast</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.csv</span><span class=w> </span><span class=kn>import</span> <span class=p>(</span>
+    <span class=n>CSV_SEPARATOR</span><span class=p>,</span>
+    <span class=n>SCOPE_SEPARATOR</span><span class=p>,</span>
+    <span class=n>csv_column</span><span class=p>,</span>
+    <span class=n>csv_column_or_none</span><span class=p>,</span>
+    <span class=n>csv_scope</span><span class=p>,</span>
+    <span class=n>csv_val_or_none</span><span class=p>,</span>
+    <span class=n>pycommons_footer_bottom_comments</span><span class=p>,</span>
+<span class=p>)</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.csv</span><span class=w> </span><span class=kn>import</span> <span class=n>CsvReader</span> <span class=k>as</span> <span class=n>CsvReaderBase</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.csv</span><span class=w> </span><span class=kn>import</span> <span class=n>CsvWriter</span> <span class=k>as</span> <span class=n>CsvWriterBase</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.math.int_math</span><span class=w> </span><span class=kn>import</span> <span class=p>(</span>
+    <span class=n>try_float_int_div</span><span class=p>,</span>
+    <span class=n>try_int</span><span class=p>,</span>
+<span class=p>)</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.math.streams</span><span class=w> </span><span class=kn>import</span> <span class=n>StreamAggregate</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.strings.string_conv</span><span class=w> </span><span class=kn>import</span> <span class=p>(</span>
+    <span class=n>num_or_none_to_str</span><span class=p>,</span>
+    <span class=n>num_to_str</span><span class=p>,</span>
+    <span class=n>str_to_num</span><span class=p>,</span>
+<span class=p>)</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>check_int_range</span><span class=p>,</span> <span class=n>type_error</span><span class=p>,</span> <span class=n>type_name</span>
+
+<span class=c1>#: The minimum value key.</span>
+<span class=n>KEY_MINIMUM</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"min"</span>
+<span class=c1>#: The median value key.</span>
+<span class=n>KEY_MEDIAN</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"med"</span>
+<span class=c1>#: The arithmetic mean value key.</span>
+<span class=n>KEY_MEAN_ARITH</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"mean"</span>
+<span class=c1>#: The geometric mean value key.</span>
+<span class=n>KEY_MEAN_GEOM</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"geom"</span>
+<span class=c1>#: The maximum value key.</span>
+<span class=n>KEY_MAXIMUM</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"max"</span>
+<span class=c1>#: The standard deviation value key.</span>
+<span class=n>KEY_STDDEV</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"sd"</span>
+<span class=c1>#: The key for `n`</span>
+<span class=n>KEY_N</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"n"</span>
+<span class=c1>#: The single value</span>
+<span class=n>KEY_VALUE</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"value"</span>
+
+<span class=c1>#: the type variable for data to be written to CSV or to be read from CSV</span>
+<span class=n>T</span> <span class=o>=</span> <span class=n>TypeVar</span><span class=p>(</span><span class=s2>"T"</span><span class=p>,</span> <span class=n>bound</span><span class=o>=</span><span class=s2>"StreamStatistics"</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=StreamStatisticsAggregate>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatisticsAggregate>[docs]</a>
+<span class=k>class</span><span class=w> </span><span class=nc>StreamStatisticsAggregate</span><span class=p>[</span><span class=n>T</span><span class=p>](</span><span class=n>StreamAggregate</span><span class=p>):</span>
+<span class=w>    </span><span class=sd>"""An Aggregate producing stream statistics."""</span>
+
+<div class=viewcode-block id=StreamStatisticsAggregate.result>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatisticsAggregate.result>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>result</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=n>T</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the stream statistics result.</span>
+
+<span class=sd>        The result is guaranteed to be a valid instance of</span>
+<span class=sd>        :class:`~pycommons.math.stream_statistics.StreamStatistics`.</span>
+<span class=sd>        It has :attr:`~pycommons.math.stream_statistics.StreamStatistics.n`</span>
+<span class=sd>        greater than zero.</span>
+
+<span class=sd>        If no data was collected, a `ValueError` is raised.</span>
+<span class=sd>        If you want to get `None` if no data was collected, use</span>
+<span class=sd>        :meth:`~StreamStatisticsAggregate.result_or_none` instead.</span>
+
+<span class=sd>        :return: the result</span>
+<span class=sd>        :raises ValueError: if no data was collected</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatisticsAggregate().result()</span>
+<span class=sd>        ... except NotImplementedError:</span>
+<span class=sd>        ...     print("Not implemented!")</span>
+<span class=sd>        Not implemented!</span>
+<span class=sd>        """</span>
+        <span class=k>raise</span> <span class=ne>NotImplementedError</span></div>
+
+
+<div class=viewcode-block id=StreamStatisticsAggregate.result_or_none>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatisticsAggregate.result_or_none>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>result_or_none</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=n>T</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the result if any data was collected, otherwise `None`.</span>
+
+<span class=sd>        This method returns the same result as</span>
+<span class=sd>        :meth:`~StreamStatisticsAggregate.result`, with the exception of the</span>
+<span class=sd>        case where no data was collected at all. In this case,</span>
+<span class=sd>        :meth:`~StreamStatisticsAggregate.result` will raise a `ValueError`,</span>
+<span class=sd>        whereas this method here just returns `None`.</span>
+
+<span class=sd>        :return: the result, or `None` if no data was collected.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatisticsAggregate().result_or_none()</span>
+<span class=sd>        ... except NotImplementedError:</span>
+<span class=sd>        ...     print("Not implemented!")</span>
+<span class=sd>        Not implemented!</span>
+<span class=sd>        """</span>
+        <span class=k>raise</span> <span class=ne>NotImplementedError</span></div>
+</div>
+
+
+
+<div class=viewcode-block id=StreamStatistics>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics>[docs]</a>
+<span class=nd>@dataclass</span><span class=p>(</span><span class=n>frozen</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span> <span class=n>init</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span> <span class=n>order</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span> <span class=n>eq</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+<span class=k>class</span><span class=w> </span><span class=nc>StreamStatistics</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    An immutable record with stream statistics of one quantity.</span>
+
+<span class=sd>    Stream statistics are statistics records that can be computed over a</span>
+<span class=sd>    stream of data. They do not require us to have the complete data sample</span>
+<span class=sd>    in memory at any point in time.</span>
+
+<span class=sd>    >>> s1 = StreamStatistics(2, 1, 4.0, 6, 0.2)</span>
+<span class=sd>    >>> s1.n</span>
+<span class=sd>    2</span>
+<span class=sd>    >>> s1.minimum</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> s1.mean_arith</span>
+<span class=sd>    4</span>
+<span class=sd>    >>> s1.maximum</span>
+<span class=sd>    6</span>
+<span class=sd>    >>> s1.stddev</span>
+<span class=sd>    0.2</span>
+<span class=sd>    >>> hash(s1)</span>
+<span class=sd>    -997568919428664316</span>
+
+<span class=sd>    >>> s2 = StreamStatistics(1, 0, 0, 0.0, None)</span>
+<span class=sd>    >>> s2.n</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> s2.minimum</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> s2.mean_arith</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> s2.maximum</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> print(s2.stddev)</span>
+<span class=sd>    None</span>
+<span class=sd>    >>> hash(s2) == hash((0, 0, 0, inf, 0, inf, 1, 0))</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> s3 = StreamStatistics(n=3, minimum=5, maximum=5,</span>
+<span class=sd>    ...                       mean_arith=5, stddev=0.0)</span>
+<span class=sd>    >>> s3.stddev</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> hash(s3)</span>
+<span class=sd>    -5331876985145994286</span>
+
+<span class=sd>    >>> sset = {s1, s1, s2, s1, s3, s3, s2, s1}</span>
+<span class=sd>    >>> len(sset)</span>
+<span class=sd>    3</span>
+<span class=sd>    >>> print(list(sss.n for sss in sorted(sset)))</span>
+<span class=sd>    [1, 2, 3]</span>
+<span class=sd>    >>> print(list(sss.minimum for sss in sorted(sset)))</span>
+<span class=sd>    [0, 1, 5]</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     StreamStatistics(n=1, minimum=5, maximum=6,</span>
+<span class=sd>    ...                      mean_arith=5, stddev=None)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    maximum (6) must equal minimum (5) if n=1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     StreamStatistics(n=1, minimum=5, maximum=5,</span>
+<span class=sd>    ...                      mean_arith=4, stddev=None)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    mean_arith (4) must equal minimum (5) if n=1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     StreamStatistics(n=2, minimum=5, maximum=6,</span>
+<span class=sd>    ...                      mean_arith=4, stddev=None)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    minimum<=mean_arith<=maximum must hold, but got 5, 4, and 6.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     StreamStatistics(n=3, minimum=5, maximum=7,</span>
+<span class=sd>    ...                      mean_arith=6, stddev=-1)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    stddev must be >= 0, but is -1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     StreamStatistics(n=3, minimum=5, maximum=7,</span>
+<span class=sd>    ...                      mean_arith=6, stddev=0)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:59])</span>
+<span class=sd>    If stddev (0) is 0, then minimum (5) must equal maximum (7)</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     StreamStatistics(n=3, minimum=5, maximum=5,</span>
+<span class=sd>    ...                      mean_arith=5, stddev=1)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:59])</span>
+<span class=sd>    If stddev (1) is 0, then minimum (5) must equal maximum (5)</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     StreamStatistics(n=3, minimum=5, maximum=5,</span>
+<span class=sd>    ...                      mean_arith=5, stddev=None)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    If n=1, stddev=None and vice versa, but got n=3 and stddev=None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     StreamStatistics(n=1, minimum=5, maximum=5,</span>
+<span class=sd>    ...                      mean_arith=5, stddev=1)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    If n=1, stddev=None and vice versa, but got n=1 and stddev=1.</span>
+<span class=sd>    """</span>
+
+    <span class=c1>#: The number of data samples over which the statistics were computed.</span>
+    <span class=n>n</span><span class=p>:</span> <span class=nb>int</span>
+    <span class=c1>#: The minimum, i.e., the value of the smallest among the</span>
+    <span class=c1>#: :attr:`~StreamStatistics.n` data samples.</span>
+    <span class=n>minimum</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span>
+    <span class=c1>#: The arithmetic mean value, i.e., the sum of the</span>
+    <span class=c1>#: :attr:`~StreamStatistics.n` data samples divided by</span>
+    <span class=c1>#: :attr:`~StreamStatistics.n`.</span>
+    <span class=n>mean_arith</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span>
+    <span class=c1>#: The maximum, i.e., the value of the largest among the</span>
+    <span class=c1>#: :attr:`~StreamStatistics.n` data samples.</span>
+    <span class=n>maximum</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span>
+    <span class=c1>#: The standard deviation, if defined. This value will be `None` if there</span>
+    <span class=c1>#: was only a single sample.</span>
+    <span class=n>stddev</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>n</span><span class=p>:</span> <span class=nb>int</span><span class=p>,</span> <span class=n>minimum</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span> <span class=n>mean_arith</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span>
+                 <span class=n>maximum</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span> <span class=n>stddev</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>):</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Create a sample statistics record.</span>
+
+<span class=sd>        :param n: the sample size, must be `n >= 1`</span>
+<span class=sd>        :param minimum: the minimum</span>
+<span class=sd>        :param median: the median</span>
+<span class=sd>        :param mean_arith: the arithmetic mean</span>
+<span class=sd>        :param mean_geom: the geometric mean, or `None` if it is undefined</span>
+<span class=sd>        :param maximum: the maximum</span>
+<span class=sd>        :param stddev: the standard deviation, must be `None` if `n == 0`</span>
+<span class=sd>        """</span>
+        <span class=n>n</span> <span class=o>=</span> <span class=n>check_int_range</span><span class=p>(</span><span class=n>n</span><span class=p>,</span> <span class=s2>"n"</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=mi>9_223_372_036_854_775_808</span><span class=p>)</span>
+
+        <span class=c1># check minimum</span>
+        <span class=n>minimum</span> <span class=o>=</span> <span class=n>try_int</span><span class=p>(</span><span class=n>minimum</span><span class=p>)</span>
+        <span class=c1># check maximum</span>
+        <span class=n>maximum</span> <span class=o>=</span> <span class=n>try_int</span><span class=p>(</span><span class=n>maximum</span><span class=p>)</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>n</span> <span class=o>==</span> <span class=mi>1</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=n>maximum</span> <span class=o>!=</span> <span class=n>minimum</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"maximum (</span><span class=si>{</span><span class=n>maximum</span><span class=si>}</span><span class=s2>) must equal "</span>
+                             <span class=sa>f</span><span class=s2>"minimum (</span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>) if n=1."</span><span class=p>)</span>
+        <span class=c1># check arithmetic mean</span>
+        <span class=n>mean_arith</span> <span class=o>=</span> <span class=n>try_int</span><span class=p>(</span><span class=n>mean_arith</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>n</span> <span class=o>==</span> <span class=mi>1</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>mean_arith</span> <span class=o>!=</span> <span class=n>minimum</span><span class=p>:</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"mean_arith (</span><span class=si>{</span><span class=n>mean_arith</span><span class=si>}</span><span class=s2>) must equal "</span>
+                                 <span class=sa>f</span><span class=s2>"minimum (</span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>) if n=1."</span><span class=p>)</span>
+        <span class=k>elif</span> <span class=ow>not</span> <span class=n>minimum</span> <span class=o><=</span> <span class=n>mean_arith</span> <span class=o><=</span> <span class=n>maximum</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"minimum<=mean_arith<=maximum must hold, but "</span>
+                             <span class=sa>f</span><span class=s2>"got </span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>, </span><span class=si>{</span><span class=n>mean_arith</span><span class=si>}</span><span class=s2>, and </span><span class=si>{</span><span class=n>maximum</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=n>stddev</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>stddev</span> <span class=o>=</span> <span class=n>try_int</span><span class=p>(</span><span class=n>stddev</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>stddev</span> <span class=o><</span> <span class=mi>0</span><span class=p>:</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"stddev must be >= 0, but is </span><span class=si>{</span><span class=n>stddev</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>n</span> <span class=o>></span> <span class=mi>1</span><span class=p>)</span> <span class=ow>and</span> <span class=p>((</span><span class=n>minimum</span> <span class=o>==</span> <span class=n>maximum</span><span class=p>)</span> <span class=o>^</span> <span class=p>(</span><span class=n>stddev</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)):</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                    <span class=sa>f</span><span class=s2>"If stddev (</span><span class=si>{</span><span class=n>stddev</span><span class=si>}</span><span class=s2>) is 0, then minimum (</span><span class=si>{</span><span class=n>minimum</span><span class=si>}</span><span class=s2>) "</span>
+                    <span class=sa>f</span><span class=s2>"must equal maximum (</span><span class=si>{</span><span class=n>maximum</span><span class=si>}</span><span class=s2>) and vice versa."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>stddev</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=o>^</span> <span class=p>(</span><span class=n>n</span> <span class=o>==</span> <span class=mi>1</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"If n=1, stddev=None and vice versa, but "</span>
+                             <span class=sa>f</span><span class=s2>"got n=</span><span class=si>{</span><span class=n>n</span><span class=si>}</span><span class=s2> and stddev=</span><span class=si>{</span><span class=n>stddev</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"n"</span><span class=p>,</span> <span class=n>n</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"minimum"</span><span class=p>,</span> <span class=n>minimum</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"maximum"</span><span class=p>,</span> <span class=n>maximum</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"mean_arith"</span><span class=p>,</span> <span class=n>mean_arith</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"stddev"</span><span class=p>,</span> <span class=n>stddev</span><span class=p>)</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__str__</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get a string representation of this object.</span>
+
+<span class=sd>        :returns: the string</span>
+
+<span class=sd>        >>> print(StreamStatistics(1, 0, 0, 0.0, None))</span>
+<span class=sd>        1;0;0;0;None</span>
+
+<span class=sd>        >>> print(StreamStatistics(10, 1, 1.5, 2, 1.2))</span>
+<span class=sd>        10;1;1.5;2;1.2</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=n>CSV_SEPARATOR</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=nb>map</span><span class=p>(</span><span class=nb>str</span><span class=p>,</span> <span class=p>(</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>n</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>minimum</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>mean_arith</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>maximum</span><span class=p>,</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>stddev</span><span class=p>)))</span>
+
+<div class=viewcode-block id=StreamStatistics.min_mean>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.min_mean>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>min_mean</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Obtain the smallest of the mean values.</span>
+
+<span class=sd>        :returns: :attr:`~StreamStatistics.mean_arith`</span>
+
+<span class=sd>        >>> StreamStatistics(1, 0, 0, 0.0, None).min_mean()</span>
+<span class=sd>        0</span>
+<span class=sd>        >>> StreamStatistics(2, 1, 2, 4.0, 0.2).min_mean()</span>
+<span class=sd>        2</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>mean_arith</span></div>
+
+
+<div class=viewcode-block id=StreamStatistics.max_mean>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.max_mean>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>max_mean</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Obtain the largest of the mean values.</span>
+
+<span class=sd>        :returns: :attr:`~StreamStatistics.mean_arith`</span>
+
+
+<span class=sd>        >>> StreamStatistics(1, 0, 0, 0.0, None).max_mean()</span>
+<span class=sd>        0</span>
+<span class=sd>        >>> StreamStatistics(2, 1, 2, 4.0, 0.2).max_mean()</span>
+<span class=sd>        2</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>mean_arith</span></div>
+
+
+<div class=viewcode-block id=StreamStatistics.compact>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.compact>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>compact</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>needs_n</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span><span class=p>)</span> \
+            <span class=o>-></span> <span class=s2>"int | float | StreamStatistics"</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Try to represent this object as single number, if possible.</span>
+
+<span class=sd>        :param needs_n: if this is `True`, the default, then the object is</span>
+<span class=sd>            only turned into a single number if alsp `n==1`. Otherwise, `n`</span>
+<span class=sd>            is ignored</span>
+<span class=sd>        :returns: an integer or float if this objects minimum equals its</span>
+<span class=sd>            maximum, the object itself otherwise</span>
+
+<span class=sd>        >>> s = StreamStatistics.from_single_value(10, 1)</span>
+<span class=sd>        >>> s.compact() == 10</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s.compact() == s.compact(True)</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s = StreamStatistics.from_single_value(10, 2)</span>
+<span class=sd>        >>> s.compact() is s</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s.compact() == s.compact(True)</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s = StreamStatistics.from_single_value(10, 2)</span>
+<span class=sd>        >>> s.compact(False) == 10</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s = StreamStatistics(2, 1, 3, 5, 3)</span>
+<span class=sd>        >>> s.compact() is s</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s = StreamStatistics(2, 1, 3, 5, 3)</span>
+<span class=sd>        >>> s.compact(False) is s</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     s.compact(1)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        needs_n should be an instance of bool but is int, namely 1.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     s.compact(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        needs_n should be an instance of bool but is None.</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>needs_n</span><span class=p>,</span> <span class=nb>bool</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>needs_n</span><span class=p>,</span> <span class=s2>"needs_n"</span><span class=p>,</span> <span class=nb>bool</span><span class=p>)</span>
+        <span class=n>mi</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>minimum</span>
+        <span class=k>return</span> <span class=bp>self</span> <span class=k>if</span> <span class=p>(</span><span class=n>mi</span> <span class=o><</span> <span class=bp>self</span><span class=o>.</span><span class=n>maximum</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span>
+            <span class=n>needs_n</span> <span class=ow>and</span> <span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>n</span> <span class=o>></span> <span class=mi>1</span><span class=p>))</span> <span class=k>else</span> <span class=n>mi</span></div>
+
+
+    <span class=k>def</span><span class=w> </span><span class=nf>_key</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>tuple</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span>
+                            <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>,</span> <span class=nb>int</span><span class=p>,</span> <span class=nb>int</span><span class=p>]:</span>
+<span class=w>        </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>        Get a comparison and hash key.</span>
+
+<span class=sd>        This key is composed of the values for</span>
+<span class=sd>        :attr:`~StreamStatistics.minimum`, `inf` (for the geometric mean),</span>
+<span class=sd>        :attr:`~StreamStatistics.mean_arith`, `inf` (for the median),</span>
+<span class=sd>        :attr:`~StreamStatistics.maximum`, :attr:`~StreamStatistics.stddev`,</span>
+<span class=sd>        and :attr:`~StreamStatistics.n`. Any statistics value that is</span>
+<span class=sd>        undefined will be turned to `inf`. The last value is a unique</span>
+<span class=sd>        identifier of the object type. This is to prevent objects of type</span>
+<span class=sd>        `StreamStatistics` and `SampleStatistics` to clash. Therefore, the</span>
+<span class=sd>        former gets `0` as identifier, the latter gets `1`.</span>
+
+<span class=sd>        :returns: the comparison key</span>
+
+<span class=sd>        >>> StreamStatistics(2, 1, 4.0, 6, 0.2)._key()</span>
+<span class=sd>        (1, inf, 4, inf, 6, 0.2, 2, 0)</span>
+
+<span class=sd>        >>> StreamStatistics(1, 0, 0, 0, None)._key()</span>
+<span class=sd>        (0, 0, 0, inf, 0, inf, 1, 0)</span>
+
+<span class=sd>        >>> StreamStatistics(2, 1, 1, 1, 0)._key()</span>
+<span class=sd>        (1, 1, 1, 1, 1, 0, 2, 0)</span>
+
+<span class=sd>        >>> StreamStatistics(2, 0, 0, 0, 0)._key()</span>
+<span class=sd>        (0, 0, 0, inf, 0, 0, 2, 0)</span>
+<span class=sd>        """</span>
+        <span class=n>mi</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>minimum</span>
+        <span class=n>ma</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>maximum</span>
+        <span class=k>return</span> <span class=p>(</span><span class=n>mi</span><span class=p>,</span> <span class=n>inf</span> <span class=k>if</span> <span class=n>ma</span> <span class=o>></span> <span class=n>mi</span> <span class=k>else</span> <span class=n>mi</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>mean_arith</span><span class=p>,</span>
+                <span class=n>mi</span> <span class=k>if</span> <span class=mi>0</span> <span class=o><</span> <span class=n>ma</span> <span class=o><=</span> <span class=n>mi</span> <span class=k>else</span> <span class=n>inf</span><span class=p>,</span> <span class=n>ma</span><span class=p>,</span>
+                <span class=n>inf</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>stddev</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=bp>self</span><span class=o>.</span><span class=n>stddev</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>n</span><span class=p>,</span> <span class=mi>0</span><span class=p>)</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__lt__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>other</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Check if this statistics record is less than another one.</span>
+
+<span class=sd>        :param other: the other sample statistics</span>
+<span class=sd>        :returns: `True` if this object is less, `False` otherwise</span>
+
+<span class=sd>        >>> s1 = StreamStatistics(2, 1, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s2 = StreamStatistics(2, 1, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s1 < s2</span>
+<span class=sd>        False</span>
+
+<span class=sd>        >>> s3 = StreamStatistics(2, 0.5, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s3 < s1</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s1 < s3</span>
+<span class=sd>        False</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     s3 < 23</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:60])</span>
+<span class=sd>        '<' not supported between instances of 'StreamStatistics' an</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>_key</span><span class=p>()</span> <span class=o><</span> <span class=n>other</span><span class=o>.</span><span class=n>_key</span><span class=p>()</span>\
+            <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>)</span> <span class=k>else</span> <span class=bp>NotImplemented</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__le__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>other</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Check if this statistics record is less than or equal to another one.</span>
+
+<span class=sd>        :param other: the other sample statistics</span>
+<span class=sd>        :returns: `True` if this object is less or equal, `False` otherwise</span>
+
+<span class=sd>        >>> s1 = StreamStatistics(2, 1, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s2 = StreamStatistics(2, 1, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s1 <= s2</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s3 = StreamStatistics(2, 0.5, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s3 <= s1</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s1 <= s3</span>
+<span class=sd>        False</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     s3 <= 23</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:60])</span>
+<span class=sd>        '<=' not supported between instances of 'StreamStatistics' a</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>_key</span><span class=p>()</span> <span class=o><=</span> <span class=n>other</span><span class=o>.</span><span class=n>_key</span><span class=p>()</span> \
+            <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>)</span> <span class=k>else</span> <span class=bp>NotImplemented</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__gt__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>other</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Check if this statistics record is greater than another one.</span>
+
+<span class=sd>        :param other: the other sample statistics</span>
+<span class=sd>        :returns: `True` if this object is greater, `False` otherwise</span>
+
+<span class=sd>        >>> s1 = StreamStatistics(2, 1, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s2 = StreamStatistics(2, 1, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s1 > s2</span>
+<span class=sd>        False</span>
+
+<span class=sd>        >>> s3 = StreamStatistics(2, 0.5, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s3 > s1</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> s1 > s3</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     s3 > 23</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:60])</span>
+<span class=sd>        '>' not supported between instances of 'StreamStatistics' an</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>_key</span><span class=p>()</span> <span class=o>></span> <span class=n>other</span><span class=o>.</span><span class=n>_key</span><span class=p>()</span> \
+            <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>)</span> <span class=k>else</span> <span class=bp>NotImplemented</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__ge__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>other</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Check if this object is greater than or equal to another one.</span>
+
+<span class=sd>        :param other: the other sample statistics</span>
+<span class=sd>        :returns: `True` if this object is greater or equal, `False` otherwise</span>
+
+<span class=sd>        >>> s1 = StreamStatistics(2, 1, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s2 = StreamStatistics(2, 1, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s1 >= s2</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s3 = StreamStatistics(2, 0.5, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s3 >= s1</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> s1 >= s3</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     s3 >= 23</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:60])</span>
+<span class=sd>        '>=' not supported between instances of 'StreamStatistics' a</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>_key</span><span class=p>()</span> <span class=o>>=</span> <span class=n>other</span><span class=o>.</span><span class=n>_key</span><span class=p>()</span> \
+            <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>)</span> <span class=k>else</span> <span class=bp>NotImplemented</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__eq__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>other</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Check if this statistics record equals another object.</span>
+
+<span class=sd>        :param other: the other obect</span>
+<span class=sd>        :returns: `True` if this object is equal, `False` otherwise</span>
+
+<span class=sd>        >>> s1 = StreamStatistics(2, 1, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s2 = StreamStatistics(2, 1, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s1 == s2</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s3 = StreamStatistics(2, 0.5, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s3 == s1</span>
+<span class=sd>        False</span>
+
+<span class=sd>        >>> s3 == 23</span>
+<span class=sd>        False</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=p>(</span><span class=nb>isinstance</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>))</span> <span class=ow>and</span> <span class=p>(</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>_key</span><span class=p>()</span> <span class=o>==</span> <span class=n>other</span><span class=o>.</span><span class=n>_key</span><span class=p>())</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__ne__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>other</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Check if this statistics record does not equal another object.</span>
+
+<span class=sd>        :param other: the other sample statistics</span>
+<span class=sd>        :returns: `True` if this object is not equal, `False` otherwise</span>
+
+<span class=sd>        >>> s1 = StreamStatistics(2, 1, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s2 = StreamStatistics(2, 1, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s1 != s2</span>
+<span class=sd>        False</span>
+
+<span class=sd>        >>> s3 = StreamStatistics(2, 0.5, 4.0, 6, 0.2)</span>
+<span class=sd>        >>> s3 != s1</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s3 != "x"</span>
+<span class=sd>        True</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=p>(</span><span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>other</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>))</span> <span class=ow>or</span> <span class=p>(</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>_key</span><span class=p>()</span> <span class=o>!=</span> <span class=n>other</span><span class=o>.</span><span class=n>_key</span><span class=p>())</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__hash__</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Compute the hash code of this statistics record.</span>
+
+<span class=sd>        :returns: the hash code</span>
+
+<span class=sd>        >>> hash(StreamStatistics(2, 1, 4.0, 6, 0.2))</span>
+<span class=sd>        -997568919428664316</span>
+
+<span class=sd>        >>> hash(StreamStatistics(2, -1, 4.0, 6, 0.2))</span>
+<span class=sd>        -1901621203255131428</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=nb>hash</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>_key</span><span class=p>())</span>
+
+<div class=viewcode-block id=StreamStatistics.get_n>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.get_n>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>get_n</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the number :attr:`~StreamStatistics.n` of samples.</span>
+
+<span class=sd>        :returns: the number :attr:`~StreamStatistics.n` of samples.</span>
+<span class=sd>        :raises TypeError: if an object of the wrong type is passed in as self</span>
+
+<span class=sd>        >>> StreamStatistics(5, 3, 6, 7, 2).get_n()</span>
+<span class=sd>        5</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.get_n(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:20])</span>
+<span class=sd>        self should be an in</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"self"</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>)</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>n</span></div>
+
+
+<div class=viewcode-block id=StreamStatistics.get_minimum>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.get_minimum>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>get_minimum</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the :attr:`~StreamStatistics.minimum` of all the samples.</span>
+
+<span class=sd>        :returns: the :attr:`~StreamStatistics.minimum` of all the samples</span>
+<span class=sd>        :raises TypeError: if an object of the wrong type is passed in as self</span>
+
+<span class=sd>        >>> StreamStatistics(5, 3, 4, 6, 2).get_minimum()</span>
+<span class=sd>        3</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.get_minimum(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:20])</span>
+<span class=sd>        self should be an in</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"self"</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>)</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>minimum</span></div>
+
+
+<div class=viewcode-block id=StreamStatistics.get_maximum>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.get_maximum>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>get_maximum</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the :attr:`~StreamStatistics.maximum` of all the samples.</span>
+
+<span class=sd>        :returns: the :attr:`~StreamStatistics.maximum` of all the samples</span>
+<span class=sd>        :raises TypeError: if an object of the wrong type is passed in as self</span>
+
+<span class=sd>        >>> StreamStatistics(5, 3, 6, 7, 2).get_maximum()</span>
+<span class=sd>        7</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.get_maximum(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:20])</span>
+<span class=sd>        self should be an in</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"self"</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>)</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>maximum</span></div>
+
+
+<div class=viewcode-block id=StreamStatistics.get_mean_arith>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.get_mean_arith>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>get_mean_arith</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the arithmetic mean (:attr:`~StreamStatistics.mean_arith`).</span>
+
+<span class=sd>        :returns: the arithmetic mean (:attr:`~StreamStatistics.mean_arith`)</span>
+<span class=sd>            of all the samples.</span>
+<span class=sd>        :raises TypeError: if an object of the wrong type is passed in as self</span>
+
+<span class=sd>        >>> StreamStatistics(5, 3, 6, 7, 2).get_mean_arith()</span>
+<span class=sd>        6</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.get_mean_arith(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:20])</span>
+<span class=sd>        self should be an in</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"self"</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>)</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>mean_arith</span></div>
+
+
+<div class=viewcode-block id=StreamStatistics.get_median>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.get_median>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>get_median</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the median of all the samples.</span>
+
+<span class=sd>        :returns: This object type does not store the media. However, if</span>
+<span class=sd>            the minimum is the same as the maximum, the median will have that</span>
+<span class=sd>            same value, too, so it is returned. Otherwise, this method returns</span>
+<span class=sd>            `None`. This method will be overridden.</span>
+<span class=sd>        :raises TypeError: if an object of the wrong type is passed in as self</span>
+
+<span class=sd>        >>> print(StreamStatistics(5, 3, 6, 7, 2).get_median())</span>
+<span class=sd>        None</span>
+
+<span class=sd>        >>> print(StreamStatistics(5, -3, -3.0, -3, 0).get_median())</span>
+<span class=sd>        -3</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.get_median(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:20])</span>
+<span class=sd>        self should be an in</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"self"</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>)</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>minimum</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>minimum</span> <span class=o>>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>maximum</span> <span class=k>else</span> <span class=kc>None</span></div>
+
+
+<div class=viewcode-block id=StreamStatistics.get_mean_geom>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.get_mean_geom>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>get_mean_geom</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the geometric mean of all the samples.</span>
+
+<span class=sd>        This class does not offer storing the geometric mean. This means</span>
+<span class=sd>        that this method will usually return `None`. The only situation</span>
+<span class=sd>        where it will not return `None` is if the geometric mean can be</span>
+<span class=sd>        inferred by definition, namely if the minimum and maximum value</span>
+<span class=sd>        are the same and positive. Subclasses will override this method to</span>
+<span class=sd>        return meaningful values.</span>
+
+<span class=sd>        :returns: the geometric mean of all the samples, `None` if the</span>
+<span class=sd>            geometric mean is not defined.</span>
+<span class=sd>        :raises TypeError: if an object of the wrong type is passed in as self</span>
+
+<span class=sd>        >>> print(StreamStatistics(5, 3, 6, 7, 2).get_mean_geom())</span>
+<span class=sd>        None</span>
+
+<span class=sd>        >>> print(StreamStatistics(5, 2, 2, 2, 0).get_mean_geom())</span>
+<span class=sd>        2</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.get_mean_geom(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:20])</span>
+<span class=sd>        self should be an in</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"self"</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>)</span>
+        <span class=n>mi</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>minimum</span>
+        <span class=k>return</span> <span class=n>mi</span> <span class=k>if</span> <span class=mi>0</span> <span class=o><</span> <span class=bp>self</span><span class=o>.</span><span class=n>maximum</span> <span class=o><=</span> <span class=n>mi</span> <span class=k>else</span> <span class=kc>None</span></div>
+
+
+<div class=viewcode-block id=StreamStatistics.get_stddev>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.get_stddev>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>get_stddev</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the standard deviation mean (:attr:`~StreamStatistics.stddev`).</span>
+
+<span class=sd>        :returns: the standard deviation (:attr:`~StreamStatistics.stddev`)</span>
+<span class=sd>            of all the samples, `None` if the standard deviation is not</span>
+<span class=sd>            defined, i.e., if there is only a single sample</span>
+<span class=sd>        :raises TypeError: if an object of the wrong type is passed in as self</span>
+
+<span class=sd>        >>> StreamStatistics(5, 3, 6, 7, 2).get_stddev()</span>
+<span class=sd>        2</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.get_stddev(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:20])</span>
+<span class=sd>        self should be an in</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"self"</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>)</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>stddev</span></div>
+
+
+<div class=viewcode-block id=StreamStatistics.aggregate>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.aggregate>[docs]</a>
+    <span class=nd>@classmethod</span>
+    <span class=k>def</span><span class=w> </span><span class=nf>aggregate</span><span class=p>(</span><span class=bp>cls</span><span class=p>)</span> <span class=o>-></span> <span class=n>StreamStatisticsAggregate</span><span class=p>[</span><span class=s2>"StreamStatistics"</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get an aggregate suitable for this statistics type.</span>
+
+<span class=sd>        :return: the aggregate</span>
+
+<span class=sd>        >>> ag = StreamStatistics.aggregate()</span>
+<span class=sd>        >>> ag.update((1, 2, 3, 4))</span>
+<span class=sd>        >>> ag.result()</span>
+<span class=sd>        StreamStatistics(n=4, minimum=1, mean_arith=2.5, maximum=4, \</span>
+<span class=sd>stddev=1.2909944487358056)</span>
+<span class=sd>        >>> ag.reset()</span>
+<span class=sd>        >>> ag.add(4)</span>
+<span class=sd>        >>> ag.add(5)</span>
+<span class=sd>        >>> ag.add(6)</span>
+<span class=sd>        >>> ag.add(7)</span>
+<span class=sd>        >>> ag.result()</span>
+<span class=sd>        StreamStatistics(n=4, minimum=4, mean_arith=5.5, maximum=7, \</span>
+<span class=sd>stddev=1.2909944487358056)</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=n>_StreamStats</span><span class=p>()</span></div>
+
+
+<div class=viewcode-block id=StreamStatistics.from_samples>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.from_samples>[docs]</a>
+    <span class=nd>@classmethod</span>
+    <span class=k>def</span><span class=w> </span><span class=nf>from_samples</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>source</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span>
+            <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>])</span> <span class=o>-></span> <span class=s2>"StreamStatistics"</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Create a statistics record from a stream of samples.</span>
+
+<span class=sd>        :return: the statistics record.</span>
+
+<span class=sd>        >>> StreamStatistics.from_samples((1, 2, 3, 4))</span>
+<span class=sd>        StreamStatistics(n=4, minimum=1, mean_arith=2.5, maximum=4, \</span>
+<span class=sd>stddev=1.2909944487358056)</span>
+<span class=sd>        """</span>
+        <span class=n>agg</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>StreamStatisticsAggregate</span><span class=p>]</span> <span class=o>=</span> <span class=bp>cls</span><span class=o>.</span><span class=n>aggregate</span><span class=p>()</span>
+        <span class=n>agg</span><span class=o>.</span><span class=n>update</span><span class=p>(</span><span class=n>source</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>agg</span><span class=o>.</span><span class=n>result</span><span class=p>()</span></div>
+
+
+<div class=viewcode-block id=StreamStatistics.from_single_value>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.from_single_value>[docs]</a>
+    <span class=nd>@classmethod</span>
+    <span class=k>def</span><span class=w> </span><span class=nf>from_single_value</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>value</span><span class=p>:</span> <span class=n>Union</span><span class=p>[</span>
+            <span class=nb>int</span><span class=p>,</span> <span class=nb>float</span><span class=p>,</span> <span class=s2>"StreamStatistics"</span><span class=p>],</span> <span class=n>n</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>1</span><span class=p>)</span> <span class=o>-></span> <span class=s2>"StreamStatistics"</span><span class=p>:</span>
+<span class=w>        </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>        Create a sample statistics from a single number.</span>
+
+<span class=sd>        :param value: the single value</span>
+<span class=sd>        :param n: the number of samples, i.e., the number of times this value</span>
+<span class=sd>            occurred</span>
+<span class=sd>        :returns: the sample statistics</span>
+
+<span class=sd>        >>> print(str(StreamStatistics.from_single_value(23)))</span>
+<span class=sd>        1;23;23;23;None</span>
+
+<span class=sd>        >>> s = StreamStatistics.from_single_value(10, 2)</span>
+<span class=sd>        >>> print(s.stddev)</span>
+<span class=sd>        0</span>
+<span class=sd>        >>> s.minimum == s.maximum == s.mean_arith == 10</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s is StreamStatistics.from_single_value(s, s.n)</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s = StreamStatistics.from_single_value(10, 1)</span>
+<span class=sd>        >>> print(s.stddev)</span>
+<span class=sd>        None</span>
+<span class=sd>        >>> s.minimum == s.maximum == s.mean_arith == 10</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s is StreamStatistics.from_single_value(s, s.n)</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s = StreamStatistics.from_single_value(-10, 2)</span>
+<span class=sd>        >>> print(s.stddev)</span>
+<span class=sd>        0</span>
+<span class=sd>        >>> s.minimum == s.maximum == s.mean_arith == -10</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s is StreamStatistics.from_single_value(s, s.n)</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s = StreamStatistics.from_single_value(-10, 1)</span>
+<span class=sd>        >>> print(s.stddev)</span>
+<span class=sd>        None</span>
+<span class=sd>        >>> s.minimum == s.maximum == s.mean_arith == -10</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s is StreamStatistics.from_single_value(s, s.n)</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s = StreamStatistics.from_single_value(10.5, 2)</span>
+<span class=sd>        >>> print(s.stddev)</span>
+<span class=sd>        0</span>
+<span class=sd>        >>> s.minimum == s.maximum == s.mean_arith  == 10.5</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s is StreamStatistics.from_single_value(s, s.n)</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s = StreamStatistics.from_single_value(10.5, 1)</span>
+<span class=sd>        >>> print(s.stddev)</span>
+<span class=sd>        None</span>
+<span class=sd>        >>> s.minimum == s.maximum == s.mean_arith == 10.5</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s is StreamStatistics.from_single_value(s, s.n)</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s = StreamStatistics.from_single_value(-10.5, 2)</span>
+<span class=sd>        >>> print(s.stddev)</span>
+<span class=sd>        0</span>
+<span class=sd>        >>> s.minimum == s.maximum == s.mean_arith == -10.5</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s is StreamStatistics.from_single_value(s, s.n)</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s = StreamStatistics.from_single_value(-10.5, 1)</span>
+<span class=sd>        >>> print(s.stddev)</span>
+<span class=sd>        None</span>
+<span class=sd>        >>> s.minimum == s.maximum == s.mean_arith == -10.5</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> s is StreamStatistics.from_single_value(s, s.n)</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.from_single_value(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:20])</span>
+<span class=sd>        value should be an i</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.from_single_value("a")</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:20])</span>
+<span class=sd>        value should be an i</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.from_single_value(1, None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:20])</span>
+<span class=sd>        n should be an insta</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.from_single_value(1, "a")</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:20])</span>
+<span class=sd>        n should be an insta</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.from_single_value(s, 12)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[:20])</span>
+<span class=sd>        Incompatible numbers</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.from_single_value(inf)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[:20])</span>
+<span class=sd>        value=inf is not fin</span>
+<span class=sd>        """</span>
+        <span class=n>n</span> <span class=o>=</span> <span class=n>check_int_range</span><span class=p>(</span><span class=n>n</span><span class=p>,</span> <span class=s2>"n"</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=mi>1_000_000_000_000_000_000</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>):</span>
+            <span class=k>if</span> <span class=n>value</span><span class=o>.</span><span class=n>n</span> <span class=o>==</span> <span class=n>n</span><span class=p>:</span>
+                <span class=k>return</span> <span class=n>value</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>  <span class=c1># noqa: TRY004</span>
+                <span class=sa>f</span><span class=s2>"Incompatible numbers of values </span><span class=si>{</span><span class=n>n</span><span class=si>}</span><span class=s2> and </span><span class=si>{</span><span class=n>value</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=s2>"value"</span><span class=p>,</span> <span class=p>(</span><span class=nb>int</span><span class=p>,</span> <span class=nb>float</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>))</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=n>isfinite</span><span class=p>(</span><span class=n>value</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"value=</span><span class=si>{</span><span class=n>value</span><span class=si>}</span><span class=s2> is not finite."</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>StreamStatistics</span><span class=p>(</span>
+            <span class=n>n</span><span class=o>=</span><span class=n>n</span><span class=p>,</span> <span class=n>minimum</span><span class=o>=</span><span class=n>value</span><span class=p>,</span> <span class=n>mean_arith</span><span class=o>=</span><span class=n>value</span><span class=p>,</span> <span class=n>maximum</span><span class=o>=</span><span class=n>value</span><span class=p>,</span>
+            <span class=n>stddev</span><span class=o>=</span><span class=kc>None</span> <span class=k>if</span> <span class=n>n</span> <span class=o><=</span> <span class=mi>1</span> <span class=k>else</span> <span class=mi>0</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=StreamStatistics.getter>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.getter>[docs]</a>
+    <span class=nd>@classmethod</span>
+    <span class=k>def</span><span class=w> </span><span class=nf>getter</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>dimension</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=n>Callable</span><span class=p>[[</span>
+            <span class=s2>"StreamStatistics"</span><span class=p>],</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get a function returning the dimension from :class:`StreamStatistics`.</span>
+
+<span class=sd>        The returned getter function expects that it receives a valid</span>
+<span class=sd>        :class:`StreamStatistics` instance as parameter, or an instance of the</span>
+<span class=sd>        subclass you called :meth:`StreamStatistics.getter` on. If you pass in</span>
+<span class=sd>        `None`, then ths will raise a `TypeError`. If you are in a situation</span>
+<span class=sd>        where `None` is possible, use the function</span>
+<span class=sd>        :meth:`StreamStatistics.getter_or_none` instead, which will return</span>
+<span class=sd>        `None` in such a case.</span>
+
+<span class=sd>        :param dimension: the dimension</span>
+<span class=sd>        :returns: a :class:`Callable` that returns the value corresponding to</span>
+<span class=sd>            the dimension</span>
+<span class=sd>        :raises TypeError: if `dimension` is not a string</span>
+<span class=sd>        :raises ValueError: if `dimension` is unknown</span>
+
+<span class=sd>        >>> StreamStatistics.getter(KEY_N) is StreamStatistics.get_n</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> (StreamStatistics.getter(KEY_MINIMUM) is</span>
+<span class=sd>        ...     StreamStatistics.get_minimum)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> (StreamStatistics.getter(KEY_MEAN_ARITH) is</span>
+<span class=sd>        ...     StreamStatistics.get_mean_arith)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> (StreamStatistics.getter(KEY_MEAN_GEOM) is</span>
+<span class=sd>        ...     StreamStatistics.get_mean_geom)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> (StreamStatistics.getter(KEY_MAXIMUM) is</span>
+<span class=sd>        ...     StreamStatistics.get_maximum)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> (StreamStatistics.getter(KEY_MEDIAN) is</span>
+<span class=sd>        ...     StreamStatistics.get_median)</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> (StreamStatistics.getter(KEY_STDDEV) is</span>
+<span class=sd>        ...     StreamStatistics.get_stddev)</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> s = StreamStatistics(5, 3,  6, 7, 2)</span>
+<span class=sd>        >>> StreamStatistics.getter(KEY_N)(s)</span>
+<span class=sd>        5</span>
+<span class=sd>        >>> StreamStatistics.getter(KEY_MINIMUM)(s)</span>
+<span class=sd>        3</span>
+<span class=sd>        >>> StreamStatistics.getter(KEY_MEAN_ARITH)(s)</span>
+<span class=sd>        6</span>
+<span class=sd>        >>> print(StreamStatistics.getter(KEY_MEAN_GEOM)(s))</span>
+<span class=sd>        None</span>
+<span class=sd>        >>> StreamStatistics.getter(KEY_MAXIMUM)(s)</span>
+<span class=sd>        7</span>
+<span class=sd>        >>> StreamStatistics.getter(KEY_STDDEV)(s)</span>
+<span class=sd>        2</span>
+<span class=sd>        >>> print(StreamStatistics.getter(KEY_MEDIAN)(s))</span>
+<span class=sd>        None</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.getter(KEY_N)(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:20])</span>
+<span class=sd>        self should be an in</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.getter(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        descriptor 'strip' for 'str' objects doesn't apply to a 'NoneType' \</span>
+<span class=sd>object</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.getter(1)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     StreamStatistics.getter("hello")</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[-18:])</span>
+<span class=sd>        dimension 'hello'.</span>
+<span class=sd>        """</span>
+        <span class=n>tbl_name</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"___cls_getters"</span>
+        <span class=k>if</span> <span class=nb>hasattr</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>tbl_name</span><span class=p>):</span>
+            <span class=n>getters</span> <span class=o>=</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"Callable"</span><span class=p>,</span> <span class=nb>getattr</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>tbl_name</span><span class=p>))</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>getters</span> <span class=o>=</span> <span class=p>{</span>
+                <span class=n>KEY_N</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_n</span><span class=p>,</span> <span class=n>KEY_MINIMUM</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_minimum</span><span class=p>,</span>
+                <span class=s2>"minimum"</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_minimum</span><span class=p>,</span>
+                <span class=n>KEY_MEAN_ARITH</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_mean_arith</span><span class=p>,</span>
+                <span class=s2>"mean_arith"</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_mean_arith</span><span class=p>,</span>
+                <span class=s2>"arithmetic mean"</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_mean_arith</span><span class=p>,</span>
+                <span class=s2>"average"</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_mean_arith</span><span class=p>,</span> <span class=n>KEY_MEDIAN</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_median</span><span class=p>,</span>
+                <span class=s2>"median"</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_median</span><span class=p>,</span> <span class=n>KEY_MEAN_GEOM</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_mean_geom</span><span class=p>,</span>
+                <span class=s2>"mean_geom"</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_mean_geom</span><span class=p>,</span>
+                <span class=s2>"geometric mean"</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_mean_geom</span><span class=p>,</span>
+                <span class=s2>"gmean"</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_mean_geom</span><span class=p>,</span> <span class=n>KEY_MAXIMUM</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_maximum</span><span class=p>,</span>
+                <span class=s2>"maximum"</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_maximum</span><span class=p>,</span> <span class=n>KEY_STDDEV</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_stddev</span><span class=p>,</span>
+                <span class=s2>"stddev"</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_stddev</span><span class=p>,</span>
+                <span class=s2>"standard deviation"</span><span class=p>:</span> <span class=bp>cls</span><span class=o>.</span><span class=n>get_stddev</span><span class=p>}</span><span class=o>.</span><span class=n>get</span>
+            <span class=nb>setattr</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>tbl_name</span><span class=p>,</span> <span class=n>getters</span><span class=p>)</span>
+
+        <span class=n>result</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>StreamStatistics</span><span class=p>],</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> \
+            <span class=o>=</span> <span class=n>getters</span><span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>dimension</span><span class=p>),</span> <span class=kc>None</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>result</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Unknown </span><span class=si>{</span><span class=bp>cls</span><span class=si>}</span><span class=s2> dimension </span><span class=si>{</span><span class=n>dimension</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>result</span></div>
+
+
+<div class=viewcode-block id=StreamStatistics.getter_or_none>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.StreamStatistics.getter_or_none>[docs]</a>
+    <span class=nd>@classmethod</span>
+    <span class=k>def</span><span class=w> </span><span class=nf>getter_or_none</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>dimension</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=n>Callable</span><span class=p>[[</span>
+            <span class=n>Union</span><span class=p>[</span><span class=s2>"StreamStatistics"</span><span class=p>,</span> <span class=kc>None</span><span class=p>]],</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Obtain a getter that returns `None` if the statistics is `None`.</span>
+
+<span class=sd>        With this method, you can get a function which returns a value from a</span>
+<span class=sd>        statistics object if the object is not `None`. If `None` is provided,</span>
+<span class=sd>        then the function also returns `None`.</span>
+
+<span class=sd>        This is especially useful if you work with something like</span>
+<span class=sd>        :meth:`~StreamStatisticsAggregate.result_or_none`.</span>
+
+<span class=sd>        If your data should never be `None`, the better use</span>
+<span class=sd>        :meth:`StreamStatistics.getter` instead, which returns getter</span>
+<span class=sd>        functions that raise `TypeError`s if their input is `None`.</span>
+
+<span class=sd>        :param dimension: the dimension</span>
+<span class=sd>        :return: the getter</span>
+
+<span class=sd>        >>> ss = StreamStatistics(10, 1, 2, 3, 4)</span>
+<span class=sd>        >>> g = StreamStatistics.getter_or_none(KEY_MINIMUM)</span>
+<span class=sd>        >>> g(ss)</span>
+<span class=sd>        1</span>
+<span class=sd>        >>> print(g(None))</span>
+<span class=sd>        None</span>
+<span class=sd>        >>> StreamStatistics.getter_or_none(KEY_MINIMUM) is g</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> g = StreamStatistics.getter_or_none(KEY_MAXIMUM)</span>
+<span class=sd>        >>> g(ss)</span>
+<span class=sd>        3</span>
+<span class=sd>        >>> print(g(None))</span>
+<span class=sd>        None</span>
+<span class=sd>        """</span>
+        <span class=n>tbl_name</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"___cls_getters_or_none"</span>
+        <span class=k>if</span> <span class=nb>hasattr</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>tbl_name</span><span class=p>):</span>
+            <span class=n>getters</span> <span class=o>=</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"dict"</span><span class=p>,</span> <span class=nb>getattr</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>tbl_name</span><span class=p>))</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>getters</span> <span class=o>=</span> <span class=p>{}</span>
+            <span class=nb>setattr</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>tbl_name</span><span class=p>,</span> <span class=n>getters</span><span class=p>)</span>
+
+        <span class=n>dimension</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>dimension</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>dimension</span> <span class=ow>in</span> <span class=n>getters</span><span class=p>:</span>
+            <span class=k>return</span> <span class=n>getters</span><span class=p>[</span><span class=n>dimension</span><span class=p>]</span>
+
+        <span class=k>def</span><span class=w> </span><span class=nf>__getter</span><span class=p>(</span><span class=n>x</span><span class=p>,</span> <span class=n>_y</span><span class=o>=</span><span class=bp>cls</span><span class=o>.</span><span class=n>getter</span><span class=p>(</span><span class=n>dimension</span><span class=p>))</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>return</span> <span class=kc>None</span> <span class=k>if</span> <span class=n>x</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>_y</span><span class=p>(</span><span class=n>x</span><span class=p>)</span>
+
+        <span class=n>getters</span><span class=p>[</span><span class=n>dimension</span><span class=p>]</span> <span class=o>=</span> <span class=n>__getter</span>
+        <span class=k>return</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"Callable"</span><span class=p>,</span> <span class=n>__getter</span><span class=p>)</span></div>
+</div>
+
+
+
+<span class=k>class</span><span class=w> </span><span class=nc>_StreamStats</span><span class=p>(</span><span class=n>StreamStatisticsAggregate</span><span class=p>[</span><span class=n>StreamStatistics</span><span class=p>]):</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    The internal stream statistics.</span>
+
+<span class=sd>    The stream statistics compute mean and variance of data using Welford's</span>
+<span class=sd>    algorithm.</span>
+
+<span class=sd>    1. Donald E. Knuth (1998). The Art of Computer Programming, volume 2:</span>
+<span class=sd>       Seminumerical Algorithms, 3rd edn., p. 232. Boston: Addison-Wesley.</span>
+<span class=sd>    2. B. P. Welford (1962). "Note on a method for calculating corrected sums</span>
+<span class=sd>       of squares and products". Technometrics 4(3):419-420.</span>
+
+<span class=sd>    >>> ss = _StreamStats()</span>
+<span class=sd>    >>> data1 = [4, 7, 13, 16]</span>
+<span class=sd>    >>> ss.update(data1)</span>
+<span class=sd>    >>> ss.result()</span>
+<span class=sd>    StreamStatistics(n=4, minimum=4, mean_arith=10, maximum=16, \</span>
+<span class=sd>stddev=5.477225575051661)</span>
+
+<span class=sd>    >>> data2 = [1e8 + z for z in data1]</span>
+<span class=sd>    >>> ss.reset()</span>
+<span class=sd>    >>> ss.update(data2)</span>
+<span class=sd>    >>> ss.result()</span>
+<span class=sd>    StreamStatistics(n=4, minimum=100000004, mean_arith=100000010, \</span>
+<span class=sd>maximum=100000016, stddev=5.477225575051661)</span>
+
+<span class=sd>    >>> data3 = [1e14 + z for z in data1]</span>
+<span class=sd>    >>> ss.reset()</span>
+<span class=sd>    >>> ss.update(data3)</span>
+<span class=sd>    >>> ss.result()</span>
+<span class=sd>    StreamStatistics(n=4, minimum=100000000000004, \</span>
+<span class=sd>mean_arith=100000000000010, maximum=100000000000016, stddev=5.477225575051661)</span>
+
+<span class=sd>    >>> data3 = [z for z in range(1001)]</span>
+<span class=sd>    >>> ss.reset()</span>
+<span class=sd>    >>> ss.update(data3)</span>
+<span class=sd>    >>> ss.result()</span>
+<span class=sd>    StreamStatistics(n=1001, minimum=0, mean_arith=500, maximum=1000, \</span>
+<span class=sd>stddev=289.10811126635656)</span>
+<span class=sd>    """</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""Initialize the stream statistics."""</span>
+        <span class=c1>#: the number of samples seen</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__n</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=c1>#: the last mean result</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__mean</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=c1>#: the running sum for the variance</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__var</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=c1>#: the minimum</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__min</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>=</span> <span class=n>inf</span>
+        <span class=c1>#: the maximum</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__max</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>=</span> <span class=o>-</span><span class=n>inf</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>reset</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""Reset the sample statistics."""</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__n</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__mean</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__var</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__min</span> <span class=o>=</span> <span class=n>inf</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__max</span> <span class=o>=</span> <span class=o>-</span><span class=n>inf</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>add</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>value</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Add a value to the statistics.</span>
+
+<span class=sd>        :param value: the value</span>
+<span class=sd>        """</span>
+        <span class=n>value</span> <span class=o>=</span> <span class=n>try_int</span><span class=p>(</span><span class=n>value</span><span class=p>)</span>  <span class=c1># try to sum ints, check type and non-finite</span>
+        <span class=n>n</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__n</span> <span class=o>+</span> <span class=mi>1</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__n</span> <span class=o>=</span> <span class=n>n</span>
+        <span class=n>mean</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__mean</span>
+        <span class=n>delta</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>=</span> <span class=n>value</span> <span class=o>-</span> <span class=n>mean</span>
+        <span class=n>mean</span> <span class=o>+=</span> <span class=n>delta</span> <span class=o>/</span> <span class=n>n</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__mean</span> <span class=o>=</span> <span class=n>mean</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__var</span> <span class=o>+=</span> <span class=n>delta</span> <span class=o>*</span> <span class=p>(</span><span class=n>value</span> <span class=o>-</span> <span class=n>mean</span><span class=p>)</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__min</span> <span class=o>=</span> <span class=nb>min</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>__min</span><span class=p>,</span> <span class=n>value</span><span class=p>)</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__max</span> <span class=o>=</span> <span class=nb>max</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>__max</span><span class=p>,</span> <span class=n>value</span><span class=p>)</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>result</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=n>StreamStatistics</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the arithmetic mean.</span>
+
+<span class=sd>        :return: the arithmetic mean or `None` if no value was added yet</span>
+<span class=sd>        """</span>
+        <span class=n>n</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__n</span>
+        <span class=n>mi</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__min</span>
+        <span class=n>ma</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__max</span>
+        <span class=k>return</span> <span class=n>StreamStatistics</span><span class=p>(</span>
+            <span class=n>n</span><span class=p>,</span> <span class=n>mi</span><span class=p>,</span> <span class=nb>max</span><span class=p>(</span><span class=n>mi</span><span class=p>,</span> <span class=nb>min</span><span class=p>(</span><span class=n>ma</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>__mean</span><span class=p>)),</span> <span class=n>ma</span><span class=p>,</span>
+            <span class=kc>None</span> <span class=k>if</span> <span class=n>n</span> <span class=o><=</span> <span class=mi>1</span> <span class=k>else</span> <span class=p>(</span><span class=mi>0</span> <span class=k>if</span> <span class=n>ma</span> <span class=o><=</span> <span class=n>mi</span> <span class=k>else</span> <span class=n>sqrt</span><span class=p>(</span>
+                <span class=n>try_float_int_div</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>__var</span><span class=p>,</span> <span class=n>n</span> <span class=o>-</span> <span class=mi>1</span><span class=p>))))</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>result_or_none</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=n>StreamStatistics</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the result if any data was collected, otherwise `None`.</span>
+
+<span class=sd>        :return: The return value of :meth:`result` if any data was collected,</span>
+<span class=sd>            otherwise `None`</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>result</span><span class=p>()</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__n</span> <span class=o>></span> <span class=mi>0</span> <span class=k>else</span> <span class=kc>None</span>
+
+
+<div class=viewcode-block id=CsvReader>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.CsvReader>[docs]</a>
+<span class=k>class</span><span class=w> </span><span class=nc>CsvReader</span><span class=p>(</span><span class=n>CsvReaderBase</span><span class=p>[</span><span class=n>StreamStatistics</span><span class=p>]):</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    A csv parser for sample statistics.</span>
+
+<span class=sd>    >>> from pycommons.io.csv import csv_read</span>
+<span class=sd>    >>> csv = ["n;min;mean;max;sd",</span>
+<span class=sd>    ...        "3;2;3;10;5", "6;2;;;0", "1;;2", "3;;;0;",</span>
+<span class=sd>    ...        "4;5;12;33;7"]</span>
+<span class=sd>    >>> for p in csv_read(csv, CsvReader, CsvReader.parse_row):</span>
+<span class=sd>    ...     print(p)</span>
+<span class=sd>    3;2;3;10;5</span>
+<span class=sd>    6;2;2;2;0</span>
+<span class=sd>    1;2;2;2;None</span>
+<span class=sd>    3;0;0;0;0</span>
+<span class=sd>    4;5;12;33;7</span>
+
+<span class=sd>    >>> csv = ["value", "1", "3", "0", "-5", "7"]</span>
+<span class=sd>    >>> for p in csv_read(csv, CsvReader, CsvReader.parse_row):</span>
+<span class=sd>    ...     print(p)</span>
+<span class=sd>    1;1;1;1;None</span>
+<span class=sd>    1;3;3;3;None</span>
+<span class=sd>    1;0;0;0;None</span>
+<span class=sd>    1;-5;-5;-5;None</span>
+<span class=sd>    1;7;7;7;None</span>
+
+<span class=sd>    >>> csv = ["n;m;sd", "1;3;", "3;5;0"]</span>
+<span class=sd>    >>> for p in csv_read(csv, CsvReader, CsvReader.parse_row):</span>
+<span class=sd>    ...     print(p)</span>
+<span class=sd>    1;3;3;3;None</span>
+<span class=sd>    3;5;5;5;0</span>
+
+<span class=sd>    >>> csv = ["n;m", "1;3", "3;5"]</span>
+<span class=sd>    >>> for p in csv_read(csv, CsvReader, CsvReader.parse_row):</span>
+<span class=sd>    ...     print(p)</span>
+<span class=sd>    1;3;3;3;None</span>
+<span class=sd>    3;5;5;5;0</span>
+<span class=sd>    """</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>columns</span><span class=p>:</span> <span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>int</span><span class=p>])</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Create a CSV parser for :class:`SampleStatistics`.</span>
+
+<span class=sd>        :param columns: the columns</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     CsvReader(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        columns should be an instance of dict but is None.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     CsvReader(1)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        columns should be an instance of dict but is int, namely 1.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     CsvReader(dict())</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        No useful keys remain in {}.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     CsvReader({"a": 1, "b": 2})</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        No useful keys remain in {'a': 1, 'b': 2}.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     CsvReader({KEY_N: 1, "b": 2, "c": 3})</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        No useful keys remain in {'b': 2, 'c': 3}.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     CsvReader({KEY_MINIMUM: 1, "b": 2, "c": 3})</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        Found strange keys in {'b': 2, 'c': 3}.</span>
+<span class=sd>        """</span>
+        <span class=nb>super</span><span class=p>()</span><span class=o>.</span><span class=fm>__init__</span><span class=p>(</span><span class=n>columns</span><span class=p>)</span>
+
+        <span class=c1>#: the index of the number of elements</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>idx_n</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>csv_column_or_none</span><span class=p>(</span>
+            <span class=n>columns</span><span class=p>,</span> <span class=n>KEY_N</span><span class=p>)</span>
+
+        <span class=n>has</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=n>has_idx</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>
+
+        <span class=c1>#: the index of the minimum</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__idx_min</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>csv_column_or_none</span><span class=p>(</span>
+            <span class=n>columns</span><span class=p>,</span> <span class=n>KEY_MINIMUM</span><span class=p>)</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__idx_min</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>has</span> <span class=o>+=</span> <span class=mi>1</span>
+            <span class=n>has_idx</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__idx_min</span>
+
+        <span class=c1>#: the index for the arithmetic mean</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__idx_mean_arith</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>csv_column_or_none</span><span class=p>(</span>
+            <span class=n>columns</span><span class=p>,</span> <span class=n>KEY_MEAN_ARITH</span><span class=p>)</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__idx_mean_arith</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>has</span> <span class=o>+=</span> <span class=mi>1</span>
+            <span class=n>has_idx</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__idx_mean_arith</span>
+
+        <span class=c1>#: the index for the maximum</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__idx_max</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>csv_column_or_none</span><span class=p>(</span>
+            <span class=n>columns</span><span class=p>,</span> <span class=n>KEY_MAXIMUM</span><span class=p>)</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__idx_max</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>has</span> <span class=o>+=</span> <span class=mi>1</span>
+            <span class=n>has_idx</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__idx_max</span>
+
+        <span class=c1>#: the index for the standard deviation</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__idx_sd</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>csv_column_or_none</span><span class=p>(</span>
+            <span class=n>columns</span><span class=p>,</span> <span class=n>KEY_STDDEV</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=n>has</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>if</span> <span class=nb>dict</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>columns</span><span class=p>)</span> <span class=o>==</span> <span class=mi>1</span><span class=p>:</span>
+                <span class=bp>self</span><span class=o>.</span><span class=n>__idx_min</span> <span class=o>=</span> <span class=n>has_idx</span> <span class=o>=</span> <span class=n>csv_column</span><span class=p>(</span>
+                    <span class=n>columns</span><span class=p>,</span> <span class=nb>next</span><span class=p>(</span><span class=nb>iter</span><span class=p>(</span><span class=n>columns</span><span class=o>.</span><span class=n>keys</span><span class=p>())),</span> <span class=kc>True</span><span class=p>)</span>
+                <span class=n>has</span> <span class=o>=</span> <span class=mi>1</span>
+            <span class=k>else</span><span class=p>:</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"No useful keys remain in </span><span class=si>{</span><span class=n>columns</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>dict</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>columns</span><span class=p>)</span> <span class=o>></span> <span class=mi>1</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Found strange keys in </span><span class=si>{</span><span class=n>columns</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+        <span class=c1>#: is this a parser for single number statistics?</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__is_single</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>bool</span><span class=p>]</span> <span class=o>=</span> <span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>__idx_sd</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=n>has</span> <span class=o>==</span> <span class=mi>1</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__is_single</span><span class=p>:</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>__idx_min</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__idx_max</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__idx_mean_arith</span> <span class=o>=</span> <span class=n>has_idx</span>
+
+<div class=viewcode-block id=CsvReader.parse_row>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.CsvReader.parse_row>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>parse_row</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>data</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>])</span> <span class=o>-></span> <span class=n>StreamStatistics</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Parse a row of data.</span>
+
+<span class=sd>        :param data: the data row</span>
+<span class=sd>        :returns: the sample statistics</span>
+
+<span class=sd>        >>> cc = CsvReader({KEY_MINIMUM: 0, KEY_MEAN_ARITH: 1, KEY_MAXIMUM: 2,</span>
+<span class=sd>        ...                 KEY_STDDEV: 3, KEY_N: 4})</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     cc.parse_row([None, None, None, None, "5"])</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[:20])</span>
+<span class=sd>        No value defined for</span>
+<span class=sd>        """</span>
+        <span class=n>n</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=mi>1</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>idx_n</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=nb>int</span><span class=p>(</span><span class=n>data</span><span class=p>[</span><span class=bp>self</span><span class=o>.</span><span class=n>idx_n</span><span class=p>])</span>
+        <span class=n>mi</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>csv_val_or_none</span><span class=p>(</span>
+            <span class=n>data</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>__idx_min</span><span class=p>,</span> <span class=n>str_to_num</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__is_single</span><span class=p>:</span>
+            <span class=k>return</span> <span class=n>StreamStatistics</span><span class=p>(</span>
+                <span class=n>n</span><span class=o>=</span><span class=n>n</span><span class=p>,</span> <span class=n>minimum</span><span class=o>=</span><span class=n>mi</span><span class=p>,</span> <span class=n>mean_arith</span><span class=o>=</span><span class=n>mi</span><span class=p>,</span>
+                <span class=n>maximum</span><span class=o>=</span><span class=n>mi</span><span class=p>,</span> <span class=n>stddev</span><span class=o>=</span><span class=kc>None</span> <span class=k>if</span> <span class=n>n</span> <span class=o><=</span> <span class=mi>1</span> <span class=k>else</span> <span class=mi>0</span><span class=p>)</span>
+
+        <span class=n>ar</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>csv_val_or_none</span><span class=p>(</span>
+            <span class=n>data</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>__idx_mean_arith</span><span class=p>,</span> <span class=n>str_to_num</span><span class=p>)</span>
+        <span class=n>ma</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>csv_val_or_none</span><span class=p>(</span>
+            <span class=n>data</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>__idx_max</span><span class=p>,</span> <span class=n>str_to_num</span><span class=p>)</span>
+        <span class=n>sd</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>csv_val_or_none</span><span class=p>(</span>
+            <span class=n>data</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>__idx_sd</span><span class=p>,</span> <span class=n>str_to_num</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=n>mi</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>ar</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=n>mi</span> <span class=o>=</span> <span class=n>ar</span>
+            <span class=k>elif</span> <span class=n>ma</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=n>mi</span> <span class=o>=</span> <span class=n>ma</span>
+            <span class=k>else</span><span class=p>:</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                    <span class=sa>f</span><span class=s2>"No value defined for min@</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>__idx_min</span><span class=si>}</span><span class=s2>=</span><span class=si>{</span><span class=n>mi</span><span class=si>}</span><span class=s2>, mean@"</span>
+                    <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>__idx_mean_arith</span><span class=si>}</span><span class=s2>=</span><span class=si>{</span><span class=n>ar</span><span class=si>}</span><span class=s2>, max@"</span>
+                    <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>__idx_max</span><span class=si>}</span><span class=s2>=</span><span class=si>{</span><span class=n>ma</span><span class=si>}</span><span class=s2> defined in </span><span class=si>{</span><span class=n>data</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>StreamStatistics</span><span class=p>(</span>
+            <span class=n>n</span><span class=o>=</span><span class=n>n</span><span class=p>,</span> <span class=n>minimum</span><span class=o>=</span><span class=n>mi</span><span class=p>,</span> <span class=n>mean_arith</span><span class=o>=</span><span class=n>mi</span> <span class=k>if</span> <span class=n>ar</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>ar</span><span class=p>,</span>
+            <span class=n>maximum</span><span class=o>=</span><span class=n>mi</span> <span class=k>if</span> <span class=n>ma</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>ma</span><span class=p>,</span>
+            <span class=n>stddev</span><span class=o>=</span><span class=p>(</span><span class=mi>0</span> <span class=k>if</span> <span class=p>(</span><span class=n>n</span> <span class=o>></span> <span class=mi>1</span><span class=p>)</span> <span class=k>else</span> <span class=kc>None</span><span class=p>)</span> <span class=k>if</span> <span class=n>sd</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>sd</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=CsvReader.parse_optional_row>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.CsvReader.parse_optional_row>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>parse_optional_row</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>data</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span><span class=p>)</span> \
+            <span class=o>-></span> <span class=n>StreamStatistics</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Parse a row of data that may be empty.</span>
+
+<span class=sd>        :param data: the row of data that may be empty</span>
+<span class=sd>        :returns: the sample statistic, if the row contains data, else `None`</span>
+
+<span class=sd>        >>> print(CsvReader.parse_optional_row(None, ["1"]))</span>
+<span class=sd>        None</span>
+<span class=sd>        >>> print(CsvReader.parse_optional_row(CsvReader({"v": 0}), ["1"]))</span>
+<span class=sd>        1;1;1;1;None</span>
+<span class=sd>        >>> print(CsvReader.parse_optional_row(CsvReader({"v": 0}), [""]))</span>
+<span class=sd>        None</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=p>(</span><span class=bp>self</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>data</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>):</span>
+            <span class=k>return</span> <span class=kc>None</span>  <span class=c1># trick to make this method usable pseudo-static</span>
+        <span class=c1># pylint: disable=R0916</span>
+        <span class=k>if</span> <span class=p>(((</span><span class=bp>self</span><span class=o>.</span><span class=n>__idx_min</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span>
+                <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>data</span><span class=p>[</span><span class=bp>self</span><span class=o>.</span><span class=n>__idx_min</span><span class=p>])</span> <span class=o>></span> <span class=mi>0</span><span class=p>))</span> <span class=ow>or</span> <span class=p>(</span>
+                <span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>__idx_mean_arith</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span>
+                <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>data</span><span class=p>[</span><span class=bp>self</span><span class=o>.</span><span class=n>__idx_mean_arith</span><span class=p>])</span> <span class=o>></span> <span class=mi>0</span><span class=p>))</span> <span class=ow>or</span> <span class=p>(</span>
+                <span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>__idx_max</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span>
+                <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>data</span><span class=p>[</span><span class=bp>self</span><span class=o>.</span><span class=n>__idx_max</span><span class=p>])</span> <span class=o>></span> <span class=mi>0</span><span class=p>))):</span>
+            <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>parse_row</span><span class=p>(</span><span class=n>data</span><span class=p>)</span>
+        <span class=k>return</span> <span class=kc>None</span></div>
+</div>
+
+
+
+<div class=viewcode-block id=CsvWriter>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.CsvWriter>[docs]</a>
+<span class=k>class</span><span class=w> </span><span class=nc>CsvWriter</span><span class=p>(</span><span class=n>CsvWriterBase</span><span class=p>[</span><span class=n>T</span><span class=p>]):</span>
+<span class=w>    </span><span class=sd>"""A class for CSV writing of :class:`StreamStatistics`."""</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span>
+                 <span class=n>data</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=n>T</span><span class=p>],</span>
+                 <span class=n>scope</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+                 <span class=n>n_not_needed</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>False</span><span class=p>,</span>
+                 <span class=n>what_short</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+                 <span class=n>what_long</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+                 <span class=n>clazz</span><span class=p>:</span> <span class=nb>type</span><span class=p>[</span><span class=n>T</span><span class=p>]</span> <span class=o>=</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"type[T]"</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>))</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Initialize the csv writer.</span>
+
+<span class=sd>        :param data: the data to use</span>
+<span class=sd>        :param scope: the prefix to be pre-pended to all columns</span>
+<span class=sd>        :param n_not_needed: should we omit the `n` column?</span>
+<span class=sd>        :param what_short: the short description of what the statistics is</span>
+<span class=sd>            about</span>
+<span class=sd>        :param what_long: the long description of what the statistics is about</span>
+<span class=sd>        :param clazz: the stream statistics type</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     CsvWriter([], None, n_not_needed=None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        n_not_needed should be an instance of bool but is None.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     CsvWriter([], clazz=str)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:20])</span>
+<span class=sd>        clazz should be an i</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     CsvWriter([])</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     s = str(ve)</span>
+<span class=sd>        ...     print(s[s.index(' ') + 1:])</span>
+<span class=sd>        CsvWriter did not see any data.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     CsvWriter([1])</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:29])</span>
+<span class=sd>        data[0] should be an instance</span>
+<span class=sd>        """</span>
+        <span class=nb>super</span><span class=p>()</span><span class=o>.</span><span class=fm>__init__</span><span class=p>(</span><span class=n>data</span><span class=p>,</span> <span class=n>scope</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>issubclass</span><span class=p>(</span><span class=n>clazz</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>clazz</span><span class=p>,</span> <span class=s2>"clazz"</span><span class=p>,</span> <span class=nb>type</span><span class=p>[</span><span class=n>StreamStatistics</span><span class=p>])</span>
+        <span class=c1>#: the internal type</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__cls</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>type</span><span class=p>[</span><span class=n>StreamStatistics</span><span class=p>]]</span> <span class=o>=</span> <span class=n>clazz</span>
+
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>n_not_needed</span><span class=p>,</span> <span class=nb>bool</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>n_not_needed</span><span class=p>,</span> <span class=s2>"n_not_needed"</span><span class=p>,</span> <span class=nb>bool</span><span class=p>)</span>
+        <span class=c1># We need to check at most three conditions to see whether we can</span>
+        <span class=c1># compact the output:</span>
+        <span class=c1># 1. If all minimum, mean, median, maximum (and geometric mean, if</span>
+        <span class=c1># defined) are the same, then we can collapse this column.</span>
+        <span class=n>all_same</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span>
+        <span class=c1># 2. If no geometric mean is found, then we can also omit this column.</span>
+        <span class=n>has_no_geom</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span>
+        <span class=c1># 3. If no median is found, then we can also omit this column.</span>
+        <span class=n>has_no_median</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span>
+        <span class=c1># 4. If the `n` column is not needed or if all `n=1`, then we can omit</span>
+        <span class=c1># it. We only need to check if n is not needed if self.n_not_needed is</span>
+        <span class=c1># False because otherwise, we rely on self.n_not_needed.</span>
+        <span class=c1># n_really_not_needed will become False if we find one situation where</span>
+        <span class=c1># we actually need n.</span>
+        <span class=n>n_really_not_needed</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=n>n_not_needed</span>
+        <span class=c1># So if n_really_not_needed is True, we need to do 3 checks.</span>
+        <span class=c1># Otherwise, we only need two checks.</span>
+        <span class=n>checks_needed</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>4</span> <span class=k>if</span> <span class=n>n_really_not_needed</span> <span class=k>else</span> <span class=mi>3</span>
+        <span class=c1># the number of samples seen</span>
+        <span class=n>seen</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>
+
+        <span class=k>for</span> <span class=n>i</span><span class=p>,</span> <span class=n>d</span> <span class=ow>in</span> <span class=nb>enumerate</span><span class=p>(</span><span class=n>data</span><span class=p>):</span>  <span class=c1># Iterate over the data.</span>
+            <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>d</span><span class=p>,</span> <span class=n>clazz</span><span class=p>):</span>
+                <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>d</span><span class=p>,</span> <span class=sa>f</span><span class=s2>"data[</span><span class=si>{</span><span class=n>i</span><span class=si>}</span><span class=s2>]"</span><span class=p>,</span> <span class=n>clazz</span><span class=p>)</span>
+            <span class=n>seen</span> <span class=o>+=</span> <span class=mi>1</span>
+            <span class=k>if</span> <span class=n>n_really_not_needed</span> <span class=ow>and</span> <span class=p>(</span><span class=n>d</span><span class=o>.</span><span class=n>n</span> <span class=o>!=</span> <span class=mi>1</span><span class=p>):</span>
+                <span class=n>n_really_not_needed</span> <span class=o>=</span> <span class=kc>False</span>
+                <span class=n>checks_needed</span> <span class=o>-=</span> <span class=mi>1</span>
+                <span class=k>if</span> <span class=n>checks_needed</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+                    <span class=k>break</span>
+            <span class=k>if</span> <span class=n>all_same</span> <span class=ow>and</span> <span class=p>(</span><span class=n>d</span><span class=o>.</span><span class=n>minimum</span> <span class=o><</span> <span class=n>d</span><span class=o>.</span><span class=n>maximum</span><span class=p>):</span>
+                <span class=n>all_same</span> <span class=o>=</span> <span class=kc>False</span>
+                <span class=n>checks_needed</span> <span class=o>-=</span> <span class=mi>1</span>
+                <span class=k>if</span> <span class=n>checks_needed</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+                    <span class=k>break</span>
+            <span class=k>if</span> <span class=n>has_no_geom</span> <span class=ow>and</span> <span class=p>(</span><span class=n>d</span><span class=o>.</span><span class=n>get_mean_geom</span><span class=p>()</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>):</span>
+                <span class=n>has_no_geom</span> <span class=o>=</span> <span class=kc>False</span>
+                <span class=n>checks_needed</span> <span class=o>-=</span> <span class=mi>1</span>
+                <span class=k>if</span> <span class=n>checks_needed</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+                    <span class=k>break</span>
+            <span class=k>if</span> <span class=n>has_no_median</span> <span class=ow>and</span> <span class=p>(</span><span class=n>d</span><span class=o>.</span><span class=n>get_median</span><span class=p>()</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>):</span>
+                <span class=n>has_no_median</span> <span class=o>=</span> <span class=kc>False</span>
+                <span class=n>checks_needed</span> <span class=o>-=</span> <span class=mi>1</span>
+                <span class=k>if</span> <span class=n>checks_needed</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+                    <span class=k>break</span>
+
+        <span class=k>if</span> <span class=n>seen</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>type_name</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>__cls</span><span class=p>)</span><span class=si>}</span><span class=s2> CsvWriter did not see any data."</span><span class=p>)</span>
+
+        <span class=c1># stream statistics do not have geometric means or medians</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__cls</span> <span class=ow>is</span> <span class=n>StreamStatistics</span><span class=p>:</span>
+            <span class=n>has_no_geom</span> <span class=o>=</span> <span class=n>has_no_median</span> <span class=o>=</span> <span class=kc>True</span>
+
+        <span class=n>n_not_needed</span> <span class=o>=</span> <span class=n>n_really_not_needed</span> <span class=ow>or</span> <span class=n>n_not_needed</span>
+        <span class=c1>#: do we have a geometric mean?</span>
+        <span class=n>has_geo_mean</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>bool</span><span class=p>]</span> <span class=o>=</span> <span class=p>(</span><span class=ow>not</span> <span class=n>has_no_geom</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=ow>not</span> <span class=n>all_same</span><span class=p>)</span>
+        <span class=c1>#: do we have a median?</span>
+        <span class=n>has_median</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>bool</span><span class=p>]</span> <span class=o>=</span> <span class=p>(</span><span class=ow>not</span> <span class=n>has_no_median</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=ow>not</span> <span class=n>all_same</span><span class=p>)</span>
+
+        <span class=c1>#: the key for `n` is `None` if `n` is not printed, else it is the key</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__key_n</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=kc>None</span> <span class=k>if</span> <span class=n>n_not_needed</span> \
+            <span class=k>else</span> <span class=n>csv_scope</span><span class=p>(</span><span class=n>scope</span><span class=p>,</span> <span class=n>KEY_N</span><span class=p>)</span>
+
+        <span class=n>key_all</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=n>key_min</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=n>key_mean_arith</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=n>key_med</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=n>key_max</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=n>key_mean_geom</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=n>key_sd</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+
+        <span class=k>if</span> <span class=n>all_same</span><span class=p>:</span>
+            <span class=n>key_all</span> <span class=o>=</span> <span class=n>KEY_VALUE</span> <span class=k>if</span> <span class=n>scope</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=p>(</span>
+                <span class=n>csv_scope</span><span class=p>(</span><span class=n>scope</span><span class=p>,</span> <span class=kc>None</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_n</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>KEY_VALUE</span><span class=p>))</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>key_min</span> <span class=o>=</span> <span class=n>csv_scope</span><span class=p>(</span><span class=n>scope</span><span class=p>,</span> <span class=n>KEY_MINIMUM</span><span class=p>)</span>
+            <span class=n>key_mean_arith</span> <span class=o>=</span> <span class=n>csv_scope</span><span class=p>(</span><span class=n>scope</span><span class=p>,</span> <span class=n>KEY_MEAN_ARITH</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>has_median</span><span class=p>:</span>
+                <span class=n>key_med</span> <span class=o>=</span> <span class=n>csv_scope</span><span class=p>(</span><span class=n>scope</span><span class=p>,</span> <span class=n>KEY_MEDIAN</span><span class=p>)</span>
+            <span class=n>key_max</span> <span class=o>=</span> <span class=n>csv_scope</span><span class=p>(</span><span class=n>scope</span><span class=p>,</span> <span class=n>KEY_MAXIMUM</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>has_geo_mean</span><span class=p>:</span>
+                <span class=n>key_mean_geom</span> <span class=o>=</span> <span class=n>csv_scope</span><span class=p>(</span><span class=n>scope</span><span class=p>,</span> <span class=n>KEY_MEAN_GEOM</span><span class=p>)</span>
+            <span class=n>key_sd</span> <span class=o>=</span> <span class=n>csv_scope</span><span class=p>(</span><span class=n>scope</span><span class=p>,</span> <span class=n>KEY_STDDEV</span><span class=p>)</span>
+
+        <span class=c1>#: the key for single values</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__key_all</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>key_all</span>
+        <span class=c1>#: the key for minimum values</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__key_min</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>key_min</span>
+        <span class=c1>#: the key for the arithmetic mean</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__key_mean_arith</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>key_mean_arith</span>
+        <span class=c1>#: the key for the median</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__key_med</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>key_med</span>
+        <span class=c1>#: the key for the geometric mean</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__key_mean_geom</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>key_mean_geom</span>
+        <span class=c1>#: the key for the maximum value</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__key_max</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>key_max</span>
+        <span class=c1>#: the key for the standard deviation</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__key_sd</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>key_sd</span>
+
+        <span class=n>long_name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> \
+            <span class=kc>None</span> <span class=k>if</span> <span class=n>what_long</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>what_long</span><span class=p>)</span>
+        <span class=n>short_name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> \
+            <span class=kc>None</span> <span class=k>if</span> <span class=n>what_short</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>what_short</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>long_name</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>long_name</span> <span class=o>=</span> <span class=n>short_name</span>
+        <span class=k>elif</span> <span class=n>short_name</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>short_name</span> <span class=o>=</span> <span class=n>long_name</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>long_name</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>long_name</span><span class=si>}</span><span class=s2> (</span><span class=si>{</span><span class=n>short_name</span><span class=si>}</span><span class=s2>)"</span>
+
+        <span class=c1>#: the short description of what the statistics are about</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__short_name</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>short_name</span>
+        <span class=c1>#: the long description of what the statistics are about</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__long_name</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>long_name</span>
+
+<div class=viewcode-block id=CsvWriter.get_column_titles>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.CsvWriter.get_column_titles>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>get_column_titles</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the column titles.</span>
+
+<span class=sd>        :returns: the column titles</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_n</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>yield</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_n</span>
+
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_all</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>yield</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_min</span>
+            <span class=k>yield</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_mean_arith</span>
+            <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_med</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=k>yield</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_med</span>
+            <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_mean_geom</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=k>yield</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_mean_geom</span>
+            <span class=k>yield</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_max</span>
+            <span class=k>yield</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_sd</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=k>yield</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_all</span></div>
+
+
+<div class=viewcode-block id=CsvWriter.get_optional_row>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.CsvWriter.get_optional_row>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>get_optional_row</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span>
+                         <span class=n>data</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=n>T</span> <span class=o>|</span> <span class=kc>None</span><span class=p>,</span>
+                         <span class=n>n</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Attach an empty row of the correct shape to the output.</span>
+
+<span class=sd>        This function may be needed in cases where the statistics are part of</span>
+<span class=sd>        other records that sometimes do not contain the record.</span>
+
+<span class=sd>        :param data: the data item</span>
+<span class=sd>        :param n: the number of samples</span>
+<span class=sd>        :returns: the optional row data</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     list(CsvWriter([StreamStatistics.from_single_value(</span>
+<span class=sd>        ...             1)]).get_optional_row("x"))</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:53])</span>
+<span class=sd>        data should be an instance of any in {None, float, in</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=n>data</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=c1># attach an empty row</span>
+            <span class=k>for</span> <span class=n>_</span> <span class=ow>in</span> <span class=nb>range</span><span class=p>((</span><span class=mi>0</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_n</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=mi>1</span><span class=p>)</span> <span class=o>+</span> <span class=p>(</span>
+                    <span class=p>(</span><span class=mi>4</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_mean_geom</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=mi>5</span><span class=p>)</span>
+                    <span class=o>+</span> <span class=p>(</span><span class=mi>0</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_med</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=mi>1</span><span class=p>)</span>
+                    <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_all</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=mi>1</span><span class=p>)):</span>
+                <span class=k>yield</span> <span class=s2>""</span>
+            <span class=k>return</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>data</span><span class=p>,</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>):</span>  <span class=c1># convert single value</span>
+            <span class=n>data</span> <span class=o>=</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"T"</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>__cls</span><span class=o>.</span><span class=n>from_single_value</span><span class=p>(</span>
+                <span class=n>data</span><span class=p>,</span> <span class=mi>1</span> <span class=k>if</span> <span class=n>n</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>n</span><span class=p>))</span>
+        <span class=k>elif</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>data</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>):</span>  <span class=c1># huh?</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>data</span><span class=p>,</span> <span class=s2>"data"</span><span class=p>,</span> <span class=p>(</span>
+                <span class=nb>int</span><span class=p>,</span> <span class=nb>float</span><span class=p>,</span> <span class=n>StreamStatistics</span><span class=p>,</span> <span class=kc>None</span><span class=p>))</span>
+        <span class=k>elif</span> <span class=p>(</span><span class=n>n</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=n>n</span> <span class=o>!=</span> <span class=n>data</span><span class=o>.</span><span class=n>n</span><span class=p>):</span>  <span class=c1># sanity check</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"data.n=</span><span class=si>{</span><span class=n>data</span><span class=o>.</span><span class=n>n</span><span class=si>}</span><span class=s2> but n=</span><span class=si>{</span><span class=n>n</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>yield from</span> <span class=bp>self</span><span class=o>.</span><span class=n>get_row</span><span class=p>(</span><span class=n>data</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=CsvWriter.get_row>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.CsvWriter.get_row>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>get_row</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>data</span><span class=p>:</span> <span class=n>T</span><span class=p>)</span> <span class=o>-></span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Render a single sample statistics to a CSV row.</span>
+
+<span class=sd>        :param data: the data sample statistics</span>
+<span class=sd>        :returns: the row iterator</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_n</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>yield</span> <span class=nb>str</span><span class=p>(</span><span class=n>data</span><span class=o>.</span><span class=n>n</span><span class=p>)</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_all</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>yield</span> <span class=n>num_to_str</span><span class=p>(</span><span class=n>data</span><span class=o>.</span><span class=n>minimum</span><span class=p>)</span>
+            <span class=k>yield</span> <span class=n>num_to_str</span><span class=p>(</span><span class=n>data</span><span class=o>.</span><span class=n>mean_arith</span><span class=p>)</span>
+            <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_med</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=k>yield</span> <span class=n>num_to_str</span><span class=p>(</span><span class=n>data</span><span class=o>.</span><span class=n>get_median</span><span class=p>())</span>
+            <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_mean_geom</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=k>yield</span> <span class=n>num_or_none_to_str</span><span class=p>(</span><span class=n>data</span><span class=o>.</span><span class=n>get_mean_geom</span><span class=p>())</span>
+            <span class=k>yield</span> <span class=n>num_to_str</span><span class=p>(</span><span class=n>data</span><span class=o>.</span><span class=n>maximum</span><span class=p>)</span>
+            <span class=k>yield</span> <span class=n>num_or_none_to_str</span><span class=p>(</span><span class=n>data</span><span class=o>.</span><span class=n>stddev</span><span class=p>)</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>data</span><span class=o>.</span><span class=n>minimum</span> <span class=o>!=</span> <span class=n>data</span><span class=o>.</span><span class=n>maximum</span><span class=p>:</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Inconsistent data </span><span class=si>{</span><span class=n>data</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+            <span class=k>yield</span> <span class=n>num_to_str</span><span class=p>(</span><span class=n>data</span><span class=o>.</span><span class=n>minimum</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=CsvWriter.get_header_comments>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.CsvWriter.get_header_comments>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>get_header_comments</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get any possible header comments.</span>
+
+<span class=sd>        :returns: the iterable of header comments</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=p>[</span><span class=sa>f</span><span class=s2>"Statistics about </span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>__long_name</span><span class=si>}</span><span class=s2>."</span><span class=p>]</span>\
+            <span class=k>if</span> <span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>scope</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>__long_name</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span>\
+            <span class=k>else</span> <span class=p>()</span></div>
+
+
+<div class=viewcode-block id=CsvWriter.get_footer_comments>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.CsvWriter.get_footer_comments>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>get_footer_comments</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get any possible footer comments.</span>
+
+<span class=sd>        :returns: the footer comments</span>
+<span class=sd>        """</span>
+        <span class=n>long_name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__long_name</span>
+        <span class=n>long_name</span> <span class=o>=</span> <span class=s2>""</span> <span class=k>if</span> <span class=n>long_name</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=sa>f</span><span class=s2>" </span><span class=si>{</span><span class=n>long_name</span><span class=si>}</span><span class=s2>"</span>
+        <span class=n>short_name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__short_name</span>
+        <span class=n>short_name</span> <span class=o>=</span> <span class=s2>""</span> <span class=k>if</span> <span class=n>short_name</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=sa>f</span><span class=s2>" </span><span class=si>{</span><span class=n>short_name</span><span class=si>}</span><span class=s2>"</span>
+        <span class=n>name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>long_name</span>
+        <span class=n>first</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span>
+
+        <span class=n>scope</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>scope</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>scope</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span>
+                <span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>__key_n</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span>
+                <span class=bp>self</span><span class=o>.</span><span class=n>__key_all</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)):</span>
+            <span class=k>if</span> <span class=n>first</span><span class=p>:</span>
+                <span class=k>yield</span> <span class=s2>""</span>
+                <span class=n>first</span> <span class=o>=</span> <span class=kc>False</span>
+            <span class=k>yield</span> <span class=p>(</span><span class=sa>f</span><span class=s2>"All</span><span class=si>{</span><span class=n>name</span><span class=si>}</span><span class=s2> sample statistics start with "</span>
+                   <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=p>(</span><span class=n>scope</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>SCOPE_SEPARATOR</span><span class=p>)</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+            <span class=n>name</span> <span class=o>=</span> <span class=n>short_name</span>
+
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_n</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>first</span><span class=p>:</span>
+                <span class=k>yield</span> <span class=s2>""</span>
+                <span class=n>first</span> <span class=o>=</span> <span class=kc>False</span>
+            <span class=k>yield</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>__key_n</span><span class=si>}</span><span class=s2>: the number of</span><span class=si>{</span><span class=n>name</span><span class=si>}</span><span class=s2> samples"</span>
+            <span class=n>name</span> <span class=o>=</span> <span class=n>short_name</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_all</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>first</span><span class=p>:</span>
+                <span class=k>yield</span> <span class=s2>""</span>
+            <span class=n>n_name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_n</span>
+            <span class=k>if</span> <span class=n>n_name</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=n>n_name</span> <span class=o>=</span> <span class=n>KEY_N</span>
+            <span class=k>yield</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>__key_min</span><span class=si>}</span><span class=s2>: the smallest encountered</span><span class=si>{</span><span class=n>name</span><span class=si>}</span><span class=s2> value"</span>
+            <span class=n>name</span> <span class=o>=</span> <span class=n>short_name</span>
+            <span class=k>yield</span> <span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>__key_mean_arith</span><span class=si>}</span><span class=s2>: the arithmetic mean of all the"</span>
+                   <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>name</span><span class=si>}</span><span class=s2> values, i.e., the sum of the values divided by "</span>
+                   <span class=sa>f</span><span class=s2>"their number </span><span class=si>{</span><span class=n>n_name</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span>
+            <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_med</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=k>yield</span> <span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>__key_med</span><span class=si>}</span><span class=s2>: the median of all the</span><span class=si>{</span><span class=n>name</span><span class=si>}</span><span class=s2> "</span>
+                       <span class=s2>"values, which can be computed by sorting the values "</span>
+                       <span class=s2>"and then picking the value in the middle of the "</span>
+                       <span class=sa>f</span><span class=s2>"sorted list (in case of an odd number </span><span class=si>{</span><span class=n>n_name</span><span class=si>}</span><span class=s2> of "</span>
+                       <span class=s2>"values) or the arithmetic mean (half the sum) of the "</span>
+                       <span class=s2>"two values in the middle (in case of an even number "</span>
+                       <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>n_name</span><span class=si>}</span><span class=s2>)"</span><span class=p>)</span>
+            <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__key_mean_geom</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=k>yield</span> <span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>__key_mean_geom</span><span class=si>}</span><span class=s2>: the geometric mean of all the"</span>
+                       <span class=sa>f</span><span class=s2>" </span><span class=si>{</span><span class=n>name</span><span class=si>}</span><span class=s2> values, i.e., the </span><span class=si>{</span><span class=n>n_name</span><span class=si>}</span><span class=s2>-th root of the "</span>
+                       <span class=sa>f</span><span class=s2>"product of all values, which is only defined if all "</span>
+                       <span class=sa>f</span><span class=s2>"values are > 0"</span><span class=p>)</span>
+            <span class=k>yield</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>__key_max</span><span class=si>}</span><span class=s2>: the largest encountered</span><span class=si>{</span><span class=n>name</span><span class=si>}</span><span class=s2> value"</span>
+            <span class=k>yield</span> <span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>__key_sd</span><span class=si>}</span><span class=s2>: the standard deviation of the</span><span class=si>{</span><span class=n>name</span><span class=si>}</span><span class=s2> "</span>
+                   <span class=s2>"values, which is a measure of spread: the larger it "</span>
+                   <span class=s2>"is, the farther are the values distributed away from "</span>
+                   <span class=sa>f</span><span class=s2>"the arithmetic mean </span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>__key_mean_arith</span><span class=si>}</span><span class=s2>. It can be "</span>
+                   <span class=s2>"computed as the ((sum of squares) - (square of the sum)"</span>
+                   <span class=sa>f</span><span class=s2>" / </span><span class=si>{</span><span class=n>n_name</span><span class=si>}</span><span class=s2>) / (</span><span class=si>{</span><span class=n>n_name</span><span class=si>}</span><span class=s2> - 1) of all</span><span class=si>{</span><span class=n>name</span><span class=si>}</span><span class=s2> values."</span><span class=p>)</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>first</span><span class=p>:</span>
+                <span class=k>yield</span> <span class=s2>""</span>
+            <span class=k>yield</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>__key_all</span><span class=si>}</span><span class=s2>: all</span><span class=si>{</span><span class=n>name</span><span class=si>}</span><span class=s2> samples have this value"</span></div>
+
+
+<div class=viewcode-block id=CsvWriter.get_footer_bottom_comments>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.stream_statistics.CsvWriter.get_footer_bottom_comments>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>get_footer_bottom_comments</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the bottom footer comments.</span>
+
+<span class=sd>        :returns: an iterator with the bottom comments</span>
+
+<span class=sd>        >>> for p in CsvWriter([StreamStatistics(</span>
+<span class=sd>        ...     1, 1, 1, 1, None)]).get_footer_bottom_comments():</span>
+<span class=sd>        ...         print(p[:30])</span>
+<span class=sd>        This CSV output has been creat</span>
+<span class=sd>        Statistics were computed using</span>
+<span class=sd>        You can find pycommons at http</span>
+<span class=sd>        """</span>
+        <span class=k>yield from</span> <span class=n>pycommons_footer_bottom_comments</span><span class=p>(</span>
+            <span class=bp>self</span><span class=p>,</span> <span class=p>(</span><span class=s2>"Statistics were computed using pycommons."</span>
+                   <span class=sa>f</span><span class=s2>"math in mode </span><span class=si>{</span><span class=n>type_name</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>__cls</span><span class=p>)</span><span class=si>}</span><span class=s2>."</span><span class=p>))</span></div>
+</div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.math.stream_statistics</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

@@ -1,0 +1,270 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.math.streams — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/math/streams.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.math.streams</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.math.streams</h1><div class=highlight><pre>
+<span></span><span class=sd>"""</span>
+<span class=sd>Tools for numerical data aggregation over streams.</span>
+
+<span class=sd>This module provides tools that can be used to aggregate data over streams of</span>
+<span class=sd>numerical data.</span>
+<span class=sd>Such tools should extend the class</span>
+<span class=sd>:class:`~pycommons.math.streams.StreamAggregate`, which provides the tools to</span>
+<span class=sd>:meth:`~pycommons.math.streams.StreamAggregate.add` data to the aggregation</span>
+<span class=sd>procedure as well as to include whole sequence of data (via</span>
+<span class=sd>:meth:`~pycommons.math.streams.StreamAggregate.update`) or to</span>
+<span class=sd>:meth:`~pycommons.math.streams.StreamAggregate.reset` the computation.</span>
+<span class=sd>It is recommended that subclasses should implement a method `result`</span>
+<span class=sd>returning the current result.</span>
+
+<span class=sd>The class :class:`~pycommons.math.streams.StreamSum` is such a subclass of</span>
+<span class=sd>:class:`~pycommons.math.streams.StreamAggregate`. It provides a running sum of</span>
+<span class=sd>values over a stream of data, using a Kahan summation algorithm of the second</span>
+<span class=sd>order. Its method</span>
+<span class=sd>:meth:`~pycommons.math.streams.StreamSum.result` returns the current running</span>
+<span class=sd>sum value.</span>
+<span class=sd>"""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>math</span><span class=w> </span><span class=kn>import</span> <span class=n>isfinite</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Iterable</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.math.int_math</span><span class=w> </span><span class=kn>import</span> <span class=n>__DBL_INT_LIMIT_N_F</span> <span class=k>as</span> <span class=n>_DILNF</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.math.int_math</span><span class=w> </span><span class=kn>import</span> <span class=n>__DBL_INT_LIMIT_P_F</span> <span class=k>as</span> <span class=n>_DILPF</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.math.int_math</span><span class=w> </span><span class=kn>import</span> <span class=n>try_int_add</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>type_error</span>
+
+
+<div class=viewcode-block id=StreamAggregate>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.streams.StreamAggregate>[docs]</a>
+<span class=k>class</span><span class=w> </span><span class=nc>StreamAggregate</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    The base class for stream aggregates.</span>
+
+<span class=sd>    This class provides a basic API for stream data aggregation.</span>
+<span class=sd>    It is implemented by :class:`StreamSum`.</span>
+<span class=sd>    """</span>
+
+<div class=viewcode-block id=StreamAggregate.reset>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.streams.StreamAggregate.reset>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>reset</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Reset this stream aggregate.</span>
+
+<span class=sd>        :raises NotImplementedError: because it is an abstract method</span>
+
+<span class=sd>        >>> ag = StreamAggregate()</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     ag.reset()</span>
+<span class=sd>        ... except NotImplementedError:</span>
+<span class=sd>        ...     print("not implemented")</span>
+<span class=sd>        not implemented</span>
+<span class=sd>        """</span>
+        <span class=k>raise</span> <span class=ne>NotImplementedError</span></div>
+
+
+<div class=viewcode-block id=StreamAggregate.add>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.streams.StreamAggregate.add>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>add</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>value</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Add a value to the aggregate.</span>
+
+<span class=sd>        :param value: the value to aggregate</span>
+
+<span class=sd>        :raises NotImplementedError: because it is an abstract method</span>
+
+<span class=sd>        >>> ag = StreamAggregate()</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     ag.add(1)</span>
+<span class=sd>        ... except NotImplementedError:</span>
+<span class=sd>        ...     print("not implemented")</span>
+<span class=sd>        not implemented</span>
+<span class=sd>        """</span>
+        <span class=k>raise</span> <span class=ne>NotImplementedError</span></div>
+
+
+<div class=viewcode-block id=StreamAggregate.update>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.streams.StreamAggregate.update>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>update</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>data</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>])</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Perform a stream update.</span>
+
+<span class=sd>        This function adds all the data to the stream while skipping `None`</span>
+<span class=sd>        values.</span>
+
+<span class=sd>        :param data: the data, i.e., a stream of values. `None` values are</span>
+<span class=sd>            skipped</span>
+
+<span class=sd>        >>> ag = StreamAggregate()</span>
+<span class=sd>        >>> ag.add = lambda d: print(str(d))</span>
+<span class=sd>        >>> ag.update((1, 2, 3))</span>
+<span class=sd>        1</span>
+<span class=sd>        2</span>
+<span class=sd>        3</span>
+<span class=sd>        >>> ag.update((1, None, 3))</span>
+<span class=sd>        1</span>
+<span class=sd>        3</span>
+<span class=sd>        """</span>
+        <span class=n>ad</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>[[</span><span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>],</span> <span class=kc>None</span><span class=p>]]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>add</span>  <span class=c1># fast calls!</span>
+        <span class=k>for</span> <span class=n>v</span> <span class=ow>in</span> <span class=n>data</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>v</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=n>ad</span><span class=p>(</span><span class=n>v</span><span class=p>)</span></div>
+</div>
+
+
+
+<div class=viewcode-block id=StreamSum>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.streams.StreamSum>[docs]</a>
+<span class=k>class</span><span class=w> </span><span class=nc>StreamSum</span><span class=p>(</span><span class=n>StreamAggregate</span><span class=p>):</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    The second-order Kahan-Babuška-Neumaier-Summation by Klein.</span>
+
+<span class=sd>    [1] A. Klein. A Generalized Kahan-Babuška-Summation-Algorithm.</span>
+<span class=sd>        Computing 76:279-293. 2006. doi:10.1007/s00607-005-0139-x</span>
+
+<span class=sd>    >>> stream_sum = StreamSum()</span>
+<span class=sd>    >>> stream_sum.update([1e18, 1, 1e36, -1e36, -1e18])</span>
+<span class=sd>    >>> stream_sum.result()</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> stream_sum.reset()</span>
+<span class=sd>    >>> stream_sum.update([1e18, 1, 1e36, -1e36, -1e18])</span>
+<span class=sd>    >>> stream_sum.result()</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> stream_sum.reset()</span>
+<span class=sd>    >>> stream_sum.update([1e18, 1, 1e36, None, -1e36, -1e18])</span>
+<span class=sd>    >>> stream_sum.result()</span>
+<span class=sd>    1</span>
+<span class=sd>    """</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""Create the summation object."""</span>
+        <span class=c1>#: the running integer sum</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__i_sum</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=c1>#: the running sum, an internal variable invisible from outside</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__sum</span><span class=p>:</span> <span class=nb>float</span> <span class=o>|</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=c1>#: the first correction term, another internal variable</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__cs</span><span class=p>:</span> <span class=nb>float</span> <span class=o>|</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=c1>#: the second correction term, another internal variable</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__ccs</span><span class=p>:</span> <span class=nb>float</span> <span class=o>|</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=c1>#: did we record a value?</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__has_value</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>False</span>
+
+<div class=viewcode-block id=StreamSum.reset>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.streams.StreamSum.reset>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>reset</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""Reset this sum."""</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__sum</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__cs</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__ccs</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__i_sum</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__has_value</span> <span class=o>=</span> <span class=kc>False</span></div>
+
+
+<div class=viewcode-block id=StreamSum.add>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.streams.StreamSum.add>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>add</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>value</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Add a value to the sum.</span>
+
+<span class=sd>        :param value: the value to add</span>
+
+<span class=sd>        >>> ss = StreamSum()</span>
+<span class=sd>        >>> print(ss.result())</span>
+<span class=sd>        None</span>
+<span class=sd>        >>> ss.add(1)</span>
+<span class=sd>        >>> ss.result()</span>
+<span class=sd>        1</span>
+<span class=sd>        >>> ss.add(2.0)</span>
+<span class=sd>        >>> ss.result()</span>
+<span class=sd>        3</span>
+<span class=sd>        >>> ss.add(1e43)</span>
+<span class=sd>        >>> ss.result()</span>
+<span class=sd>        1e+43</span>
+<span class=sd>        >>> ss.add(-1e43)</span>
+<span class=sd>        >>> ss.result()</span>
+<span class=sd>        3</span>
+<span class=sd>        >>> ss.reset()</span>
+<span class=sd>        >>> print(ss.result())</span>
+<span class=sd>        None</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     ss.add("x")</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        value should be an instance of any in {float, int} but is str, \</span>
+<span class=sd>namely 'x'.</span>
+
+<span class=sd>        >>> from math import inf</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     ss.add(inf)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(ve)</span>
+<span class=sd>        Value must be finite, but is inf.</span>
+<span class=sd>        """</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__has_value</span> <span class=o>=</span> <span class=kc>True</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>int</span><span class=p>):</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>__i_sum</span> <span class=o>+=</span> <span class=n>value</span>
+            <span class=k>return</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>float</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=s2>"value"</span><span class=p>,</span> <span class=p>(</span><span class=nb>float</span><span class=p>,</span> <span class=nb>int</span><span class=p>))</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=n>isfinite</span><span class=p>(</span><span class=n>value</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Value must be finite, but is </span><span class=si>{</span><span class=n>value</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>_DILNF</span> <span class=o><=</span> <span class=n>value</span> <span class=o><=</span> <span class=n>_DILPF</span><span class=p>:</span>
+            <span class=n>iv</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=nb>int</span><span class=p>(</span><span class=n>value</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>value</span> <span class=o>==</span> <span class=n>iv</span><span class=p>:</span>
+                <span class=bp>self</span><span class=o>.</span><span class=n>__i_sum</span> <span class=o>+=</span> <span class=n>iv</span>
+                <span class=k>return</span>
+        <span class=n>s</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__sum</span>  <span class=c1># Get the current running sum.</span>
+        <span class=n>t</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>=</span> <span class=n>s</span> <span class=o>+</span> <span class=n>value</span>   <span class=c1># Compute the new sum value.</span>
+        <span class=n>c</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>=</span> <span class=p>(((</span><span class=n>s</span> <span class=o>-</span> <span class=n>t</span><span class=p>)</span> <span class=o>+</span> <span class=n>value</span><span class=p>)</span> <span class=k>if</span> <span class=nb>abs</span><span class=p>(</span><span class=n>s</span><span class=p>)</span> <span class=o>>=</span> <span class=nb>abs</span><span class=p>(</span><span class=n>value</span><span class=p>)</span>
+                          <span class=k>else</span> <span class=p>((</span><span class=n>value</span> <span class=o>-</span> <span class=n>t</span><span class=p>)</span> <span class=o>+</span> <span class=n>s</span><span class=p>))</span>  <span class=c1># The Neumaier tweak.</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__sum</span> <span class=o>=</span> <span class=n>t</span>  <span class=c1># Store the new sum value.</span>
+        <span class=n>cs</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__cs</span>  <span class=c1># the current 1st-order correction</span>
+        <span class=n>t</span> <span class=o>=</span> <span class=n>cs</span> <span class=o>+</span> <span class=n>c</span>  <span class=c1># Compute the new first-order correction term.</span>
+        <span class=n>cc</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>=</span> <span class=p>(((</span><span class=n>cs</span> <span class=o>-</span> <span class=n>t</span><span class=p>)</span> <span class=o>+</span> <span class=n>c</span><span class=p>)</span> <span class=k>if</span> <span class=nb>abs</span><span class=p>(</span><span class=n>cs</span><span class=p>)</span> <span class=o>>=</span> <span class=nb>abs</span><span class=p>(</span><span class=n>c</span><span class=p>)</span>
+                           <span class=k>else</span> <span class=p>((</span><span class=n>c</span> <span class=o>-</span> <span class=n>t</span><span class=p>)</span> <span class=o>+</span> <span class=n>cs</span><span class=p>))</span>  <span class=c1># 2nd Neumaier tweak.</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__cs</span> <span class=o>=</span> <span class=n>t</span>  <span class=c1># Store the updated first-order correction term.</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__ccs</span> <span class=o>+=</span> <span class=n>cc</span>  <span class=c1># Update the second-order correction.</span></div>
+
+
+<div class=viewcode-block id=StreamSum.add_sum>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.streams.StreamSum.add_sum>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>add_sum</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>ss</span><span class=p>:</span> <span class=s2>"StreamSum"</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Add another stream sum to this one.</span>
+
+<span class=sd>        :param ss: the other stream sum</span>
+
+<span class=sd>        >>> ss1 = StreamSum()</span>
+<span class=sd>        >>> ss1.update((1, 1e20))</span>
+<span class=sd>        >>> ss2 = StreamSum()</span>
+<span class=sd>        >>> ss2.update((5, -1e20))</span>
+<span class=sd>        >>> ss1.add_sum(ss2)</span>
+<span class=sd>        >>> ss1.result()</span>
+<span class=sd>        6</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     ss1.add_sum("x")</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(str(te)[:31])</span>
+<span class=sd>        other sum should be an instance</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>ss</span><span class=p>,</span> <span class=n>StreamSum</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>ss</span><span class=p>,</span> <span class=s2>"other sum"</span><span class=p>,</span> <span class=n>StreamSum</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>ss</span><span class=o>.</span><span class=n>__has_value</span><span class=p>:</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>add</span><span class=p>(</span><span class=n>ss</span><span class=o>.</span><span class=n>__i_sum</span><span class=p>)</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>add</span><span class=p>(</span><span class=n>ss</span><span class=o>.</span><span class=n>__sum</span><span class=p>)</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>add</span><span class=p>(</span><span class=n>ss</span><span class=o>.</span><span class=n>__cs</span><span class=p>)</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>add</span><span class=p>(</span><span class=n>ss</span><span class=o>.</span><span class=n>__ccs</span><span class=p>)</span></div>
+
+
+<div class=viewcode-block id=StreamSum.result>
+<a class=viewcode-back href=../../../pycommons.math.html#pycommons.math.streams.StreamSum.result>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>result</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>int</span> <span class=o>|</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the current result of the summation.</span>
+
+<span class=sd>        :return: the current result of the summation, or `None` if no value</span>
+<span class=sd>            was added yet</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=n>try_int_add</span><span class=p>(</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>__i_sum</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>__sum</span> <span class=o>+</span> <span class=bp>self</span><span class=o>.</span><span class=n>__cs</span> <span class=o>+</span> <span class=bp>self</span><span class=o>.</span><span class=n>__ccs</span><span class=p>)</span> \
+            <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>__has_value</span> <span class=k>else</span> <span class=kc>None</span></div>
+</div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.math.streams</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

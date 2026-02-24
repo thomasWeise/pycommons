@@ -1,0 +1,319 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.io.temp — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/io/temp.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.io.temp</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.io.temp</h1><div class=highlight><pre>
+<span></span><span class=sd>"""</span>
+<span class=sd>Automatically deleted temporary files and directories.</span>
+
+<span class=sd>This module provides two classes, :func:`temp_dir` for temporary directories</span>
+<span class=sd>and :func:`temp_file` for temporary files. Both of them implement the</span>
+<span class=sd>:class:`typing.ContextManager` protocol and will be deleted when going out</span>
+<span class=sd>of scope.</span>
+<span class=sd>"""</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os</span><span class=w> </span><span class=kn>import</span> <span class=n>close</span> <span class=k>as</span> <span class=n>osclose</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>tempfile</span><span class=w> </span><span class=kn>import</span> <span class=n>mkdtemp</span><span class=p>,</span> <span class=n>mkstemp</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Self</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.path</span><span class=w> </span><span class=kn>import</span> <span class=n>Path</span><span class=p>,</span> <span class=n>delete_path</span><span class=p>,</span> <span class=n>directory_path</span>
+
+
+<div class=viewcode-block id=TempPath>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.temp.TempPath>[docs]</a>
+<span class=k>class</span><span class=w> </span><span class=nc>TempPath</span><span class=p>(</span><span class=n>Path</span><span class=p>):</span>
+<span class=w>    </span><span class=sd>"""A path to a temp file or directory for use in a `with` statement."""</span>
+
+    <span class=c1>#: is the directory or file open?</span>
+    <span class=n>__is_open</span><span class=p>:</span> <span class=nb>bool</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__new__</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>value</span><span class=p>:</span> <span class=nb>str</span><span class=p>):</span>  <span class=c1># noqa</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Construct the temporary path.</span>
+
+<span class=sd>        :param value: the string value of the path</span>
+<span class=sd>        """</span>
+        <span class=n>ret</span> <span class=o>=</span> <span class=nb>super</span><span class=p>()</span><span class=o>.</span><span class=fm>__new__</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>value</span><span class=p>)</span>
+        <span class=n>ret</span><span class=o>.</span><span class=n>__is_open</span> <span class=o>=</span> <span class=kc>True</span>  <span class=c1># noqa:SLF001</span>
+        <span class=k>return</span> <span class=n>ret</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__enter__</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=n>Self</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Nothing, just exists for `with`.</span>
+
+<span class=sd>        >>> te = temp_dir()</span>
+<span class=sd>        >>> with te:</span>
+<span class=sd>        ...     pass</span>
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     with te:  # does not work, already closed</span>
+<span class=sd>        ...         pass</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print(str(ve)[:14])</span>
+<span class=sd>        Temporary path</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=bp>self</span><span class=o>.</span><span class=n>__is_open</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Temporary path </span><span class=si>{</span><span class=bp>self</span><span class=si>!r}</span><span class=s2> already closed."</span><span class=p>)</span>
+        <span class=k>return</span> <span class=bp>self</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__exit__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>exception_type</span><span class=p>,</span> <span class=n>_</span><span class=p>,</span> <span class=n>__</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Delete the temporary directory and everything in it.</span>
+
+<span class=sd>        :param exception_type: ignored</span>
+<span class=sd>        :returns: `True` to suppress an exception, `False` to rethrow it</span>
+
+<span class=sd>        >>> with temp_dir() as td:</span>
+<span class=sd>        ...     f = td.resolve_inside("a")</span>
+<span class=sd>        ...     f.ensure_file_exists()  # False, file did not yet exist</span>
+<span class=sd>        ...     f.enforce_file()</span>
+<span class=sd>        ...     f.is_file()  # True, because it does now</span>
+<span class=sd>        ...     d = td.resolve_inside("b")</span>
+<span class=sd>        ...     d.is_dir()   # False, does not exist</span>
+<span class=sd>        ...     d.ensure_dir_exists()</span>
+<span class=sd>        ...     d.is_dir()  # True, now it does</span>
+<span class=sd>        False</span>
+<span class=sd>        True</span>
+<span class=sd>        False</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> f.is_file()  # False, because it no longer does</span>
+<span class=sd>        False</span>
+<span class=sd>        >>> d.is_dir()  # False, because it no longer exists</span>
+<span class=sd>        False</span>
+<span class=sd>        """</span>
+        <span class=n>opn</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>bool</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__is_open</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__is_open</span> <span class=o>=</span> <span class=kc>False</span>
+        <span class=k>if</span> <span class=n>opn</span><span class=p>:</span>
+            <span class=n>delete_path</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>exception_type</span> <span class=ow>is</span> <span class=kc>None</span></div>
+
+
+
+<div class=viewcode-block id=temp_dir>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.temp.temp_dir>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>temp_dir</span><span class=p>(</span><span class=n>directory</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=n>TempPath</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Create the temporary directory.</span>
+
+<span class=sd>    :param directory: an optional root directory</span>
+<span class=sd>    :raises TypeError: if `directory` is not `None` but also no `str`</span>
+
+<span class=sd>    >>> with temp_dir() as td:</span>
+<span class=sd>    ...     pass</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     with temp_dir(1):</span>
+<span class=sd>    ...         pass</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+<span class=sd>    >>> from os.path import dirname</span>
+<span class=sd>    >>> with temp_dir(dirname(__file__)) as td:</span>
+<span class=sd>    ...     pass</span>
+<span class=sd>    """</span>
+    <span class=k>return</span> <span class=n>TempPath</span><span class=p>(</span><span class=n>mkdtemp</span><span class=p>(</span>
+        <span class=nb>dir</span><span class=o>=</span><span class=kc>None</span> <span class=k>if</span> <span class=n>directory</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>directory_path</span><span class=p>(</span><span class=n>directory</span><span class=p>)))</span></div>
+
+
+
+<div class=viewcode-block id=temp_file>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.temp.temp_file>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>temp_file</span><span class=p>(</span><span class=n>directory</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+              <span class=n>prefix</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+              <span class=n>suffix</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=n>TempPath</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Create a temporary file that will be deleted when going out of scope.</span>
+
+<span class=sd>    :param directory: a root directory or `TempDir` instance</span>
+<span class=sd>    :param prefix: an optional prefix</span>
+<span class=sd>    :param suffix: an optional suffix, e.g., `.txt`</span>
+<span class=sd>    :raises TypeError: if any of the parameters does not fulfill the type</span>
+<span class=sd>        contract</span>
+<span class=sd>    :raises ValueError: if the `prefix` or `suffix` are specified, but are</span>
+<span class=sd>        empty strings, or if `directory` does not identify an existing</span>
+<span class=sd>        directory although not being `None`</span>
+
+<span class=sd>    >>> with temp_file() as tf:</span>
+<span class=sd>    ...     tf.is_file()</span>
+<span class=sd>    ...     p = Path(tf)</span>
+<span class=sd>    ...     p.is_file()</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> p.is_file()</span>
+<span class=sd>    False</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     temp_file(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     temp_file("")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Path must not be empty.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     temp_file(None, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     temp_file(None, None, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     temp_file(None, "")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Stripped prefix cannot be empty if specified.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     temp_file(None, None, "")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Stripped suffix cannot be empty if specified.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     temp_file(None, None, "bla.")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Stripped suffix must not end with '.', but 'bla.' does.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     temp_file(None, None, "bl/a")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Suffix must contain neither '/' nor '\', but 'bl/a' does.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     temp_file(None, None, "b\\la")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Suffix must contain neither '/' nor '\', but 'b\\la' does.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     temp_file(None, "bl/a", None)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Prefix must contain neither '/' nor '\', but 'bl/a' does.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     temp_file(None, "b\\la", None)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Prefix must contain neither '/' nor '\', but 'b\\la' does.</span>
+
+<span class=sd>    >>> from os.path import dirname</span>
+<span class=sd>    >>> from pycommons.io.path import file_path</span>
+<span class=sd>    >>> bd = directory_path(dirname(__file__))</span>
+<span class=sd>    >>> with temp_file(bd) as tf:</span>
+<span class=sd>    ...     bd.enforce_contains(tf)</span>
+<span class=sd>    ...     bd in tf</span>
+<span class=sd>    ...     p = file_path(str(f"{tf}"))</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> p.is_file()</span>
+<span class=sd>    False</span>
+
+<span class=sd>    >>> from os.path import basename</span>
+<span class=sd>    >>> with temp_file(None, "pre") as tf:</span>
+<span class=sd>    ...     "pre" in tf</span>
+<span class=sd>    ...     bd.contains(tf)</span>
+<span class=sd>    ...     basename(tf).startswith("pre")</span>
+<span class=sd>    ...     p = file_path(str(f"{tf}"))</span>
+<span class=sd>    True</span>
+<span class=sd>    False</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> p.is_file()</span>
+<span class=sd>    False</span>
+
+<span class=sd>    >>> with temp_file(bd, "pre") as tf:</span>
+<span class=sd>    ...     "pre" in tf</span>
+<span class=sd>    ...     bd.contains(tf)</span>
+<span class=sd>    ...     basename(tf).startswith("pre")</span>
+<span class=sd>    ...     p = file_path(str(f"{tf}"))</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> p.is_file()</span>
+<span class=sd>    False</span>
+
+<span class=sd>    >>> with temp_file(bd, None, "suf") as tf:</span>
+<span class=sd>    ...     "suf" in tf</span>
+<span class=sd>    ...     bd.contains(tf)</span>
+<span class=sd>    ...     tf.endswith("suf")</span>
+<span class=sd>    ...     p = file_path(str(f"{tf}"))</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> p.is_file()</span>
+<span class=sd>    False</span>
+
+<span class=sd>    >>> with temp_file(None, None, "suf") as tf:</span>
+<span class=sd>    ...     "suf" in tf</span>
+<span class=sd>    ...     tf.endswith("suf")</span>
+<span class=sd>    ...     bd.contains(tf)</span>
+<span class=sd>    ...     p = file_path(str(f"{tf}"))</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    False</span>
+<span class=sd>    >>> p.is_file()</span>
+<span class=sd>    False</span>
+
+<span class=sd>    >>> with temp_file(None, "pref", "suf") as tf:</span>
+<span class=sd>    ...     tf.index("pref") < tf.index("suf")</span>
+<span class=sd>    ...     tf.endswith("suf")</span>
+<span class=sd>    ...     basename(tf).startswith("pref")</span>
+<span class=sd>    ...     bd.contains(tf)</span>
+<span class=sd>    ...     p = file_path(str(f"{tf}"))</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    False</span>
+<span class=sd>    >>> p.is_file()</span>
+<span class=sd>    False</span>
+
+<span class=sd>    >>> with temp_file(bd, "pref", "suf") as tf:</span>
+<span class=sd>    ...     tf.index("pref") < tf.index("suf")</span>
+<span class=sd>    ...     tf.endswith("suf")</span>
+<span class=sd>    ...     basename(tf).startswith("pref")</span>
+<span class=sd>    ...     bd.contains(tf)</span>
+<span class=sd>    ...     p = file_path(str(f"{tf}"))</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> p.is_file()</span>
+<span class=sd>    False</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=n>prefix</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>prefix</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>prefix</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>prefix</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=s2>"Stripped prefix cannot be empty if specified."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=p>(</span><span class=s2>"/"</span> <span class=ow>in</span> <span class=n>prefix</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=s2>"</span><span class=se>\\</span><span class=s2>"</span> <span class=ow>in</span> <span class=n>prefix</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Prefix must contain neither '/' nor"</span>
+                             <span class=sa>f</span><span class=s2>" '</span><span class=se>\\</span><span class=s2>', but </span><span class=si>{</span><span class=n>prefix</span><span class=si>!r}</span><span class=s2> does."</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=n>suffix</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>suffix</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>suffix</span><span class=p>)</span>
+        <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>suffix</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=s2>"Stripped suffix cannot be empty if specified."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>suffix</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=s2>"."</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Stripped suffix must not end "</span>
+                             <span class=sa>f</span><span class=s2>"with '.', but </span><span class=si>{</span><span class=n>suffix</span><span class=si>!r}</span><span class=s2> does."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=p>(</span><span class=s2>"/"</span> <span class=ow>in</span> <span class=n>suffix</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=s2>"</span><span class=se>\\</span><span class=s2>"</span> <span class=ow>in</span> <span class=n>suffix</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Suffix must contain neither '/' nor"</span>
+                             <span class=sa>f</span><span class=s2>" '</span><span class=se>\\</span><span class=s2>', but </span><span class=si>{</span><span class=n>suffix</span><span class=si>!r}</span><span class=s2> does."</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=n>directory</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>base_dir</span> <span class=o>=</span> <span class=n>directory_path</span><span class=p>(</span><span class=n>directory</span><span class=p>)</span>
+        <span class=n>base_dir</span><span class=o>.</span><span class=n>enforce_dir</span><span class=p>()</span>
+    <span class=k>else</span><span class=p>:</span>
+        <span class=n>base_dir</span> <span class=o>=</span> <span class=kc>None</span>
+
+    <span class=p>(</span><span class=n>handle</span><span class=p>,</span> <span class=n>path</span><span class=p>)</span> <span class=o>=</span> <span class=n>mkstemp</span><span class=p>(</span>
+        <span class=n>suffix</span><span class=o>=</span><span class=n>suffix</span><span class=p>,</span> <span class=n>prefix</span><span class=o>=</span><span class=n>prefix</span><span class=p>,</span>
+        <span class=nb>dir</span><span class=o>=</span><span class=kc>None</span> <span class=k>if</span> <span class=n>base_dir</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>directory_path</span><span class=p>(</span><span class=n>base_dir</span><span class=p>))</span>
+    <span class=n>osclose</span><span class=p>(</span><span class=n>handle</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>TempPath</span><span class=p>(</span><span class=n>path</span><span class=p>)</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.io.temp</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

@@ -1,0 +1,42 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01//EN"
+   "http://www.w3.org/TR/html4/strict.dtd"><title></title><meta content="text/html; charset=utf-8"http-equiv=content-type><style>pre{line-height:125%}td.linenos .normal,span.linenos{color:inherit;background-color:#0000;padding-left:5px;padding-right:5px}td.linenos .special,span.linenos.special{color:#000;background-color:#ffffc0;padding-left:5px;padding-right:5px}body .hll{background-color:#ffc}body{background:#f8f8f8}body .c{color:#3d7b7b;font-style:italic}body .err{border:1px solid red}body .k{color:green;font-weight:700}body .o{color:#666}body .ch,body .cm{color:#3d7b7b;font-style:italic}body .cp{color:#9c6500}body .cpf,body .c1,body .cs{color:#3d7b7b;font-style:italic}body .gd{color:#a00000}body .ge{font-style:italic}body .ges{font-style:italic;font-weight:700}body .gr{color:#e40000}body .gh{color:navy;font-weight:700}body .gi{color:#008400}body .go{color:#717171}body .gp{color:navy;font-weight:700}body .gs{font-weight:700}body .gu{color:purple;font-weight:700}body .gt{color:#04d}body .kc,body .kd,body .kn{color:green;font-weight:700}body .kp{color:green}body .kr{color:green;font-weight:700}body .kt{color:#b00040}body .m{color:#666}body .s{color:#ba2121}body .na{color:#687822}body .nb{color:green}body .nc{color:#00f;font-weight:700}body .no{color:#800}body .nd{color:#a2f}body .ni{color:#717171;font-weight:700}body .ne{color:#cb3f38;font-weight:700}body .nf{color:#00f}body .nl{color:#767600}body .nn{color:#00f;font-weight:700}body .nt{color:green;font-weight:700}body .nv{color:#19177c}body .ow{color:#a2f;font-weight:700}body .w{color:#bbb}body .mb,body .mf,body .mh,body .mi,body .mo{color:#666}body .sa,body .sb,body .sc,body .dl{color:#ba2121}body .sd{color:#ba2121;font-style:italic}body .s2{color:#ba2121}body .se{color:#aa5d1f;font-weight:700}body .sh{color:#ba2121}body .si{color:#a45a77;font-weight:700}body .sx{color:green}body .sr{color:#a45a77}body .s1{color:#ba2121}body .ss{color:#19177c}body .bp{color:green}body .fm{color:#00f}body .vc,body .vg,body .vi,body .vm{color:#19177c}body .il{color:#666}</style><body><h2></h2><div class=highlight><pre><span></span><span class=sd>"""An example of CSV readers."""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.csv</span><span class=w> </span><span class=kn>import</span> <span class=n>CsvReader</span>
+
+
+<span class=k>class</span><span class=w> </span><span class=nc>Reader</span><span class=p>(</span><span class=n>CsvReader</span><span class=p>):</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    A little parser that creates dictionaries of rows.</span>
+
+<span class=sd>    You can, of course, return arbitrary datastructures in</span>
+<span class=sd>    method `parse_row`.</span>
+<span class=sd>    """</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>columns</span><span class=p>:</span> <span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>int</span><span class=p>])</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Create the csv reader.</span>
+
+<span class=sd>        :param columns: the column name + column index pairs</span>
+<span class=sd>        """</span>
+        <span class=nb>super</span><span class=p>()</span><span class=o>.</span><span class=fm>__init__</span><span class=p>(</span><span class=n>columns</span><span class=p>)</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>cols</span> <span class=o>=</span> <span class=n>columns</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>parse_row</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>data</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>])</span> <span class=o>-></span> <span class=nb>dict</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Parse one row of data.</span>
+
+<span class=sd>        :param row: the list of column values for the current row</span>
+<span class=sd>        :returns: the data structured generated to represent the row;</span>
+<span class=sd>            here: a simple dictionary</span>
+<span class=sd>        """</span>
+        <span class=k>return</span> <span class=p>{</span><span class=n>x</span><span class=p>:</span> <span class=n>data</span><span class=p>[</span><span class=n>y</span><span class=p>]</span> <span class=k>for</span> <span class=n>x</span><span class=p>,</span> <span class=n>y</span> <span class=ow>in</span> <span class=bp>self</span><span class=o>.</span><span class=n>cols</span><span class=o>.</span><span class=n>items</span><span class=p>()}</span>
+
+
+<span class=c1># Let's test this with some data.</span>
+<span class=n>text</span> <span class=o>=</span> <span class=p>[</span><span class=s2>"a;b;c;d"</span><span class=p>,</span> <span class=s2>"# test comment"</span><span class=p>,</span> <span class=s2>" 1; 2;3;4"</span><span class=p>,</span> <span class=s2>" 5 ;6 "</span><span class=p>,</span> <span class=s2>";8;;9"</span><span class=p>,</span>
+        <span class=s2>""</span><span class=p>,</span> <span class=s2>"10"</span><span class=p>,</span> <span class=s2>"# 11;12"</span><span class=p>]</span>
+
+<span class=c1># Iterate over the data produced from CSV.</span>
+<span class=k>for</span> <span class=n>p</span> <span class=ow>in</span> <span class=n>Reader</span><span class=o>.</span><span class=n>read</span><span class=p>(</span><span class=n>text</span><span class=p>):</span>
+    <span class=nb>print</span><span class=p>(</span><span class=n>p</span><span class=p>)</span>
+</pre></div>

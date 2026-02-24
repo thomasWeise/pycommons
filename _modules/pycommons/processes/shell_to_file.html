@@ -1,0 +1,211 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.processes.shell_to_file — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/processes/shell_to_file.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.processes.shell_to_file</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.processes.shell_to_file</h1><div class=highlight><pre>
+<span></span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>A tool for invoking shell commands and piping their output to files.</span>
+
+<span class=sd>To do this more or less safely and reliably, we create a script that</span>
+<span class=sd>invokes the original command. The script is created as temporary file</span>
+<span class=sd>and will be deleted after the command completes.</span>
+
+<span class=sd>>>> from pycommons.io.temp import temp_dir</span>
+<span class=sd>>>> cmd = Command(("echo", "123"))</span>
+
+<span class=sd>>>> with temp_dir() as td:</span>
+<span class=sd>...     so = td.resolve_inside("so.txt")</span>
+<span class=sd>...     se = td.resolve_inside("se.txt")</span>
+<span class=sd>...     to_files(cmd, so, se).execute()</span>
+<span class=sd>...     print(f"so: {so.read_all_str()}")</span>
+<span class=sd>(None, None)</span>
+<span class=sd>so: 123</span>
+<span class=sd>&LTBLANKLINE></span>
+
+<span class=sd>>>> with temp_dir() as td:</span>
+<span class=sd>...     so = td.resolve_inside("so.txt")</span>
+<span class=sd>...     to_files(cmd, so, so).execute()</span>
+<span class=sd>...     print(f"so: {so.read_all_str()}")</span>
+<span class=sd>(None, None)</span>
+<span class=sd>so: 123</span>
+<span class=sd>&LTBLANKLINE></span>
+
+<span class=sd>>>> try:</span>
+<span class=sd>...     to_files("a", "a", "b")</span>
+<span class=sd>... except TypeError as te:</span>
+<span class=sd>...     print(str(te)[:10])</span>
+<span class=sd>command sh</span>
+
+<span class=sd>>>> try:</span>
+<span class=sd>...     to_files(cmd, 1, "b")</span>
+<span class=sd>... except TypeError as te:</span>
+<span class=sd>...     print(te)</span>
+<span class=sd>stdout should be an instance of any in {None, str} but is int, namely 1.</span>
+
+<span class=sd>>>> try:</span>
+<span class=sd>...     to_files(cmd, "a", 1)</span>
+<span class=sd>... except TypeError as te:</span>
+<span class=sd>...     print(te)</span>
+<span class=sd>stderr should be an instance of any in {None, str} but is int, namely 1.</span>
+
+<span class=sd>>>> try:</span>
+<span class=sd>...     to_files(cmd, None, None)</span>
+<span class=sd>... except ValueError as ve:</span>
+<span class=sd>...     print(ve)</span>
+<span class=sd>Either stdout or stderr must be specified.</span>
+<span class=sd>"""</span>
+
+<span class=kn>import</span><span class=w> </span><span class=nn>platform</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>dataclasses</span><span class=w> </span><span class=kn>import</span> <span class=n>dataclass</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os</span><span class=w> </span><span class=kn>import</span> <span class=n>chmod</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>stat</span><span class=w> </span><span class=kn>import</span> <span class=n>S_IRUSR</span><span class=p>,</span> <span class=n>S_IWUSR</span><span class=p>,</span> <span class=n>S_IXUSR</span>  <span class=c1># nosec</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>subprocess</span><span class=w> </span><span class=kn>import</span> <span class=n>list2cmdline</span>  <span class=c1># nosec</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>,</span> <span class=n>Mapping</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.console</span><span class=w> </span><span class=kn>import</span> <span class=n>logger</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.path</span><span class=w> </span><span class=kn>import</span> <span class=n>Path</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.temp</span><span class=w> </span><span class=kn>import</span> <span class=n>temp_file</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.processes.shell</span><span class=w> </span><span class=kn>import</span> <span class=n>STREAM_IGNORE</span><span class=p>,</span> <span class=n>Command</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>type_error</span>
+
+<span class=c1>#: the internal operating system</span>
+<span class=n>_WINDOWS</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>bool</span><span class=p>]</span> <span class=o>=</span> <span class=n>platform</span><span class=o>.</span><span class=n>system</span><span class=p>()</span> <span class=o>==</span> <span class=s2>"Windows"</span>
+
+
+<span class=nd>@dataclass</span><span class=p>(</span><span class=n>frozen</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span> <span class=n>init</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span> <span class=n>order</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span> <span class=n>eq</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+<span class=k>class</span><span class=w> </span><span class=nc>__FileCommand</span><span class=p>(</span><span class=n>Command</span><span class=p>):</span>
+<span class=w>    </span><span class=sd>"""The internal file shell command data class."""</span>
+
+    <span class=c1>#: the file to receive the standard output</span>
+    <span class=n>stdout_file</span><span class=p>:</span> <span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span>
+    <span class=c1>#: the file to receive the standard error output</span>
+    <span class=n>stderr_file</span><span class=p>:</span> <span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>command</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>],</span>
+                 <span class=n>working_dir</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+                 <span class=n>timeout</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=mi>3600</span><span class=p>,</span>
+                 <span class=n>stdout</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+                 <span class=n>stderr</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+                 <span class=n>env</span><span class=p>:</span> <span class=n>Mapping</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span>
+                     <span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Initialize the file-based command object.</span>
+
+<span class=sd>        :param command: the command</span>
+<span class=sd>        :param working_dir: the working directory</span>
+<span class=sd>        :param timeout: the timeout, if any</span>
+<span class=sd>        :param stdout: the file to capture the stdout, or `None` if</span>
+<span class=sd>            stdout should be ignored</span>
+<span class=sd>        :param stderr: the file to capture the stderr, or `None` if</span>
+<span class=sd>            stderr should be ignored</span>
+<span class=sd>        :param env: the environment variables to use</span>
+<span class=sd>        """</span>
+        <span class=nb>super</span><span class=p>()</span><span class=o>.</span><span class=fm>__init__</span><span class=p>(</span><span class=n>command</span><span class=p>,</span> <span class=n>working_dir</span><span class=p>,</span> <span class=n>timeout</span><span class=p>,</span> <span class=kc>None</span><span class=p>,</span>
+                         <span class=n>STREAM_IGNORE</span><span class=p>,</span> <span class=n>STREAM_IGNORE</span><span class=p>,</span> <span class=n>env</span><span class=p>)</span>
+        <span class=n>sof</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=kc>None</span> <span class=k>if</span> <span class=n>stdout</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>Path</span><span class=p>(</span><span class=n>stdout</span><span class=p>)</span>
+        <span class=n>sef</span><span class=p>:</span> <span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span> <span class=k>if</span> <span class=n>stderr</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>Path</span><span class=p>(</span><span class=n>stderr</span><span class=p>)</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>sof</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=n>sef</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=n>sof</span> <span class=o>==</span> <span class=n>sef</span><span class=p>):</span>
+            <span class=n>sef</span> <span class=o>=</span> <span class=n>sof</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"stdout_file"</span><span class=p>,</span> <span class=n>sof</span><span class=p>)</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"stderr_file"</span><span class=p>,</span> <span class=n>sef</span><span class=p>)</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__str__</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the string representation of this command.</span>
+
+<span class=sd>        :return: the command's string representation</span>
+
+<span class=sd>        >>> cmd = Command(("echo", "123"))</span>
+<span class=sd>        >>> str(to_files(cmd, "/tmp/x", "/tmp/x"))[-22:]</span>
+<span class=sd>        "stdout+stderr>'/tmp/x'"</span>
+<span class=sd>        >>> str(to_files(cmd, "/tmp/x", None))[-15:]</span>
+<span class=sd>        "stdout>'/tmp/x'"</span>
+<span class=sd>        >>> str(to_files(cmd, None, "/tmp/x"))[-15:]</span>
+<span class=sd>        "stderr>'/tmp/x'"</span>
+<span class=sd>        """</span>
+        <span class=n>old</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=nb>super</span><span class=p>()</span><span class=o>.</span><span class=fm>__str__</span><span class=p>()</span>
+        <span class=n>so</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>stdout_file</span>
+        <span class=n>se</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>stderr_file</span>
+        <span class=k>if</span> <span class=n>so</span> <span class=ow>is</span> <span class=n>se</span><span class=p>:</span>
+            <span class=k>return</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>old</span><span class=si>}</span><span class=s2>, stdout+stderr></span><span class=si>{</span><span class=n>so</span><span class=si>!r}</span><span class=s2>"</span>
+        <span class=k>if</span> <span class=n>so</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>old</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>old</span><span class=si>}</span><span class=s2>, stdout></span><span class=si>{</span><span class=n>so</span><span class=si>!r}</span><span class=s2>"</span>
+        <span class=k>return</span> <span class=n>old</span> <span class=k>if</span> <span class=n>se</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>old</span><span class=si>}</span><span class=s2>, stderr></span><span class=si>{</span><span class=n>se</span><span class=si>!r}</span><span class=s2>"</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>execute</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>log_call</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span><span class=p>)</span> <span class=o>-></span> <span class=nb>tuple</span><span class=p>[</span><span class=kc>None</span><span class=p>,</span> <span class=kc>None</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Execute the command.</span>
+
+<span class=sd>        :param log_call: shall we log the call?</span>
+<span class=sd>        :return: always `(None, None)`</span>
+<span class=sd>        """</span>
+        <span class=n>text</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=p>[</span><span class=nb>str</span><span class=p>(</span><span class=n>list2cmdline</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>command</span><span class=p>))]</span>
+        <span class=k>with</span> <span class=n>temp_file</span><span class=p>(</span><span class=n>directory</span><span class=o>=</span><span class=bp>self</span><span class=o>.</span><span class=n>working_dir</span><span class=p>,</span>
+                       <span class=n>suffix</span><span class=o>=</span><span class=s2>".bat"</span> <span class=k>if</span> <span class=n>_WINDOWS</span> <span class=k>else</span> <span class=s2>".sh"</span><span class=p>)</span> <span class=k>as</span> <span class=n>temp</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>log_call</span><span class=p>:</span>
+                <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Using temp file </span><span class=si>{</span><span class=n>temp</span><span class=si>!r}</span><span class=s2> as execution "</span>
+                       <span class=sa>f</span><span class=s2>"wrapper for </span><span class=si>{</span><span class=bp>self</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+            <span class=k>if</span> <span class=ow>not</span> <span class=n>_WINDOWS</span><span class=p>:</span>
+                <span class=n>text</span><span class=o>.</span><span class=n>insert</span><span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=s2>"#!/bin/bash</span><span class=se>\n</span><span class=s2>"</span><span class=p>)</span>
+            <span class=n>sof</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>stdout_file</span>
+            <span class=n>sef</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>stderr_file</span>
+            <span class=k>if</span> <span class=n>sof</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=n>text</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=sa>f</span><span class=s1>' 1>"</span><span class=si>{</span><span class=n>sof</span><span class=si>}</span><span class=s1>"'</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>sef</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=n>text</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=s2>" 2>&1"</span> <span class=k>if</span> <span class=n>sef</span> <span class=ow>is</span> <span class=n>sof</span> <span class=k>else</span> <span class=sa>f</span><span class=s1>' 2>"</span><span class=si>{</span><span class=n>sef</span><span class=si>}</span><span class=s1>"'</span><span class=p>)</span>
+            <span class=n>temp</span><span class=o>.</span><span class=n>write_all_str</span><span class=p>(</span><span class=s2>""</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>text</span><span class=p>))</span>
+            <span class=k>if</span> <span class=ow>not</span> <span class=n>_WINDOWS</span><span class=p>:</span>
+                <span class=n>chmod</span><span class=p>(</span><span class=n>temp</span><span class=p>,</span> <span class=n>S_IRUSR</span> <span class=o>|</span> <span class=n>S_IWUSR</span> <span class=o>|</span> <span class=n>S_IXUSR</span><span class=p>)</span>
+            <span class=n>Command</span><span class=p>(</span><span class=n>command</span><span class=o>=</span><span class=n>temp</span><span class=p>,</span>
+                    <span class=n>working_dir</span><span class=o>=</span><span class=bp>self</span><span class=o>.</span><span class=n>working_dir</span><span class=p>,</span>
+                    <span class=n>timeout</span><span class=o>=</span><span class=bp>self</span><span class=o>.</span><span class=n>timeout</span><span class=p>,</span>
+                    <span class=n>stdin</span><span class=o>=</span><span class=kc>None</span><span class=p>,</span>
+                    <span class=n>stderr</span><span class=o>=</span><span class=n>STREAM_IGNORE</span><span class=p>,</span>
+                    <span class=n>stdout</span><span class=o>=</span><span class=n>STREAM_IGNORE</span><span class=p>,</span>
+                    <span class=n>env</span><span class=o>=</span><span class=bp>self</span><span class=o>.</span><span class=n>env</span><span class=p>)</span><span class=o>.</span><span class=n>execute</span><span class=p>(</span><span class=n>log_call</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>sof</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=n>sof</span><span class=o>.</span><span class=n>enforce_file</span><span class=p>()</span>
+            <span class=k>if</span> <span class=n>sef</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=n>sef</span><span class=o>.</span><span class=n>enforce_file</span><span class=p>()</span>
+        <span class=k>return</span> <span class=kc>None</span><span class=p>,</span> <span class=kc>None</span>
+
+
+<div class=viewcode-block id=to_files>
+<a class=viewcode-back href=../../../pycommons.processes.html#pycommons.processes.shell_to_file.to_files>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>to_files</span><span class=p>(</span><span class=n>command</span><span class=p>:</span> <span class=n>Command</span><span class=p>,</span> <span class=n>stdout</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>,</span>
+             <span class=n>stderr</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=n>Command</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Take an existing command and forward its stdout and/or stderr to files.</span>
+
+<span class=sd>    Currently, providing text as standard input is not supported.</span>
+<span class=sd>    You can provide either different or the same file for the standard output</span>
+<span class=sd>    and standard error. If the same file is provided, then both streams will</span>
+<span class=sd>    be merged into that file.</span>
+<span class=sd>    Either way, the files you provide will be created and overwritten during</span>
+<span class=sd>    the command execution.</span>
+<span class=sd>    Notice that whatever original settings for standard error and standard</span>
+<span class=sd>    output you provided in the original</span>
+<span class=sd>    :class:`~pycommons.processes.shell.Command` instance `command` will be</span>
+<span class=sd>    ignored.</span>
+
+<span class=sd>    :param command: the command</span>
+<span class=sd>    :param stdout: the file to capture the stdout, or `None` if stdout</span>
+<span class=sd>        should be ignored</span>
+<span class=sd>    :param stderr: the file to capture the stderr, or `None` if stderr</span>
+<span class=sd>        should be ignored</span>
+<span class=sd>    :return: the new command</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>command</span><span class=p>,</span> <span class=n>Command</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>command</span><span class=p>,</span> <span class=s2>"command"</span><span class=p>,</span> <span class=n>Command</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>command</span><span class=o>.</span><span class=n>stdin</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Stdin is not supported for file commands."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=p>(</span><span class=n>stdout</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>stdout</span><span class=p>,</span> <span class=nb>str</span><span class=p>)):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>stdout</span><span class=p>,</span> <span class=s2>"stdout"</span><span class=p>,</span> <span class=p>(</span><span class=nb>str</span><span class=p>,</span> <span class=kc>None</span><span class=p>))</span>
+    <span class=k>if</span> <span class=p>(</span><span class=n>stderr</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=nb>str</span><span class=p>)):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s2>"stderr"</span><span class=p>,</span> <span class=p>(</span><span class=nb>str</span><span class=p>,</span> <span class=kc>None</span><span class=p>))</span>
+    <span class=k>if</span> <span class=p>(</span><span class=n>stdout</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=n>stderr</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Either stdout or stderr must be specified."</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>__FileCommand</span><span class=p>(</span><span class=n>command</span><span class=o>=</span><span class=n>command</span><span class=o>.</span><span class=n>command</span><span class=p>,</span>
+                         <span class=n>working_dir</span><span class=o>=</span><span class=n>command</span><span class=o>.</span><span class=n>working_dir</span><span class=p>,</span>
+                         <span class=n>timeout</span><span class=o>=</span><span class=n>command</span><span class=o>.</span><span class=n>timeout</span><span class=p>,</span>
+                         <span class=n>stdout</span><span class=o>=</span><span class=n>stdout</span><span class=p>,</span>
+                         <span class=n>stderr</span><span class=o>=</span><span class=n>stderr</span><span class=p>,</span>
+                         <span class=n>env</span><span class=o>=</span><span class=n>command</span><span class=o>.</span><span class=n>env</span><span class=p>)</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.processes.shell_to_file</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>
