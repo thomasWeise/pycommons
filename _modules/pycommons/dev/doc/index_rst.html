@@ -1,0 +1,105 @@
+<!doctype html><html data-content_root=../../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.dev.doc.index_rst — pycommons 0.8.89 documentation</title><link href="../../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/dev/doc/index_rst.html rel=canonical><link href=../../../../genindex.html rel=index title=Index><link href=../../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.doc.index_rst</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.dev.doc.index_rst</h1><div class=highlight><pre>
+<span></span><span class=sd>"""</span>
+<span class=sd>Make an `index.rst` file.</span>
+
+<span class=sd>In all of my projects, the `index.rst` files have the same contents,</span>
+<span class=sd>basically. So here we generate them on the fly based on the documentation</span>
+<span class=sd>information data. Since this data contains the index of the last section</span>
+<span class=sd>in the `README.md` files, this allows me to properly number the code section.</span>
+<span class=sd>"""</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Any</span><span class=p>,</span> <span class=n>Callable</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.dev.doc.doc_info</span><span class=w> </span><span class=kn>import</span> <span class=n>DocInfo</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.console</span><span class=w> </span><span class=kn>import</span> <span class=n>logger</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>type_error</span>
+
+
+<div class=viewcode-block id=make_index_rst>
+<a class=viewcode-back href=../../../../pycommons.dev.doc.html#pycommons.dev.doc.index_rst.make_index_rst>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>make_index_rst</span><span class=p>(</span><span class=n>info</span><span class=p>:</span> <span class=n>DocInfo</span><span class=p>,</span> <span class=n>collector</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=n>Any</span><span class=p>])</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Create the `index.rst` file contents.</span>
+
+<span class=sd>    :param info: The documentation information</span>
+<span class=sd>    :param collector: the collector to receive the information.</span>
+
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> di = DocInfo(__file__, "a", "b", "bla", "1.2", 12,</span>
+<span class=sd>    ...              "https://example.com")</span>
+<span class=sd>    >>> l = []</span>
+<span class=sd>    >>> with redirect_stdout(None):</span>
+<span class=sd>    ...     make_index_rst(di, l.append)</span>
+<span class=sd>    >>> for s in l:</span>
+<span class=sd>    ...     print(s)</span>
+<span class=sd>    bla</span>
+<span class=sd>    ===</span>
+<span class=sd>    &LTBLANKLINE></span>
+<span class=sd>    * :ref:`genindex`</span>
+<span class=sd>    * :ref:`modindex`</span>
+<span class=sd>    * :ref:`search`</span>
+<span class=sd>    &LTBLANKLINE></span>
+<span class=sd>    .. include:: README.md</span>
+<span class=sd>       :parser: myst_parser.sphinx_</span>
+<span class=sd>    &LTBLANKLINE></span>
+<span class=sd>    13. Modules and Code</span>
+<span class=sd>    --------------------</span>
+<span class=sd>    &LTBLANKLINE></span>
+<span class=sd>    .. toctree::</span>
+<span class=sd>       :maxdepth: 4</span>
+<span class=sd>    &LTBLANKLINE></span>
+<span class=sd>       modules</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_index_rst(None, print)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:70])</span>
+<span class=sd>    info should be an instance of pycommons.dev.doc.doc_info.DocInfo but i</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_index_rst(1, print)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:70])</span>
+<span class=sd>    info should be an instance of pycommons.dev.doc.doc_info.DocInfo but i</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_index_rst(di, None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te))</span>
+<span class=sd>    collector should be a callable but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_index_rst(di, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te))</span>
+<span class=sd>    collector should be a callable but is int, namely 1.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>info</span><span class=p>,</span> <span class=n>DocInfo</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>info</span><span class=p>,</span> <span class=s2>"info"</span><span class=p>,</span> <span class=n>DocInfo</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>callable</span><span class=p>(</span><span class=n>collector</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>collector</span><span class=p>,</span> <span class=s2>"collector"</span><span class=p>,</span> <span class=n>call</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Now creating index.rst contents for project </span><span class=si>{</span><span class=n>info</span><span class=o>.</span><span class=n>project</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>collector</span><span class=p>(</span><span class=n>info</span><span class=o>.</span><span class=n>title</span><span class=p>)</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>"="</span> <span class=o>*</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>info</span><span class=o>.</span><span class=n>title</span><span class=p>))</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>""</span><span class=p>)</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>"* :ref:`genindex`"</span><span class=p>)</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>"* :ref:`modindex`"</span><span class=p>)</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>"* :ref:`search`"</span><span class=p>)</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>""</span><span class=p>)</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>".. include:: README.md"</span><span class=p>)</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>"   :parser: myst_parser.sphinx_"</span><span class=p>)</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>""</span><span class=p>)</span>
+    <span class=n>mac</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=s2>"Modules and Code"</span>
+    <span class=k>if</span> <span class=n>info</span><span class=o>.</span><span class=n>last_major_section_index</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>mac</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>info</span><span class=o>.</span><span class=n>last_major_section_index</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=mi>1</span><span class=si>}</span><span class=s2>. </span><span class=si>{</span><span class=n>mac</span><span class=si>}</span><span class=s2>"</span>
+    <span class=n>collector</span><span class=p>(</span><span class=n>mac</span><span class=p>)</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>"-"</span> <span class=o>*</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>mac</span><span class=p>))</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>""</span><span class=p>)</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>".. toctree::"</span><span class=p>)</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>"   :maxdepth: 4"</span><span class=p>)</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>""</span><span class=p>)</span>
+    <span class=n>collector</span><span class=p>(</span><span class=s2>"   modules"</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=s2>"Finished creating index.rst contents for "</span>
+           <span class=sa>f</span><span class=s2>"project </span><span class=si>{</span><span class=n>info</span><span class=o>.</span><span class=n>project</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.doc.index_rst</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

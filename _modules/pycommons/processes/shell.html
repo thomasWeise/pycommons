@@ -1,0 +1,410 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.processes.shell — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/processes/shell.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.processes.shell</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.processes.shell</h1><div class=highlight><pre>
+<span></span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>The tool for invoking shell commands.</span>
+
+<span class=sd>>>> Command(("echo", "123"), stdout=STREAM_CAPTURE).execute(False)</span>
+<span class=sd>('123\n', None)</span>
+<span class=sd>"""</span>
+
+<span class=kn>import</span><span class=w> </span><span class=nn>subprocess</span>  <span class=c1># nosec</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>dataclasses</span><span class=w> </span><span class=kn>import</span> <span class=n>dataclass</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os</span><span class=w> </span><span class=kn>import</span> <span class=n>getcwd</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>,</span> <span class=n>Mapping</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.console</span><span class=w> </span><span class=kn>import</span> <span class=n>logger</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.path</span><span class=w> </span><span class=kn>import</span> <span class=n>UTF8</span><span class=p>,</span> <span class=n>Path</span><span class=p>,</span> <span class=n>directory_path</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>check_int_range</span><span class=p>,</span> <span class=n>type_error</span>
+
+<span class=c1>#: ignore the given stream</span>
+<span class=n>STREAM_IGNORE</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=mi>0</span>
+<span class=c1>#: forward given stream to the same stream of this process</span>
+<span class=n>STREAM_FORWARD</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=mi>1</span>
+<span class=c1>#: capture the given stream</span>
+<span class=n>STREAM_CAPTURE</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=mi>2</span>
+
+
+<span class=c1>#: the stream mode to string converter</span>
+<span class=n>_SM</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>[[</span><span class=nb>int</span><span class=p>],</span> <span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=p>{</span>
+    <span class=n>STREAM_IGNORE</span><span class=p>:</span> <span class=s2>" ignored"</span><span class=p>,</span>
+    <span class=n>STREAM_FORWARD</span><span class=p>:</span> <span class=s2>" forwarded"</span><span class=p>,</span>
+    <span class=n>STREAM_CAPTURE</span><span class=p>:</span> <span class=s2>" captured"</span><span class=p>,</span>
+<span class=p>}</span><span class=o>.</span><span class=n>get</span>
+
+
+<div class=viewcode-block id=Command>
+<a class=viewcode-back href=../../../pycommons.processes.html#pycommons.processes.shell.Command>[docs]</a>
+<span class=nd>@dataclass</span><span class=p>(</span><span class=n>frozen</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span> <span class=n>init</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span> <span class=n>order</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span> <span class=n>eq</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+<span class=k>class</span><span class=w> </span><span class=nc>Command</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    A class that represents a command that can be executed.</span>
+
+<span class=sd>    >>> c = Command("test")</span>
+<span class=sd>    >>> c.command</span>
+<span class=sd>    ('test',)</span>
+<span class=sd>    >>> c.working_dir.is_dir()</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> c.timeout</span>
+<span class=sd>    3600</span>
+
+<span class=sd>    >>> d = Command(("test", "b"))</span>
+<span class=sd>    >>> d.command</span>
+<span class=sd>    ('test', 'b')</span>
+<span class=sd>    >>> d.working_dir == c.working_dir</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> d.timeout == c.timeout</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> e = Command(("", "test", " b", " "))</span>
+<span class=sd>    >>> e.command == d.command</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> e.working_dir == c.working_dir</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> e.timeout == c.timeout</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:50])</span>
+<span class=sd>    command should be an instance of any in {str, typi</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command([1])</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command(["x", 1])</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command([])</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid command [].</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command([""])</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid command [''].</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command("")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid command [''].</span>
+
+<span class=sd>    >>> Command("x", working_dir=Path(__file__).up(1)).command</span>
+<span class=sd>    ('x',)</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command("x", working_dir=1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command("x", working_dir=Path(__file__))</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[-30:])</span>
+<span class=sd>    does not identify a directory.</span>
+
+<span class=sd>    >>> Command("x", timeout=23).timeout</span>
+<span class=sd>    23</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command("x", timeout=1.2)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    timeout should be an instance of int but is float, namely 1.2.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command("x", timeout=None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    timeout should be an instance of int but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command("x", timeout=0)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    timeout=0 is invalid, must be in 1..1000000.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command("x", timeout=1_000_001)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    timeout=1000001 is invalid, must be in 1..1000000.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command("x", stdin=1_000_001)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:49])</span>
+<span class=sd>    stdin should be an instance of any in {None, str}</span>
+
+<span class=sd>    >>> sxx = str(Command("x", env={"A": "B", "C": "D"}))</span>
+<span class=sd>    >>> sxx[sxx.index("with "):sxx.index("with ") + 30]</span>
+<span class=sd>    'with &LTenv> no stdin, stdout ig'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command("x", env={"A": "B", "C": 1})</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te))</span>
+<span class=sd>    descriptor 'strip' for 'str' objects doesn't apply to a 'int' object</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     Command("x", env=1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:-20])</span>
+<span class=sd>    env should be an instance of any in {typing.Iterable, typing.Mapping} b</span>
+
+<span class=sd>    >>> str(Command("x", env=dict()))[0:10]</span>
+<span class=sd>    "('x',) in "</span>
+<span class=sd>    """</span>
+
+    <span class=c1>#: the command line.</span>
+    <span class=n>command</span><span class=p>:</span> <span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=o>...</span><span class=p>]</span>
+    <span class=c1>#: the working directory</span>
+    <span class=n>working_dir</span><span class=p>:</span> <span class=n>Path</span>
+    <span class=c1>#: the timeout in seconds, after which the process will be terminated</span>
+    <span class=n>timeout</span><span class=p>:</span> <span class=nb>int</span>
+    <span class=c1>#: the data to be written to stdin</span>
+    <span class=n>stdin</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span>
+    <span class=c1>#: how to handle the standard output stream</span>
+    <span class=n>stdout</span><span class=p>:</span> <span class=nb>int</span>
+    <span class=c1>#: how to handle the standard error stream</span>
+    <span class=n>stderr</span><span class=p>:</span> <span class=nb>int</span>
+    <span class=c1>#: the environment variables to pass to the new process, if any</span>
+    <span class=n>env</span><span class=p>:</span> <span class=nb>tuple</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>],</span> <span class=o>...</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>command</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>],</span>
+                 <span class=n>working_dir</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+                 <span class=n>timeout</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=mi>3600</span><span class=p>,</span>
+                 <span class=n>stdin</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+                 <span class=n>stdout</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>STREAM_IGNORE</span><span class=p>,</span>
+                 <span class=n>stderr</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>STREAM_IGNORE</span><span class=p>,</span>
+                 <span class=n>env</span><span class=p>:</span> <span class=n>Mapping</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span>
+                     <span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Create the command.</span>
+
+<span class=sd>        :param command: the command string or iterable</span>
+<span class=sd>        :param working_dir: the working directory</span>
+<span class=sd>        :param timeout: the timeout</span>
+<span class=sd>        :param stdin: a string to be written to stdin, or `None`</span>
+<span class=sd>        :param stdout: how to handle the standard output stream</span>
+<span class=sd>        :param stderr: how to handle the standard error stream</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>command</span><span class=p>,</span> <span class=nb>str</span><span class=p>):</span>
+            <span class=n>command</span> <span class=o>=</span> <span class=p>[</span><span class=n>command</span><span class=p>]</span>
+        <span class=k>elif</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>command</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>command</span><span class=p>,</span> <span class=s2>"command"</span><span class=p>,</span> <span class=p>(</span><span class=nb>str</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>))</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"command"</span><span class=p>,</span> <span class=nb>tuple</span><span class=p>(</span>
+            <span class=n>s</span> <span class=k>for</span> <span class=n>s</span> <span class=ow>in</span> <span class=nb>map</span><span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>,</span> <span class=n>command</span><span class=p>)</span> <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>s</span><span class=p>)</span> <span class=o>></span> <span class=mi>0</span><span class=p>))</span>
+        <span class=k>if</span> <span class=nb>tuple</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>command</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid command </span><span class=si>{</span><span class=n>command</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"working_dir"</span><span class=p>,</span> <span class=n>directory_path</span><span class=p>(</span>
+            <span class=n>getcwd</span><span class=p>()</span> <span class=k>if</span> <span class=n>working_dir</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>working_dir</span><span class=p>))</span>
+
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"timeout"</span><span class=p>,</span> <span class=n>check_int_range</span><span class=p>(</span>
+            <span class=n>timeout</span><span class=p>,</span> <span class=s2>"timeout"</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=mi>1_000_000</span><span class=p>))</span>
+
+        <span class=k>if</span> <span class=p>(</span><span class=n>stdin</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>stdin</span><span class=p>,</span> <span class=nb>str</span><span class=p>)):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>stdin</span><span class=p>,</span> <span class=s2>"stdin"</span><span class=p>,</span> <span class=p>(</span><span class=nb>str</span><span class=p>,</span> <span class=kc>None</span><span class=p>))</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"stdin"</span><span class=p>,</span> <span class=n>stdin</span><span class=p>)</span>
+
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"stdout"</span><span class=p>,</span> <span class=n>check_int_range</span><span class=p>(</span>
+            <span class=n>stdout</span><span class=p>,</span> <span class=s2>"stdout"</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>2</span><span class=p>))</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"stderr"</span><span class=p>,</span> <span class=n>check_int_range</span><span class=p>(</span>
+            <span class=n>stderr</span><span class=p>,</span> <span class=s2>"stderr"</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>2</span><span class=p>))</span>
+
+        <span class=n>the_env</span><span class=p>:</span> <span class=nb>tuple</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>],</span> <span class=o>...</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=k>if</span> <span class=n>env</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>env</span><span class=p>,</span> <span class=n>Mapping</span><span class=p>):</span>
+                <span class=n>env</span> <span class=o>=</span> <span class=n>env</span><span class=o>.</span><span class=n>items</span><span class=p>()</span>
+            <span class=k>elif</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>env</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+                <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>env</span><span class=p>,</span> <span class=s2>"env"</span><span class=p>,</span> <span class=p>(</span><span class=n>Mapping</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>))</span>
+            <span class=n>the_env</span> <span class=o>=</span> <span class=nb>tuple</span><span class=p>(</span><span class=nb>sorted</span><span class=p>((</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>k</span><span class=p>),</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>v</span><span class=p>))</span>
+                                   <span class=k>for</span> <span class=n>k</span><span class=p>,</span> <span class=n>v</span> <span class=ow>in</span> <span class=n>env</span><span class=p>))</span>
+            <span class=k>if</span> <span class=nb>tuple</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>the_env</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+                <span class=n>the_env</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=nb>object</span><span class=o>.</span><span class=fm>__setattr__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=s2>"env"</span><span class=p>,</span> <span class=n>the_env</span><span class=p>)</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__str__</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Get the string representation of this command.</span>
+
+<span class=sd>        This string includes most of the important information, but it will</span>
+<span class=sd>        never include the environment variables. These variables may contain</span>
+<span class=sd>        security sensitive stuff, so they are not printed. Instead. if an</span>
+<span class=sd>        environment is specified, this will just be printed as `&LTenv>`.</span>
+
+<span class=sd>        :returns: A string representing this command</span>
+
+<span class=sd>        >>> str(Command("a"))[-50:]</span>
+<span class=sd>        ' with no stdin, stdout ignored, and stderr ignored'</span>
+<span class=sd>        >>> str(Command("x"))[:11]</span>
+<span class=sd>        "('x',) in '"</span>
+<span class=sd>        >>> "with 3 chars of stdin" in str(Command("x", stdin="123"))</span>
+<span class=sd>        True</span>
+<span class=sd>        >>> str(Command("a", env={"y": "x"}))[-65:]</span>
+<span class=sd>        'for 3600s with &LTenv> no stdin, stdout ignored, and stderr ignored'</span>
+<span class=sd>        """</span>
+        <span class=n>si</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=s2>"no"</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>stdin</span> <span class=ow>is</span> <span class=kc>None</span> \
+            <span class=k>else</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>stdin</span><span class=p>)</span><span class=si>}</span><span class=s2> chars of"</span>
+        <span class=n>ev</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=s2>""</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>env</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=s2>"&LTenv> "</span>
+        <span class=k>return</span> <span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>command</span><span class=si>!r}</span><span class=s2> in </span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>working_dir</span><span class=si>!r}</span><span class=s2> for </span><span class=si>{</span><span class=bp>self</span><span class=o>.</span><span class=n>timeout</span><span class=si>}</span><span class=s2>"</span>
+                <span class=sa>f</span><span class=s2>"s with </span><span class=si>{</span><span class=n>ev</span><span class=si>}{</span><span class=n>si</span><span class=si>}</span><span class=s2> stdin, stdout</span><span class=si>{</span><span class=n>_SM</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>stdout</span><span class=p>)</span><span class=si>}</span><span class=s2>, and "</span>
+                <span class=sa>f</span><span class=s2>"stderr</span><span class=si>{</span><span class=n>_SM</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>stderr</span><span class=p>)</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span>
+
+<div class=viewcode-block id=Command.execute>
+<a class=viewcode-back href=../../../pycommons.processes.html#pycommons.processes.shell.Command.execute>[docs]</a>
+    <span class=k>def</span><span class=w> </span><span class=nf>execute</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>log_call</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span><span class=p>)</span> <span class=o>-></span> <span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>,</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]:</span>
+<span class=w>        </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>        Execute the given process.</span>
+
+<span class=sd>        :param log_call: should the call be logged? If `True`, the</span>
+<span class=sd>            string representation of the :class:`Command` will be</span>
+<span class=sd>            written to the `logger`, otherwise nothing is logged.</span>
+<span class=sd>            Note: The environment, if any, will not be printed for security</span>
+<span class=sd>            reasons.</span>
+<span class=sd>        :returns: a tuple with the standard output and standard error, which</span>
+<span class=sd>            are only not `None` if they were supposed to be captured</span>
+<span class=sd>        :raises TypeError: if any argument has the wrong type</span>
+<span class=sd>        :raises ValueError: if execution of the process failed</span>
+
+<span class=sd>        >>> Command(("echo", "123"), stdout=STREAM_CAPTURE).execute(False)</span>
+<span class=sd>        ('123\n', None)</span>
+
+<span class=sd>        >>> Command(("echo", "", "123"), stdout=STREAM_CAPTURE).execute(False)</span>
+<span class=sd>        ('123\n', None)</span>
+
+<span class=sd>        >>> from contextlib import redirect_stdout</span>
+<span class=sd>        >>> with redirect_stdout(None):</span>
+<span class=sd>        ...     s = Command(("echo", "123"), stdout=STREAM_CAPTURE).execute()</span>
+<span class=sd>        >>> print(s)</span>
+<span class=sd>        ('123\n', None)</span>
+
+<span class=sd>        >>> Command("cat", stdin="test", stdout=STREAM_CAPTURE).execute(False)</span>
+<span class=sd>        ('test', None)</span>
+
+<span class=sd>        >>> Command("cat", stdin="test").execute(False)</span>
+<span class=sd>        (None, None)</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     with redirect_stdout(None):</span>
+<span class=sd>        ...         Command(("ping", "blabla!")).execute(True)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     ss = str(ve)</span>
+<span class=sd>        ...     print(ss[:20] + " ... " + ss[-22:])</span>
+<span class=sd>        ('ping', 'blabla!')  ...  yields return code 2.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     with redirect_stdout(None):</span>
+<span class=sd>        ...         Command(("ping", "www.example.com", "-i 20"),</span>
+<span class=sd>        ...                 timeout=1).execute(True)</span>
+<span class=sd>        ... except ValueError as ve:</span>
+<span class=sd>        ...     print("timed out after" in str(ve))</span>
+<span class=sd>        True</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Command("x").execute(None)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        log_call should be an instance of bool but is None.</span>
+
+<span class=sd>        >>> try:</span>
+<span class=sd>        ...     Command("x").execute(1)</span>
+<span class=sd>        ... except TypeError as te:</span>
+<span class=sd>        ...     print(te)</span>
+<span class=sd>        log_call should be an instance of bool but is int, namely 1.</span>
+
+<span class=sd>        >>> with redirect_stdout(None):</span>
+<span class=sd>        ...     r = Command(("echo", "1"), stderr=STREAM_CAPTURE).execute(</span>
+<span class=sd>        ...             True)</span>
+<span class=sd>        >>> r</span>
+<span class=sd>        (None, '')</span>
+
+<span class=sd>        >>> with redirect_stdout(None):</span>
+<span class=sd>        ...     r = Command(("printenv", ),</span>
+<span class=sd>        ...                 stdout=STREAM_CAPTURE,</span>
+<span class=sd>        ...                 env={"BLA": "XX"}).execute(True)</span>
+<span class=sd>        >>> r</span>
+<span class=sd>        ('BLA=XX\n', None)</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>log_call</span><span class=p>,</span> <span class=nb>bool</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>log_call</span><span class=p>,</span> <span class=s2>"log_call"</span><span class=p>,</span> <span class=nb>bool</span><span class=p>)</span>
+        <span class=n>message</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>log_call</span><span class=p>:</span>
+            <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Now invoking </span><span class=si>{</span><span class=n>message</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+
+        <span class=n>arguments</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span> <span class=o>|</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=nb>bool</span> <span class=o>|</span> <span class=nb>int</span><span class=p>]]</span> <span class=o>=</span> <span class=p>{</span>
+            <span class=s2>"args"</span><span class=p>:</span> <span class=bp>self</span><span class=o>.</span><span class=n>command</span><span class=p>,</span>
+            <span class=s2>"check"</span><span class=p>:</span> <span class=kc>False</span><span class=p>,</span>
+            <span class=s2>"text"</span><span class=p>:</span> <span class=kc>True</span><span class=p>,</span>
+            <span class=s2>"timeout"</span><span class=p>:</span> <span class=bp>self</span><span class=o>.</span><span class=n>timeout</span><span class=p>,</span>
+            <span class=s2>"cwd"</span><span class=p>:</span> <span class=bp>self</span><span class=o>.</span><span class=n>working_dir</span><span class=p>,</span>
+            <span class=s2>"errors"</span><span class=p>:</span> <span class=s2>"strict"</span><span class=p>,</span>
+            <span class=s2>"encoding"</span><span class=p>:</span> <span class=n>UTF8</span><span class=p>,</span>
+        <span class=p>}</span>
+
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>stdin</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>arguments</span><span class=p>[</span><span class=s2>"input"</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>stdin</span>
+
+        <span class=n>arguments</span><span class=p>[</span><span class=s2>"stdout"</span><span class=p>]</span> <span class=o>=</span> <span class=mi>1</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>stdout</span> <span class=o>==</span> <span class=n>STREAM_FORWARD</span> <span class=k>else</span> <span class=p>(</span>
+            <span class=n>subprocess</span><span class=o>.</span><span class=n>PIPE</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>stdout</span> <span class=o>==</span> <span class=n>STREAM_CAPTURE</span>
+            <span class=k>else</span> <span class=n>subprocess</span><span class=o>.</span><span class=n>DEVNULL</span><span class=p>)</span>
+        <span class=n>arguments</span><span class=p>[</span><span class=s2>"stderr"</span><span class=p>]</span> <span class=o>=</span> <span class=mi>2</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>stderr</span> <span class=o>==</span> <span class=n>STREAM_FORWARD</span> <span class=k>else</span> <span class=p>(</span>
+            <span class=n>subprocess</span><span class=o>.</span><span class=n>PIPE</span> <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>stderr</span> <span class=o>==</span> <span class=n>STREAM_CAPTURE</span>
+            <span class=k>else</span> <span class=n>subprocess</span><span class=o>.</span><span class=n>DEVNULL</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>env</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>arguments</span><span class=p>[</span><span class=s2>"env"</span><span class=p>]</span> <span class=o>=</span> <span class=p>{</span><span class=n>t</span><span class=p>[</span><span class=mi>0</span><span class=p>]:</span> <span class=n>t</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span> <span class=k>for</span> <span class=n>t</span> <span class=ow>in</span> <span class=bp>self</span><span class=o>.</span><span class=n>env</span><span class=p>}</span>
+
+        <span class=k>try</span><span class=p>:</span>
+            <span class=c1># noqa # nosemgrep # pylint: disable=W1510 # type: ignore</span>
+            <span class=n>ret</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>subprocess</span><span class=o>.</span><span class=n>CompletedProcess</span><span class=p>]</span> <span class=o>=</span> \
+                <span class=n>subprocess</span><span class=o>.</span><span class=n>run</span><span class=p>(</span><span class=o>**</span><span class=n>arguments</span><span class=p>)</span>  <span class=c1># type: ignore # nosec # noqa</span>
+        <span class=k>except</span> <span class=p>(</span><span class=ne>TimeoutError</span><span class=p>,</span> <span class=n>subprocess</span><span class=o>.</span><span class=n>TimeoutExpired</span><span class=p>)</span> <span class=k>as</span> <span class=n>toe</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>log_call</span><span class=p>:</span>
+                <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Failed executing </span><span class=si>{</span><span class=bp>self</span><span class=si>}</span><span class=s2> with timeout </span><span class=si>{</span><span class=n>toe</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>message</span><span class=si>}</span><span class=s2> timed out: </span><span class=si>{</span><span class=n>toe</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=nn>toe</span>
+
+        <span class=n>returncode</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=n>ret</span><span class=o>.</span><span class=n>returncode</span>
+        <span class=k>if</span> <span class=n>returncode</span> <span class=o>!=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>log_call</span><span class=p>:</span>
+                <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Failed executing </span><span class=si>{</span><span class=bp>self</span><span class=si>}</span><span class=s2>: got return"</span>
+                       <span class=sa>f</span><span class=s2>" code </span><span class=si>{</span><span class=n>returncode</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>message</span><span class=si>}</span><span class=s2> yields return code </span><span class=si>{</span><span class=n>returncode</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+
+        <span class=n>stdout</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>stdout</span> <span class=o>==</span> <span class=n>STREAM_CAPTURE</span><span class=p>:</span>
+            <span class=n>stdout</span> <span class=o>=</span> <span class=n>ret</span><span class=o>.</span><span class=n>stdout</span>
+            <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>stdout</span><span class=p>,</span> <span class=nb>str</span><span class=p>):</span>
+                <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>stdout</span><span class=p>,</span> <span class=sa>f</span><span class=s2>"stdout of </span><span class=si>{</span><span class=bp>self</span><span class=si>}</span><span class=s2>"</span><span class=p>,</span> <span class=n>stdout</span><span class=p>)</span>
+
+        <span class=n>stderr</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>stderr</span> <span class=o>==</span> <span class=n>STREAM_CAPTURE</span><span class=p>:</span>
+            <span class=n>stderr</span> <span class=o>=</span> <span class=n>ret</span><span class=o>.</span><span class=n>stderr</span>
+            <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=nb>str</span><span class=p>):</span>
+                <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=sa>f</span><span class=s2>"stderr of </span><span class=si>{</span><span class=bp>self</span><span class=si>}</span><span class=s2>"</span><span class=p>,</span> <span class=n>stderr</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=n>log_call</span><span class=p>:</span>
+            <span class=n>capture</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=s2>""</span>
+            <span class=k>if</span> <span class=n>stdout</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=n>capture</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>", captured </span><span class=si>{</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>stdout</span><span class=p>)</span><span class=si>}</span><span class=s2> chars of stdout"</span>
+            <span class=k>if</span> <span class=n>stderr</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=n>capture</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>capture</span><span class=si>}</span><span class=s2> and "</span> <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>capture</span><span class=p>)</span> <span class=o>></span> <span class=mi>0</span> \
+                    <span class=k>else</span> <span class=s2>", captured "</span>
+                <span class=n>capture</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>capture</span><span class=si>}{</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>stderr</span><span class=p>)</span><span class=si>}</span><span class=s2> chars of stderr"</span>
+            <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Finished executing </span><span class=si>{</span><span class=bp>self</span><span class=si>}</span><span class=s2> with return code 0</span><span class=si>{</span><span class=n>capture</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+
+        <span class=k>return</span> <span class=n>stdout</span><span class=p>,</span> <span class=n>stderr</span></div>
+</div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.processes.shell</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

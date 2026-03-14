@@ -1,0 +1,596 @@
+<!doctype html><html data-content_root=../../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.dev.building.make_documentation — pycommons 0.8.89 documentation</title><link href="../../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/dev/building/make_documentation.html rel=canonical><link href=../../../../genindex.html rel=index title=Index><link href=../../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.building.make_documentation</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.dev.building.make_documentation</h1><div class=highlight><pre>
+<span></span><span class=sd>"""Create the documentation."""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>argparse</span><span class=w> </span><span class=kn>import</span> <span class=n>ArgumentParser</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>cast</span>
+
+<span class=kn>import</span><span class=w> </span><span class=nn>minify_html</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.dev.building.build_info</span><span class=w> </span><span class=kn>import</span> <span class=p>(</span>
+    <span class=n>BuildInfo</span><span class=p>,</span>
+    <span class=n>parse_project_arguments</span><span class=p>,</span>
+<span class=p>)</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.dev.doc.doc_info</span><span class=w> </span><span class=kn>import</span> <span class=p>(</span>
+    <span class=n>DocInfo</span><span class=p>,</span>
+    <span class=n>extract_md_infos</span><span class=p>,</span>
+    <span class=n>load_doc_info_from_setup_cfg</span><span class=p>,</span>
+<span class=p>)</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.dev.url_replacer</span><span class=w> </span><span class=kn>import</span> <span class=n>make_url_replacer</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.arguments</span><span class=w> </span><span class=kn>import</span> <span class=n>pycommons_argparser</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.console</span><span class=w> </span><span class=kn>import</span> <span class=n>logger</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.path</span><span class=w> </span><span class=kn>import</span> <span class=n>UTF8</span><span class=p>,</span> <span class=n>Path</span><span class=p>,</span> <span class=n>delete_path</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.processes.shell</span><span class=w> </span><span class=kn>import</span> <span class=n>STREAM_CAPTURE</span><span class=p>,</span> <span class=n>STREAM_FORWARD</span><span class=p>,</span> <span class=n>Command</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>type_error</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__get_source</span><span class=p>(</span>
+        <span class=n>source</span><span class=p>:</span> <span class=n>Path</span><span class=p>,</span> <span class=n>__dst</span><span class=p>:</span> <span class=nb>set</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>)</span> \
+        <span class=o>-></span> <span class=n>Callable</span><span class=p>[[</span><span class=n>Path</span><span class=p>],</span> <span class=nb>bool</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Get the existing files in a directory.</span>
+
+<span class=sd>    :param source: the directory</span>
+<span class=sd>    :param __dst: the destination</span>
+<span class=sd>    :returns: the set of files</span>
+
+<span class=sd>    >>> from pycommons.io.temp import temp_dir</span>
+<span class=sd>    >>> with temp_dir() as td:</span>
+<span class=sd>    ...     f1 = td.resolve_inside("a")</span>
+<span class=sd>    ...     f1.ensure_file_exists()  # gives False</span>
+<span class=sd>    ...     f2 = td.resolve_inside("b")</span>
+<span class=sd>    ...     f2.ensure_file_exists()  # gives False</span>
+<span class=sd>    ...     d = td.resolve_inside("x")</span>
+<span class=sd>    ...     d.ensure_dir_exists()  # gives False</span>
+<span class=sd>    ...     f3 = d.resolve_inside("a")</span>
+<span class=sd>    ...     f3.ensure_file_exists()</span>
+<span class=sd>    ...     g = __get_source(td)</span>
+<span class=sd>    ...     g(f1)  # is True</span>
+<span class=sd>    ...     g(f2)  # is True</span>
+<span class=sd>    ...     g(f3)  # is True</span>
+<span class=sd>    ...     g(d)  # is True</span>
+<span class=sd>    ...     g("bla")  # is not True</span>
+<span class=sd>    ...     f4 = d.resolve_inside("x")</span>
+<span class=sd>    ...     f4.ensure_file_exists()  # gives False</span>
+<span class=sd>    ...     g(f4)  # is also not True, because generated later</span>
+<span class=sd>    False</span>
+<span class=sd>    False</span>
+<span class=sd>    False</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    False</span>
+<span class=sd>    False</span>
+<span class=sd>    False</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=n>__dst</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>__dst</span> <span class=o>=</span> <span class=p>{</span><span class=n>source</span><span class=p>}</span>
+    <span class=k>for</span> <span class=n>k</span> <span class=ow>in</span> <span class=n>source</span><span class=o>.</span><span class=n>list_dir</span><span class=p>():</span>
+        <span class=n>__dst</span><span class=o>.</span><span class=n>add</span><span class=p>(</span><span class=n>k</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>k</span><span class=o>.</span><span class=n>is_dir</span><span class=p>():</span>
+            <span class=n>__get_source</span><span class=p>(</span><span class=n>k</span><span class=p>,</span> <span class=n>__dst</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>__dst</span><span class=o>.</span><span class=fm>__contains__</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__keep_only_source</span><span class=p>(</span>
+        <span class=n>source</span><span class=p>:</span> <span class=n>Path</span><span class=p>,</span> <span class=n>keep</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>Path</span><span class=p>],</span> <span class=nb>bool</span><span class=p>],</span>
+        <span class=n>__collect</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=n>Path</span><span class=p>],</span> <span class=kc>None</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Keep only the source items, delete the rest.</span>
+
+<span class=sd>    :param source: the source path</span>
+<span class=sd>    :param keep: the set of files and directories to keep</span>
+<span class=sd>    :param __collect: the collector</span>
+
+<span class=sd>    >>> from pycommons.io.temp import temp_dir</span>
+<span class=sd>    >>> with temp_dir() as td:</span>
+<span class=sd>    ...     f1 = td.resolve_inside("a")</span>
+<span class=sd>    ...     f1.ensure_file_exists()  # gives False</span>
+<span class=sd>    ...     f2 = td.resolve_inside("b")</span>
+<span class=sd>    ...     f2.ensure_file_exists()  # gives False</span>
+<span class=sd>    ...     d = td.resolve_inside("x")</span>
+<span class=sd>    ...     d.ensure_dir_exists()  # gives False</span>
+<span class=sd>    ...     f3 = d.resolve_inside("a")</span>
+<span class=sd>    ...     f3.ensure_file_exists()</span>
+<span class=sd>    ...     g = __get_source(td)</span>
+<span class=sd>    ...     f4 = d.resolve_inside("x")</span>
+<span class=sd>    ...     f4.ensure_file_exists()  # gives False</span>
+<span class=sd>    ...     e = td.resolve_inside("y")</span>
+<span class=sd>    ...     e.ensure_dir_exists()  # gives False</span>
+<span class=sd>    ...     f5 = e.resolve_inside("a")</span>
+<span class=sd>    ...     f5.ensure_file_exists()</span>
+<span class=sd>    ...     f3.is_file()  # gives True - should be preserved</span>
+<span class=sd>    ...     f4.is_file()  # gives True - will be deleted</span>
+<span class=sd>    ...     f5.is_file()  # gives True - will be deleted</span>
+<span class=sd>    ...     d.is_dir()  # True - will be preserved</span>
+<span class=sd>    ...     e.is_dir()  # True - will be deleted</span>
+<span class=sd>    ...     __keep_only_source(td, g)</span>
+<span class=sd>    ...     f3.is_file()  # gives True - was preserved</span>
+<span class=sd>    ...     f4.is_file()  # gives False</span>
+<span class=sd>    ...     f5.is_file()  # gives False</span>
+<span class=sd>    ...     d.is_dir()  # True - was preserved</span>
+<span class=sd>    ...     e.is_dir()  # False</span>
+<span class=sd>    False</span>
+<span class=sd>    False</span>
+<span class=sd>    False</span>
+<span class=sd>    False</span>
+<span class=sd>    False</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    False</span>
+<span class=sd>    False</span>
+<span class=sd>    True</span>
+<span class=sd>    False</span>
+<span class=sd>    """</span>
+    <span class=n>lst</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=k>if</span> <span class=n>__collect</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>lst</span> <span class=o>=</span> <span class=p>[]</span>
+        <span class=n>__collect</span> <span class=o>=</span> <span class=n>lst</span><span class=o>.</span><span class=n>append</span>
+    <span class=k>for</span> <span class=n>f</span> <span class=ow>in</span> <span class=n>source</span><span class=o>.</span><span class=n>list_dir</span><span class=p>():</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=n>keep</span><span class=p>(</span><span class=n>f</span><span class=p>):</span>
+            <span class=n>__collect</span><span class=p>(</span><span class=n>f</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>f</span><span class=o>.</span><span class=n>is_dir</span><span class=p>():</span>
+            <span class=n>__keep_only_source</span><span class=p>(</span><span class=n>f</span><span class=p>,</span> <span class=n>keep</span><span class=p>,</span> <span class=n>__collect</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>lst</span><span class=p>:</span>
+        <span class=n>lst</span><span class=o>.</span><span class=n>sort</span><span class=p>(</span><span class=n>key</span><span class=o>=</span><span class=n>cast</span><span class=p>(</span><span class=s2>"Callable[[Path], int]"</span><span class=p>,</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>),</span> <span class=n>reverse</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+        <span class=k>for</span> <span class=n>k</span> <span class=ow>in</span> <span class=n>lst</span><span class=p>:</span>
+            <span class=n>delete_path</span><span class=p>(</span><span class=n>k</span><span class=p>)</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__pygmentize</span><span class=p>(</span><span class=n>source</span><span class=p>:</span> <span class=n>Path</span><span class=p>,</span> <span class=n>info</span><span class=p>:</span> <span class=n>BuildInfo</span><span class=p>,</span>
+                 <span class=n>dest</span><span class=p>:</span> <span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Pygmentize a source file to a destination.</span>
+
+<span class=sd>    :param source: the source file</span>
+<span class=sd>    :param info: the information</span>
+<span class=sd>    :param dest: the destination folder</span>
+
+<span class=sd>    >>> root = Path(__file__).up(4)</span>
+<span class=sd>    >>> bf = BuildInfo(root, "pycommons",</span>
+<span class=sd>    ...     examples_dir=root.resolve_inside("examples"),</span>
+<span class=sd>    ...     tests_dir=root.resolve_inside("tests"),</span>
+<span class=sd>    ...     doc_source_dir=root.resolve_inside("docs/source"),</span>
+<span class=sd>    ...     doc_dest_dir=root.resolve_inside("docs/build"))</span>
+
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> from pycommons.io.temp import temp_dir</span>
+<span class=sd>    >>> with temp_dir() as td:</span>
+<span class=sd>    ...     with redirect_stdout(None):</span>
+<span class=sd>    ...         __pygmentize(root.resolve_inside("README.md"), bf, td)</span>
+<span class=sd>    ...         readme = td.resolve_inside("README_md.html").is_file()</span>
+<span class=sd>    ...         __pygmentize(root.resolve_inside("setup.py"), bf, td)</span>
+<span class=sd>    ...         setuppy = td.resolve_inside("setup_py.html").is_file()</span>
+<span class=sd>    ...         __pygmentize(root.resolve_inside("setup.cfg"), bf, td)</span>
+<span class=sd>    ...         setup_cfg = td.resolve_inside("setup_cfg.html").is_file()</span>
+<span class=sd>    ...         __pygmentize(root.resolve_inside("make.sh"), bf, td)</span>
+<span class=sd>    ...         makefile = td.resolve_inside("make_sh.html").is_file()</span>
+<span class=sd>    ...         __pygmentize(root.resolve_inside("LICENSE"), bf, td)</span>
+<span class=sd>    ...         xlicense = td.resolve_inside("LICENSE.html").is_file()</span>
+<span class=sd>    ...         __pygmentize(root.resolve_inside("requirements.txt"), bf, td)</span>
+<span class=sd>    ...         req = td.resolve_inside("requirements_txt.html").is_file()</span>
+<span class=sd>    ...         try:</span>
+<span class=sd>    ...             __pygmentize(root.resolve_inside("LICENSE"), bf, td)</span>
+<span class=sd>    ...         except ValueError as ve:</span>
+<span class=sd>    ...             ver = str(ve)</span>
+<span class=sd>    >>> readme</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> setuppy</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> setup_cfg</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> makefile</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> xlicense</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> req</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> "already exists" in ver</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Trying to pygmentize </span><span class=si>{</span><span class=n>source</span><span class=si>!r}</span><span class=s2> to </span><span class=si>{</span><span class=n>dest</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>name</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>source</span><span class=o>.</span><span class=n>basename</span><span class=p>()</span>
+    <span class=n>language</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=s2>"text"</span>
+    <span class=k>if</span> <span class=n>name</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=s2>".py"</span><span class=p>):</span>
+        <span class=n>language</span> <span class=o>=</span> <span class=s2>"python3"</span>
+    <span class=k>elif</span> <span class=n>name</span><span class=o>.</span><span class=n>endswith</span><span class=p>((</span><span class=s2>".cfg"</span><span class=p>,</span> <span class=s2>".toml"</span><span class=p>)):</span>
+        <span class=n>language</span> <span class=o>=</span> <span class=s2>"INI"</span>
+    <span class=k>elif</span> <span class=n>name</span><span class=o>.</span><span class=n>lower</span><span class=p>()</span> <span class=o>==</span> <span class=s2>"makefile"</span><span class=p>:</span>
+        <span class=n>language</span> <span class=o>=</span> <span class=s2>"make"</span>
+    <span class=k>elif</span> <span class=n>name</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=s2>".sh"</span><span class=p>):</span>
+        <span class=n>language</span> <span class=o>=</span> <span class=s2>"bash"</span>
+    <span class=k>if</span> <span class=n>dest</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>dest</span> <span class=o>=</span> <span class=n>info</span><span class=o>.</span><span class=n>doc_dest_dir</span>
+    <span class=n>dest_file</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>dest</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span>
+        <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>name</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=s1>'.'</span><span class=p>,</span><span class=w> </span><span class=s1>'_'</span><span class=p>)</span><span class=si>}</span><span class=s2>.html"</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>dest_file</span><span class=o>.</span><span class=n>exists</span><span class=p>():</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"File </span><span class=si>{</span><span class=n>dest_file</span><span class=si>!r}</span><span class=s2> already exists, "</span>
+                         <span class=sa>f</span><span class=s2>"cannot pygmentize </span><span class=si>{</span><span class=n>source</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>info</span><span class=o>.</span><span class=n>command</span><span class=p>((</span><span class=s2>"pygmentize"</span><span class=p>,</span> <span class=s2>"-f"</span><span class=p>,</span> <span class=s2>"html"</span><span class=p>,</span> <span class=s2>"-l"</span><span class=p>,</span> <span class=n>language</span><span class=p>,</span> <span class=s2>"-O"</span><span class=p>,</span> <span class=s2>"full"</span><span class=p>,</span>
+                  <span class=s2>"-O"</span><span class=p>,</span> <span class=s2>"style=default"</span><span class=p>,</span> <span class=s2>"-o"</span><span class=p>,</span> <span class=n>dest_file</span><span class=p>,</span> <span class=n>source</span><span class=p>))</span><span class=o>.</span><span class=n>execute</span><span class=p>()</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Done pygmentizing </span><span class=si>{</span><span class=n>source</span><span class=si>!r}</span><span class=s2> to </span><span class=si>{</span><span class=n>dest_file</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+
+<span class=c1>#: the default files to pygmentize</span>
+<span class=n>__PYGMENTIZE_DEFAULT</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=p>(</span>
+    <span class=s2>"conftest.py"</span><span class=p>,</span> <span class=s2>"LICENSE"</span><span class=p>,</span> <span class=s2>"make.sh"</span><span class=p>,</span> <span class=s2>"Makefile"</span><span class=p>,</span> <span class=s2>"pyproject.toml"</span><span class=p>,</span>
+    <span class=s2>"requirements.txt"</span><span class=p>,</span> <span class=s2>"requirements-dev.txt"</span><span class=p>,</span> <span class=s2>"setup.cfg"</span><span class=p>,</span> <span class=s2>"setup.py"</span><span class=p>,</span>
+<span class=p>)</span>
+
+<span class=c1>#: the possible styles</span>
+<span class=n>__STYLES</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=p>(</span><span class=s2>"bizstyle.css"</span><span class=p>,</span> <span class=p>)</span>
+
+<span class=c1>#: additions that should be included in the styles</span>
+<span class=n>__STYLE_ADDITIONS</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>],</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=p>(</span>
+    <span class=p>(</span><span class=s2>"bizstyle.css"</span><span class=p>,</span>
+     <span class=p>(</span><span class=s2>"</span><span class=se>\n</span><span class=s2>.sphinxsidebarwrapper span.pre{white-space:wrap;-epub-hyphens:auto;"</span>
+      <span class=s2>"-webkit-hyphens:auto;-moz-hyphens:auto;hyphens: auto;}</span><span class=se>\n</span><span class=s2>"</span><span class=p>)),</span> <span class=p>)</span>
+
+<span class=c1>#: the html header</span>
+<span class=n>__HTML_HEADER</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"&LT!DOCTYPE html>&LThtml>&LTtitle>"</span>
+<span class=c1>#: the top of the html body if styles are present</span>
+<span class=n>__HTML_BODY_STYLE_1</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span>\
+    <span class=p>(</span><span class=s1>'&LT/title>&LTlink href=</span><span class=si>{STYLE}</span><span class=s1> rel="stylesheet">'</span>
+     <span class=s1>'&LTbody style="background-image:none">&LTdiv class="document">'</span>
+     <span class=s1>'&LTdiv class="documentwrapper">&LTdiv class="bodywrapper">'</span>
+     <span class=s1>'&LTdiv class="body" role="main">&LTsection>'</span><span class=p>)</span>
+<span class=c1>#: the bottom of the html body if styles are present</span>
+<span class=n>__HTML_BODY_STYLE_2</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> \
+    <span class=s2>"&LT/section>&LT/div>&LT/div>&LT/div>&LT/div>&LT/body>&LT/html>"</span>
+<span class=c1>#: the top of the html body if not styles are present</span>
+<span class=n>__HTML_BODY_NO_STYLE_1</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"&LT/title>&LTbody>&LTsection>"</span>
+<span class=c1>#: the bottom of the html body if styles are present</span>
+<span class=n>__HTML_BODY_NO_STYLE_2</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"&LT/section>&LT/body>&LT/html>"</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__render_markdown</span><span class=p>(</span><span class=n>markdown</span><span class=p>:</span> <span class=n>Path</span><span class=p>,</span> <span class=n>info</span><span class=p>:</span> <span class=n>BuildInfo</span><span class=p>,</span> <span class=n>dest</span><span class=p>:</span> <span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span><span class=p>,</span>
+                      <span class=n>css</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>,</span>
+                      <span class=n>url_fixer</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=nb>str</span><span class=p>])</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Render a markdown file.</span>
+
+<span class=sd>    :param markdown: the markdown file</span>
+<span class=sd>    :param dest: the destination path</span>
+<span class=sd>    :param info: the build info</span>
+<span class=sd>    :param css: the relative path to the style sheet</span>
+<span class=sd>    :param url_fixer: the URL fixer</span>
+
+<span class=sd>    >>> root = Path(__file__).up(4)</span>
+<span class=sd>    >>> bf = BuildInfo(root, "pycommons",</span>
+<span class=sd>    ...     examples_dir=root.resolve_inside("examples"),</span>
+<span class=sd>    ...     tests_dir=root.resolve_inside("tests"),</span>
+<span class=sd>    ...     doc_source_dir=root.resolve_inside("docs/source"),</span>
+<span class=sd>    ...     doc_dest_dir=root.resolve_inside("docs/build"))</span>
+
+<span class=sd>    >>> from io import StringIO</span>
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> from pycommons.io.temp import temp_dir</span>
+<span class=sd>    >>> with temp_dir() as td:</span>
+<span class=sd>    ...     with redirect_stdout(None):</span>
+<span class=sd>    ...         __render_markdown(root.resolve_inside("README.md"), bf,</span>
+<span class=sd>    ...             td, None, lambda s: s)</span>
+<span class=sd>    ...         readme = td.resolve_inside("README_md.html").is_file()</span>
+<span class=sd>    ...         try:</span>
+<span class=sd>    ...             __render_markdown(root.resolve_inside("README.md"), bf,</span>
+<span class=sd>    ...                 td, None, lambda s: s)</span>
+<span class=sd>    ...         except ValueError as ve:</span>
+<span class=sd>    ...             vstr = str(ve)</span>
+<span class=sd>    ...         __render_markdown(root.resolve_inside("CONTRIBUTING.md"), bf,</span>
+<span class=sd>    ...             td, "dummy.css", lambda s: s)</span>
+<span class=sd>    ...         cb = td.resolve_inside("CONTRIBUTING_md.html").is_file()</span>
+<span class=sd>    >>> readme</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> vstr.endswith("already exists.")</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> cb</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Trying to render </span><span class=si>{</span><span class=n>markdown</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=c1># find the destination file</span>
+    <span class=n>basename</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>markdown</span><span class=o>.</span><span class=n>basename</span><span class=p>()</span>
+    <span class=k>if</span> <span class=n>dest</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>dest</span> <span class=o>=</span> <span class=n>info</span><span class=o>.</span><span class=n>doc_dest_dir</span>
+    <span class=n>dest_path</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>dest</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span>
+        <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>basename</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=s1>'.'</span><span class=p>,</span><span class=w> </span><span class=s1>'_'</span><span class=p>)</span><span class=si>}</span><span class=s2>.html"</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>dest_path</span><span class=o>.</span><span class=n>exists</span><span class=p>():</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Destination path </span><span class=si>{</span><span class=n>dest_path</span><span class=si>!r}</span><span class=s2> already exists."</span><span class=p>)</span>
+
+    <span class=c1># get the title</span>
+    <span class=n>title</span><span class=p>,</span> <span class=n>_</span> <span class=o>=</span> <span class=n>extract_md_infos</span><span class=p>(</span><span class=n>markdown</span><span class=p>)</span>
+    <span class=n>title</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>title</span><span class=p>)</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=s2>"`"</span><span class=p>,</span> <span class=s2>""</span><span class=p>)</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=s2>"*"</span><span class=p>,</span> <span class=s2>""</span><span class=p>)</span>
+
+    <span class=c1># set up the body</span>
+    <span class=n>body_1</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>__HTML_BODY_NO_STYLE_1</span>
+    <span class=n>body_2</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>__HTML_BODY_NO_STYLE_2</span>
+    <span class=k>if</span> <span class=n>css</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>body_1</span> <span class=o>=</span> <span class=n>__HTML_BODY_STYLE_1</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=s2>"</span><span class=si>{STYLE}</span><span class=s2>"</span><span class=p>,</span> <span class=n>css</span><span class=p>)</span>
+        <span class=n>body_2</span> <span class=o>=</span> <span class=n>__HTML_BODY_STYLE_2</span>
+
+    <span class=n>text</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>url_fixer</span><span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>Command</span><span class=p>((</span>
+        <span class=s2>"markdown_py"</span><span class=p>,</span> <span class=s2>"-o"</span><span class=p>,</span> <span class=s2>"html"</span><span class=p>,</span> <span class=n>markdown</span><span class=p>),</span>
+        <span class=n>stderr</span><span class=o>=</span><span class=n>STREAM_FORWARD</span><span class=p>,</span> <span class=n>stdout</span><span class=o>=</span><span class=n>STREAM_CAPTURE</span><span class=p>,</span> <span class=n>timeout</span><span class=o>=</span><span class=n>info</span><span class=o>.</span><span class=n>timeout</span><span class=p>,</span>
+        <span class=n>working_dir</span><span class=o>=</span><span class=n>info</span><span class=o>.</span><span class=n>base_dir</span><span class=p>)</span><span class=o>.</span><span class=n>execute</span><span class=p>()[</span><span class=mi>0</span><span class=p>]))</span>
+    <span class=n>dest_path</span><span class=o>.</span><span class=n>write_all_str</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>__HTML_HEADER</span><span class=si>}{</span><span class=n>title</span><span class=si>}{</span><span class=n>body_1</span><span class=si>}{</span><span class=n>text</span><span class=si>}{</span><span class=n>body_2</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Finished rendering </span><span class=si>{</span><span class=n>markdown</span><span class=si>!r}</span><span class=s2> to </span><span class=si>{</span><span class=n>dest_path</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__minify</span><span class=p>(</span><span class=n>file</span><span class=p>:</span> <span class=n>Path</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Minify the given HTML file.</span>
+
+<span class=sd>    :param file: the file</span>
+
+<span class=sd>    >>> root = Path(__file__).up(4)</span>
+<span class=sd>    >>> bf = BuildInfo(root, "pycommons",</span>
+<span class=sd>    ...     examples_dir=root.resolve_inside("examples"),</span>
+<span class=sd>    ...     tests_dir=root.resolve_inside("tests"),</span>
+<span class=sd>    ...     doc_source_dir=root.resolve_inside("docs/source"),</span>
+<span class=sd>    ...     doc_dest_dir=root.resolve_inside("docs/build"))</span>
+
+<span class=sd>    >>> from io import StringIO</span>
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> from pycommons.io.temp import temp_dir</span>
+<span class=sd>    >>> with temp_dir() as td:</span>
+<span class=sd>    ...     with redirect_stdout(None):</span>
+<span class=sd>    ...         __render_markdown(root.resolve_inside("README.md"), bf,</span>
+<span class=sd>    ...             td, None, lambda s: s)</span>
+<span class=sd>    ...         readme = td.resolve_inside("README_md.html")</span>
+<span class=sd>    ...         long = str.__len__(readme.read_all_str())</span>
+<span class=sd>    ...         __minify(readme)</span>
+<span class=sd>    ...         short = str.__len__(readme.read_all_str())</span>
+<span class=sd>    >>> 0 < short < long</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Minifying HTML in </span><span class=si>{</span><span class=n>file</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>text</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>file</span><span class=o>.</span><span class=n>read_all_str</span><span class=p>())</span>
+    <span class=n>text</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>minify_html</span><span class=o>.</span><span class=n>minify</span><span class=p>(</span>  <span class=c1># pylint: disable=E1101</span>
+        <span class=n>text</span><span class=p>,</span>
+        <span class=n>allow_noncompliant_unquoted_attribute_values</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span>
+        <span class=n>allow_optimal_entities</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span>
+        <span class=n>allow_removing_spaces_between_attributes</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span>
+        <span class=n>keep_closing_tags</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span>
+        <span class=n>keep_comments</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span>
+        <span class=n>keep_html_and_head_opening_tags</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span>
+        <span class=n>keep_input_type_text_attr</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span>
+        <span class=n>keep_ssi_comments</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span>
+        <span class=n>minify_css</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span>
+        <span class=n>minify_doctype</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span>
+        <span class=n>minify_js</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span>
+        <span class=n>preserve_brace_template_syntax</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span>
+        <span class=n>preserve_chevron_percent_template_syntax</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span>
+        <span class=n>remove_bangs</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span>
+        <span class=n>remove_processing_instructions</span><span class=o>=</span><span class=kc>True</span><span class=p>))</span>
+    <span class=k>if</span> <span class=s2>"&LTpre"</span> <span class=ow>not</span> <span class=ow>in</span> <span class=n>text</span><span class=p>:</span>
+        <span class=n>text</span> <span class=o>=</span> <span class=s2>" "</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=nb>map</span><span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>,</span> <span class=n>text</span><span class=o>.</span><span class=n>splitlines</span><span class=p>()))</span>
+    <span class=n>file</span><span class=o>.</span><span class=n>write_all_str</span><span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>text</span><span class=p>))</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__minify_all</span><span class=p>(</span><span class=n>dest</span><span class=p>:</span> <span class=n>Path</span><span class=p>,</span> <span class=n>skip</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=nb>bool</span><span class=p>])</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Minify all files in the given destination folder.</span>
+
+<span class=sd>    :param dest: the destination</span>
+<span class=sd>    :param skip: the files to skip</span>
+
+<span class=sd>    >>> root = Path(__file__).up(4)</span>
+<span class=sd>    >>> bf = BuildInfo(root, "pycommons",</span>
+<span class=sd>    ...     examples_dir=root.resolve_inside("examples"),</span>
+<span class=sd>    ...     tests_dir=root.resolve_inside("tests"),</span>
+<span class=sd>    ...     doc_source_dir=root.resolve_inside("docs/source"),</span>
+<span class=sd>    ...     doc_dest_dir=root.resolve_inside("docs/build"))</span>
+
+<span class=sd>    >>> from io import StringIO</span>
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> from pycommons.io.temp import temp_dir</span>
+<span class=sd>    >>> with temp_dir() as td:</span>
+<span class=sd>    ...     with redirect_stdout(None):</span>
+<span class=sd>    ...         __render_markdown(root.resolve_inside("README.md"), bf,</span>
+<span class=sd>    ...             td, None, lambda s: s)</span>
+<span class=sd>    ...         readme = td.resolve_inside("README_md.html")</span>
+<span class=sd>    ...         __render_markdown(root.resolve_inside("CONTRIBUTING.md"), bf,</span>
+<span class=sd>    ...             td, None, lambda s: s)</span>
+<span class=sd>    ...         cb = td.resolve_inside("CONTRIBUTING_md.html")</span>
+<span class=sd>    ...         longr = str.__len__(readme.read_all_str())</span>
+<span class=sd>    ...         longc = str.__len__(cb.read_all_str())</span>
+<span class=sd>    ...         __minify_all(td, lambda x: False)</span>
+<span class=sd>    ...         shortr = str.__len__(readme.read_all_str())</span>
+<span class=sd>    ...         shortc = str.__len__(cb.read_all_str())</span>
+<span class=sd>    >>> 0 < shortr < longr</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> 0 < shortc < longc</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=n>skip</span><span class=p>(</span><span class=n>dest</span><span class=p>):</span>
+        <span class=k>return</span>
+    <span class=k>if</span> <span class=n>dest</span><span class=o>.</span><span class=n>is_file</span><span class=p>():</span>
+        <span class=k>if</span> <span class=n>dest</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=s2>".html"</span><span class=p>):</span>
+            <span class=n>__minify</span><span class=p>(</span><span class=n>dest</span><span class=p>)</span>
+    <span class=k>elif</span> <span class=n>dest</span><span class=o>.</span><span class=n>is_dir</span><span class=p>():</span>
+        <span class=k>for</span> <span class=n>f</span> <span class=ow>in</span> <span class=n>dest</span><span class=o>.</span><span class=n>list_dir</span><span class=p>():</span>
+            <span class=n>__minify_all</span><span class=p>(</span><span class=n>f</span><span class=p>,</span> <span class=n>skip</span><span class=p>)</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__put_nojekyll</span><span class=p>(</span><span class=n>dest</span><span class=p>:</span> <span class=n>Path</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Put a `.nojekyll` file into each directory.</span>
+
+<span class=sd>    :param dest: the destination path.</span>
+
+<span class=sd>    >>> from pycommons.io.temp import temp_dir, temp_file</span>
+<span class=sd>    >>> with temp_dir() as td:</span>
+<span class=sd>    ...     x = td.resolve_inside("x")</span>
+<span class=sd>    ...     x.ensure_dir_exists()</span>
+<span class=sd>    ...     y = x.resolve_inside("y")</span>
+<span class=sd>    ...     y.ensure_dir_exists()</span>
+<span class=sd>    ...     __put_nojekyll(td)</span>
+<span class=sd>    ...     td.resolve_inside(".nojekyll").is_file()</span>
+<span class=sd>    ...     x.resolve_inside(".nojekyll").is_file()</span>
+<span class=sd>    ...     y.resolve_inside(".nojekyll").is_file()</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> with temp_file() as tf:</span>
+<span class=sd>    ...     __put_nojekyll(tf)  # nothing happens</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>dest</span><span class=o>.</span><span class=n>is_dir</span><span class=p>():</span>
+        <span class=k>return</span>
+    <span class=n>dest</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=s2>".nojekyll"</span><span class=p>)</span><span class=o>.</span><span class=n>ensure_file_exists</span><span class=p>()</span>
+    <span class=k>for</span> <span class=n>f</span> <span class=ow>in</span> <span class=n>dest</span><span class=o>.</span><span class=n>list_dir</span><span class=p>(</span><span class=n>files</span><span class=o>=</span><span class=kc>False</span><span class=p>):</span>
+        <span class=n>__put_nojekyll</span><span class=p>(</span><span class=n>f</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=make_documentation>
+<a class=viewcode-back href=../../../../pycommons.dev.building.html#pycommons.dev.building.make_documentation.make_documentation>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>make_documentation</span><span class=p>(</span><span class=n>info</span><span class=p>:</span> <span class=n>BuildInfo</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Make the documentation of the project.</span>
+
+<span class=sd>    :param info: the build information</span>
+
+<span class=sd>    >>> root = Path(__file__).up(4)</span>
+<span class=sd>    >>> bf = BuildInfo(root, "pycommons",</span>
+<span class=sd>    ...     examples_dir=root.resolve_inside("examples"),</span>
+<span class=sd>    ...     tests_dir=root.resolve_inside("tests"),</span>
+<span class=sd>    ...     doc_source_dir=root.resolve_inside("docs/source"),</span>
+<span class=sd>    ...     doc_dest_dir=root.resolve_inside("docs/build"))</span>
+<span class=sd>    >>> from io import StringIO</span>
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> with redirect_stdout(None):</span>
+<span class=sd>    ...     make_documentation(bf)</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     make_documentation(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[-13:])</span>
+<span class=sd>    nt, namely 1.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>info</span><span class=p>,</span> <span class=n>BuildInfo</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>info</span><span class=p>,</span> <span class=s2>"info"</span><span class=p>,</span> <span class=n>BuildInfo</span><span class=p>)</span>
+
+    <span class=n>source</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>info</span><span class=o>.</span><span class=n>doc_source_dir</span>
+    <span class=n>dest</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>info</span><span class=o>.</span><span class=n>doc_dest_dir</span>
+    <span class=k>if</span> <span class=p>(</span><span class=n>source</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>dest</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Need both documentation source and "</span>
+                         <span class=sa>f</span><span class=s2>"destination, but got </span><span class=si>{</span><span class=n>info</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Building documentation with setup </span><span class=si>{</span><span class=n>info</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"First clearing </span><span class=si>{</span><span class=n>dest</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>dest</span><span class=o>.</span><span class=n>exists</span><span class=p>():</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=n>dest</span><span class=o>.</span><span class=n>is_dir</span><span class=p>():</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>dest</span><span class=si>!r}</span><span class=s2> exists but is no directory?"</span><span class=p>)</span>
+        <span class=n>delete_path</span><span class=p>(</span><span class=n>dest</span><span class=p>)</span>
+    <span class=n>dest</span><span class=o>.</span><span class=n>ensure_dir_exists</span><span class=p>()</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=s2>"Collecting all documentation source files."</span><span class=p>)</span>
+    <span class=n>retain</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>[[</span><span class=n>Path</span><span class=p>],</span> <span class=nb>bool</span><span class=p>]]</span> <span class=o>=</span> <span class=n>__get_source</span><span class=p>(</span><span class=n>source</span><span class=p>)</span>
+    <span class=k>try</span><span class=p>:</span>
+        <span class=n>logger</span><span class=p>(</span><span class=s2>"Building the documentation files via Sphinx."</span><span class=p>)</span>
+        <span class=n>info</span><span class=o>.</span><span class=n>command</span><span class=p>((</span><span class=s2>"sphinx-apidoc"</span><span class=p>,</span> <span class=s2>"-M"</span><span class=p>,</span> <span class=s2>"--ext-autodoc"</span><span class=p>,</span>
+                      <span class=s2>"-o"</span><span class=p>,</span> <span class=n>source</span><span class=p>,</span> <span class=n>info</span><span class=o>.</span><span class=n>sources_dir</span><span class=p>))</span><span class=o>.</span><span class=n>execute</span><span class=p>()</span>
+        <span class=n>info</span><span class=o>.</span><span class=n>command</span><span class=p>((</span><span class=s2>"sphinx-build"</span><span class=p>,</span> <span class=s2>"-W"</span><span class=p>,</span> <span class=s2>"-a"</span><span class=p>,</span> <span class=s2>"-E"</span><span class=p>,</span> <span class=s2>"-b"</span><span class=p>,</span> <span class=s2>"html"</span><span class=p>,</span>
+                      <span class=n>source</span><span class=p>,</span> <span class=n>dest</span><span class=p>))</span><span class=o>.</span><span class=n>execute</span><span class=p>()</span>
+        <span class=n>logger</span><span class=p>(</span><span class=s2>"Finished the Sphinx executions."</span><span class=p>)</span>
+    <span class=k>finally</span><span class=p>:</span>
+        <span class=n>logger</span><span class=p>(</span><span class=s2>"Clearing all auto-generated files."</span><span class=p>)</span>
+        <span class=n>__keep_only_source</span><span class=p>(</span><span class=n>source</span><span class=p>,</span> <span class=n>retain</span><span class=p>)</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=s2>"Now building the additional files."</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=n>info</span><span class=o>.</span><span class=n>examples_dir</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>examples_dest</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>dest</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=s2>"examples"</span><span class=p>)</span>
+        <span class=n>examples_dest</span><span class=o>.</span><span class=n>ensure_dir_exists</span><span class=p>()</span>
+        <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Now pygmentizing example files to </span><span class=si>{</span><span class=n>examples_dest</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>for</span> <span class=n>f</span> <span class=ow>in</span> <span class=n>info</span><span class=o>.</span><span class=n>examples_dir</span><span class=o>.</span><span class=n>list_dir</span><span class=p>(</span><span class=n>directories</span><span class=o>=</span><span class=kc>False</span><span class=p>):</span>
+            <span class=k>if</span> <span class=n>f</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=s2>".py"</span><span class=p>):</span>
+                <span class=n>__pygmentize</span><span class=p>(</span><span class=n>f</span><span class=p>,</span> <span class=n>info</span><span class=p>,</span> <span class=n>examples_dest</span><span class=p>)</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=s2>"Now pygmentizing default files."</span><span class=p>)</span>
+    <span class=k>for</span> <span class=n>fn</span> <span class=ow>in</span> <span class=n>__PYGMENTIZE_DEFAULT</span><span class=p>:</span>
+        <span class=n>f</span> <span class=o>=</span> <span class=n>info</span><span class=o>.</span><span class=n>base_dir</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=n>fn</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>f</span><span class=o>.</span><span class=n>is_file</span><span class=p>():</span>
+            <span class=n>__pygmentize</span><span class=p>(</span><span class=n>f</span><span class=p>,</span> <span class=n>info</span><span class=p>)</span>
+
+    <span class=c1># now printing coverage information</span>
+    <span class=n>coverage_file</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>info</span><span class=o>.</span><span class=n>base_dir</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=s2>".coverage"</span><span class=p>)</span>
+    <span class=n>coverage_dest</span><span class=p>:</span> <span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=k>if</span> <span class=n>coverage_file</span><span class=o>.</span><span class=n>is_file</span><span class=p>():</span>
+        <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Generating coverage from file </span><span class=si>{</span><span class=n>coverage_file</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=n>coverage_dest</span> <span class=o>=</span> <span class=n>dest</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=s2>"tc"</span><span class=p>)</span>
+        <span class=n>coverage_dest</span><span class=o>.</span><span class=n>ensure_dir_exists</span><span class=p>()</span>
+        <span class=n>delete_path</span><span class=p>(</span><span class=n>coverage_dest</span><span class=p>)</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=n>info</span><span class=o>.</span><span class=n>command</span><span class=p>((</span><span class=s2>"coverage"</span><span class=p>,</span> <span class=s2>"html"</span><span class=p>,</span> <span class=s2>"-d"</span><span class=p>,</span> <span class=n>coverage_dest</span><span class=p>,</span>
+                          <span class=sa>f</span><span class=s2>"--data-file=</span><span class=si>{</span><span class=n>coverage_file</span><span class=si>}</span><span class=s2>"</span><span class=p>,</span>
+                          <span class=sa>f</span><span class=s2>"--include=</span><span class=si>{</span><span class=n>info</span><span class=o>.</span><span class=n>package_name</span><span class=si>}</span><span class=s2>/*"</span><span class=p>))</span><span class=o>.</span><span class=n>execute</span><span class=p>()</span>
+        <span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>coverage_dest</span><span class=o>.</span><span class=n>is_dir</span><span class=p>():</span>
+                <span class=k>raise</span>
+            <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"No coverage to report: </span><span class=si>{</span><span class=n>ve</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>gitignore</span><span class=p>:</span> <span class=n>Path</span> <span class=o>=</span> <span class=n>coverage_dest</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=s2>".gitignore"</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>gitignore</span><span class=o>.</span><span class=n>is_file</span><span class=p>():</span>  <span class=c1># remove gitignore</span>
+                <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Found .gitignore file </span><span class=si>{</span><span class=n>gitignore</span><span class=si>!r}</span><span class=s2> - deleting it."</span><span class=p>)</span>
+                <span class=n>delete_path</span><span class=p>(</span><span class=n>gitignore</span><span class=p>)</span>
+    <span class=k>else</span><span class=p>:</span>
+        <span class=n>logger</span><span class=p>(</span><span class=s2>"No coverage data found."</span><span class=p>)</span>
+
+    <span class=c1># find potential style sheet</span>
+    <span class=n>static</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>dest</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=s2>"_static"</span><span class=p>)</span>
+    <span class=n>css</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=k>if</span> <span class=n>static</span><span class=o>.</span><span class=n>is_dir</span><span class=p>():</span>
+        <span class=k>for</span> <span class=n>sst</span> <span class=ow>in</span> <span class=n>__STYLES</span><span class=p>:</span>
+            <span class=n>css_path</span><span class=p>:</span> <span class=n>Path</span> <span class=o>=</span> <span class=n>static</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=n>sst</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>css_path</span><span class=o>.</span><span class=n>is_file</span><span class=p>():</span>
+                <span class=n>css</span> <span class=o>=</span> <span class=n>css_path</span><span class=o>.</span><span class=n>relative_to</span><span class=p>(</span><span class=n>dest</span><span class=p>)</span>
+                <span class=c1># To some styles, we need to add minor modifications.</span>
+                <span class=k>for</span> <span class=n>add_style</span><span class=p>,</span> <span class=n>add_text</span> <span class=ow>in</span> <span class=n>__STYLE_ADDITIONS</span><span class=p>:</span>
+                    <span class=k>if</span> <span class=n>add_style</span> <span class=o>==</span> <span class=n>sst</span><span class=p>:</span>
+                        <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Improving style </span><span class=si>{</span><span class=n>css_path</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+                        <span class=k>with</span> <span class=nb>open</span><span class=p>(</span><span class=n>css_path</span><span class=p>,</span> <span class=s2>"a"</span><span class=p>,</span> <span class=n>encoding</span><span class=o>=</span><span class=n>UTF8</span><span class=p>)</span> <span class=k>as</span> <span class=n>stream</span><span class=p>:</span>
+                            <span class=n>stream</span><span class=o>.</span><span class=n>write</span><span class=p>(</span><span class=n>add_text</span><span class=p>)</span>
+                        <span class=k>break</span>
+                <span class=k>break</span>
+    <span class=k>if</span> <span class=n>css</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>logger</span><span class=p>(</span><span class=s2>"Found no static css style."</span><span class=p>)</span>
+    <span class=k>else</span><span class=p>:</span>
+        <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Using style sheet </span><span class=si>{</span><span class=n>css</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>setup_cfg</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>info</span><span class=o>.</span><span class=n>base_dir</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=s2>"setup.cfg"</span><span class=p>)</span>
+    <span class=n>url_fixer</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span>
+    <span class=k>if</span> <span class=n>setup_cfg</span><span class=o>.</span><span class=n>is_file</span><span class=p>():</span>
+        <span class=n>logger</span><span class=p>(</span><span class=s2>"Loading documentation information."</span><span class=p>)</span>
+        <span class=n>doc_info</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>DocInfo</span><span class=p>]</span> <span class=o>=</span> <span class=n>load_doc_info_from_setup_cfg</span><span class=p>(</span><span class=n>setup_cfg</span><span class=p>)</span>
+        <span class=n>url_fixer</span> <span class=o>=</span> <span class=n>make_url_replacer</span><span class=p>(</span>
+            <span class=p>{</span><span class=n>doc_info</span><span class=o>.</span><span class=n>doc_url</span><span class=p>:</span> <span class=s2>"./"</span><span class=p>},</span> <span class=n>for_markdown</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=s2>"Now rendering all markdown files in the root directory."</span><span class=p>)</span>
+    <span class=k>for</span> <span class=n>f</span> <span class=ow>in</span> <span class=n>info</span><span class=o>.</span><span class=n>base_dir</span><span class=o>.</span><span class=n>list_dir</span><span class=p>(</span><span class=n>directories</span><span class=o>=</span><span class=kc>False</span><span class=p>):</span>
+        <span class=k>if</span> <span class=n>f</span><span class=o>.</span><span class=n>is_file</span><span class=p>()</span> <span class=ow>and</span> <span class=n>f</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=s2>".md"</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span>
+                <span class=ow>not</span> <span class=n>f</span><span class=o>.</span><span class=n>basename</span><span class=p>()</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"README"</span><span class=p>)):</span>
+            <span class=n>__render_markdown</span><span class=p>(</span><span class=n>f</span><span class=p>,</span> <span class=n>info</span><span class=p>,</span> <span class=n>dest</span><span class=p>,</span> <span class=n>css</span><span class=p>,</span> <span class=n>url_fixer</span><span class=p>)</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=s2>"Now minifying all generated html files."</span><span class=p>)</span>
+    <span class=n>__minify_all</span><span class=p>(</span><span class=n>dest</span><span class=p>,</span> <span class=p>{</span><span class=n>coverage_dest</span><span class=p>}</span><span class=o>.</span><span class=fm>__contains__</span><span class=p>)</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=s2>"Now putting a .nojekyll file into each directory."</span><span class=p>)</span>
+    <span class=n>__put_nojekyll</span><span class=p>(</span><span class=n>dest</span><span class=p>)</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Finished building documentation with setup </span><span class=si>{</span><span class=n>info</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span></div>
+
+
+
+<span class=c1># Run documentation generation process if executed as script.</span>
+<span class=c1># This part cannot appear in unit test coverage, but we do test it.</span>
+<span class=k>if</span> <span class=vm>__name__</span> <span class=o>==</span> <span class=s2>"__main__"</span><span class=p>:</span>  <span class=c1># pragma: no cover</span>
+    <span class=n>parser</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>ArgumentParser</span><span class=p>]</span> <span class=o>=</span> <span class=n>pycommons_argparser</span><span class=p>(</span>
+        <span class=vm>__file__</span><span class=p>,</span>
+        <span class=s2>"Build the Documentation"</span><span class=p>,</span>
+        <span class=s2>"This utility uses sphinx to build the documentation."</span><span class=p>)</span>
+    <span class=n>make_documentation</span><span class=p>(</span><span class=n>parse_project_arguments</span><span class=p>(</span><span class=n>parser</span><span class=p>))</span>
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.building.make_documentation</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

@@ -1,0 +1,195 @@
+<!doctype html><html data-content_root=../../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.dev.tests.compile_and_run — pycommons 0.8.89 documentation</title><link href="../../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/dev/tests/compile_and_run.html rel=canonical><link href=../../../../genindex.html rel=index title=Index><link href=../../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.tests.compile_and_run</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.dev.tests.compile_and_run</h1><div class=highlight><pre>
+<span></span><span class=sd>"""Compile and run some Python code for testing purposes."""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>os</span><span class=w> </span><span class=kn>import</span> <span class=n>chdir</span><span class=p>,</span> <span class=n>getcwd</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Final</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.console</span><span class=w> </span><span class=kn>import</span> <span class=n>logger</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.path</span><span class=w> </span><span class=kn>import</span> <span class=n>directory_path</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.temp</span><span class=w> </span><span class=kn>import</span> <span class=n>temp_dir</span>
+
+
+<div class=viewcode-block id=compile_and_run>
+<a class=viewcode-back href=../../../../pycommons.dev.tests.html#pycommons.dev.tests.compile_and_run.compile_and_run>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>compile_and_run</span><span class=p>(</span><span class=n>code</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>source</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Compile and run some code for testing purposes.</span>
+
+<span class=sd>    This method first checks the types of its parameters.</span>
+<span class=sd>    It then performs some  superficial sanity checks on `code`.</span>
+<span class=sd>    Then, it changes the working directory to a temporary folder which is</span>
+<span class=sd>    deleted after all work is done.</span>
+<span class=sd>    It then compiles and, if that was successful, executes the code fragment.</span>
+<span class=sd>    Then working directory is changed back to the original directory and the</span>
+<span class=sd>    temporary directory is deleted.</span>
+
+<span class=sd>    :param code: the code to be compiled and run</span>
+<span class=sd>    :param source: the source of the code</span>
+<span class=sd>    :raises TypeError: if `code` or `source` are not strings</span>
+<span class=sd>    :raises ValueError: if any parameter has an invalid value</span>
+<span class=sd>        or if the code execution fails</span>
+
+<span class=sd>    >>> wd = getcwd()</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     compile_and_run(None, "bla")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> wd == getcwd()</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     compile_and_run(1, "bla")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> wd == getcwd()</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     compile_and_run("x=5", None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> wd == getcwd()</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     compile_and_run("x=5", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> wd == getcwd()</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     compile_and_run(None, None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> wd == getcwd()</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     compile_and_run("x=5", "")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Invalid source: ''.</span>
+
+<span class=sd>    >>> wd == getcwd()</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     compile_and_run("x=5", " ")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Source cannot be only white space, but ' ' is.</span>
+
+<span class=sd>    >>> wd == getcwd()</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     compile_and_run("", "x")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Code '' from 'x' is empty?</span>
+
+<span class=sd>    >>> wd == getcwd()</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     compile_and_run(" ", "x")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Code ' ' from 'x' consists of only white space!</span>
+
+<span class=sd>    >>> wd == getcwd()</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     compile_and_run("ä ", "x")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Code 'ä ' from 'x' contains non-ASCII characters.</span>
+
+<span class=sd>    >>> wd == getcwd()</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     with redirect_stdout(None):</span>
+<span class=sd>    ...         compile_and_run("<>-sdf/%'!234", "src")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Error when compiling 'src'.</span>
+
+<span class=sd>    >>> wd == getcwd()</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     with redirect_stdout(None):</span>
+<span class=sd>    ...         compile_and_run("1/0", "src")</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Error when executing 'src'.</span>
+
+<span class=sd>    >>> wd == getcwd()</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> with redirect_stdout(None):</span>
+<span class=sd>    ...     compile_and_run("print(1)", "src")</span>
+
+<span class=sd>    >>> wd == getcwd()</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>source</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid source: </span><span class=si>{</span><span class=n>source</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>use_source</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>source</span><span class=p>)</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>use_source</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"Source cannot be only white space, but </span><span class=si>{</span><span class=n>source</span><span class=si>!r}</span><span class=s2> is."</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>code</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Code </span><span class=si>{</span><span class=n>code</span><span class=si>!r}</span><span class=s2> from </span><span class=si>{</span><span class=n>source</span><span class=si>!r}</span><span class=s2> is empty?"</span><span class=p>)</span>
+    <span class=n>use_code</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>rstrip</span><span class=p>(</span><span class=n>code</span><span class=p>)</span>
+    <span class=n>code_len</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>use_code</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>code_len</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"Code </span><span class=si>{</span><span class=n>code</span><span class=si>!r}</span><span class=s2> from </span><span class=si>{</span><span class=n>source</span><span class=si>!r}</span><span class=s2> consists of only white space!"</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>str</span><span class=o>.</span><span class=n>isascii</span><span class=p>(</span><span class=n>use_code</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"Code </span><span class=si>{</span><span class=n>code</span><span class=si>!r}</span><span class=s2> from </span><span class=si>{</span><span class=n>source</span><span class=si>!r}</span><span class=s2> contains non-ASCII characters."</span><span class=p>)</span>
+
+    <span class=n>working_dir</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>directory_path</span><span class=p>(</span><span class=n>getcwd</span><span class=p>())</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Original working directory is </span><span class=si>{</span><span class=n>working_dir</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=k>with</span> <span class=n>temp_dir</span><span class=p>()</span> <span class=k>as</span> <span class=n>td</span><span class=p>:</span>
+        <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Changing working directory to temp dir </span><span class=si>{</span><span class=n>td</span><span class=si>!r}</span><span class=s2> to "</span>
+               <span class=sa>f</span><span class=s2>"process source </span><span class=si>{</span><span class=n>use_source</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=n>chdir</span><span class=p>(</span><span class=n>td</span><span class=p>)</span>
+            <span class=k>try</span><span class=p>:</span>
+                <span class=n>compiled</span> <span class=o>=</span> <span class=nb>compile</span><span class=p>(</span>  <span class=c1># noqa # nosec</span>
+                    <span class=n>use_code</span><span class=p>,</span> <span class=n>filename</span><span class=o>=</span><span class=n>use_source</span><span class=p>,</span>  <span class=c1># noqa # nosec</span>
+                    <span class=n>mode</span><span class=o>=</span><span class=s2>"exec"</span><span class=p>,</span> <span class=n>dont_inherit</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>  <span class=c1># noqa # nosec</span>
+            <span class=k>except</span> <span class=ne>BaseException</span> <span class=k>as</span> <span class=n>be</span><span class=p>:</span>  <span class=c1># noqa</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                    <span class=sa>f</span><span class=s2>"Error when compiling </span><span class=si>{</span><span class=n>use_source</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=nn>be</span>
+            <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Successfully compiled, now executing </span><span class=si>{</span><span class=n>use_source</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+            <span class=k>try</span><span class=p>:</span>
+                <span class=n>exec</span><span class=p>(</span><span class=n>compiled</span><span class=p>,</span> <span class=p>{})</span>  <span class=c1># pylint: disable = W0122 # noqa # nosec</span>
+            <span class=k>except</span> <span class=ne>BaseException</span> <span class=k>as</span> <span class=n>be</span><span class=p>:</span>  <span class=c1># noqa</span>
+                <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                    <span class=sa>f</span><span class=s2>"Error when executing </span><span class=si>{</span><span class=n>use_source</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=nn>be</span>
+        <span class=k>finally</span><span class=p>:</span>
+            <span class=n>chdir</span><span class=p>(</span><span class=n>working_dir</span><span class=p>)</span>
+            <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Changed working directory back to </span><span class=si>{</span><span class=n>working_dir</span><span class=si>!r}</span><span class=s2>"</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Successfully finished executing code from </span><span class=si>{</span><span class=n>use_source</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.tests.compile_and_run</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

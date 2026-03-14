@@ -1,0 +1,105 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.processes.caller — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/processes/caller.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.processes.caller</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.processes.caller</h1><div class=highlight><pre>
+<span></span><span class=sd>"""Get information about how this process was called."""</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>contextlib</span><span class=w> </span><span class=kn>import</span> <span class=n>suppress</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os</span><span class=w> </span><span class=kn>import</span> <span class=n>environ</span><span class=p>,</span> <span class=n>getpid</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os.path</span><span class=w> </span><span class=kn>import</span> <span class=n>basename</span><span class=p>,</span> <span class=n>isfile</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>traceback</span><span class=w> </span><span class=kn>import</span> <span class=n>extract_stack</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Final</span><span class=p>,</span> <span class=n>cast</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>psutil</span><span class=w> </span><span class=kn>import</span> <span class=n>Process</span>  <span class=c1># type: ignore</span>
+
+
+<div class=viewcode-block id=is_ci_run>
+<a class=viewcode-back href=../../../pycommons.processes.html#pycommons.processes.caller.is_ci_run>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>is_ci_run</span><span class=p>()</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Check if the program runs in a continuous integration environment.</span>
+
+<span class=sd>    Right now, only GitHub actions are recognized. Other CI tools are</span>
+<span class=sd>    currently not supported.</span>
+
+<span class=sd>    :returns: `True` if this process is executed as part of, e.g., a GitHub</span>
+<span class=sd>        action, `False` otherwise.</span>
+
+<span class=sd>    >>> isinstance(is_ci_run(), bool)</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+    <span class=k>return</span> <span class=nb>any</span><span class=p>(</span><span class=n>k</span> <span class=ow>in</span> <span class=n>environ</span> <span class=k>for</span> <span class=n>k</span> <span class=ow>in</span> <span class=p>(</span>
+        <span class=s2>"GITHUB_ACTION"</span><span class=p>,</span> <span class=s2>"GITHUB_ACTOR"</span><span class=p>,</span> <span class=s2>"GITHUB_ENV"</span><span class=p>,</span> <span class=s2>"GITHUB_JOB"</span><span class=p>,</span>
+        <span class=s2>"GITHUB_RUN_ID"</span><span class=p>,</span> <span class=s2>"GITHUB_WORKFLOW"</span><span class=p>,</span> <span class=s2>"GITHUB_WORKSPACE"</span><span class=p>))</span></div>
+
+
+
+<div class=viewcode-block id=is_build>
+<a class=viewcode-back href=../../../pycommons.processes.html#pycommons.processes.caller.is_build>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>is_build</span><span class=p>()</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Check if the program was run inside a build.</span>
+
+<span class=sd>    This function is `True` if the process is running inside a `make` build</span>
+<span class=sd>    or if :func:`is_ci_run` is `True` or if the evironment variable</span>
+<span class=sd>    `BUILD_SCRIPT` is set.</span>
+
+<span class=sd>    Since we now need to use virtual environments to install `pip` packages,</span>
+<span class=sd>    using `make` scripts has become too cumbersome to me. I simply cannot be</span>
+<span class=sd>    bothered to figure out how to set up a virtual environment `make` script</span>
+<span class=sd>    wide. Instead, I now use a `bash` script (`make.sh`) in my builds. To</span>
+<span class=sd>    properly detect this, this script sets the environment variable</span>
+<span class=sd>    `BUILD_SCRIPT`. In all my `pycommons`-based projects, I will do this from</span>
+<span class=sd>    now on.</span>
+
+<span class=sd>    Basically, if you want to signal that code runs inside a build, you can</span>
+<span class=sd>    set an environment variable as `export BUILD_SCRIPT="${BASH_SOURCE[0]}"`</span>
+<span class=sd>    inside your `bash` build script. This will be used as signal by this</span>
+<span class=sd>    function that we are running inside a build.</span>
+
+<span class=sd>    :returns: `True` if this process is executed as part of a build process,</span>
+<span class=sd>        `False` otherwise.</span>
+
+<span class=sd>    >>> isinstance(is_build(), bool)</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+    <span class=n>obj</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>object</span><span class=p>]</span> <span class=o>=</span> <span class=n>is_build</span>
+    <span class=n>key</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"_value"</span>
+    <span class=k>if</span> <span class=nb>hasattr</span><span class=p>(</span><span class=n>obj</span><span class=p>,</span> <span class=n>key</span><span class=p>):</span>
+        <span class=k>return</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"bool"</span><span class=p>,</span> <span class=nb>getattr</span><span class=p>(</span><span class=n>obj</span><span class=p>,</span> <span class=n>key</span><span class=p>))</span>
+
+    <span class=n>ret</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=p>(</span><span class=s2>"BUILD_SCRIPT"</span> <span class=ow>in</span> <span class=n>environ</span><span class=p>)</span> <span class=ow>or</span> <span class=n>is_ci_run</span><span class=p>()</span>
+
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>ret</span><span class=p>:</span>
+        <span class=k>with</span> <span class=n>suppress</span><span class=p>(</span><span class=ne>Exception</span><span class=p>):</span>
+            <span class=n>process</span><span class=p>:</span> <span class=n>Process</span> <span class=o>=</span> <span class=n>Process</span><span class=p>(</span><span class=n>getpid</span><span class=p>())</span>
+            <span class=k>while</span> <span class=n>process</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=n>process</span> <span class=o>=</span> <span class=n>process</span><span class=o>.</span><span class=n>parent</span><span class=p>()</span>
+                <span class=n>name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>process</span><span class=o>.</span><span class=n>cmdline</span><span class=p>()[</span><span class=mi>0</span><span class=p>]</span>
+                <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>name</span><span class=p>,</span> <span class=nb>str</span><span class=p>):</span>
+                    <span class=k>continue</span>
+                <span class=k>if</span> <span class=ow>not</span> <span class=n>isfile</span><span class=p>(</span><span class=n>name</span><span class=p>):</span>
+                    <span class=k>continue</span>
+                <span class=n>name</span> <span class=o>=</span> <span class=n>basename</span><span class=p>(</span><span class=n>name</span><span class=p>)</span>
+                <span class=k>if</span> <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=fm>__eq__</span><span class=p>(</span><span class=n>name</span><span class=p>,</span> <span class=s2>"make"</span><span class=p>))</span> <span class=ow>or</span> <span class=p>(</span>
+                        <span class=nb>str</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=n>name</span><span class=p>,</span> <span class=s2>"make."</span><span class=p>)):</span>
+                    <span class=n>ret</span> <span class=o>=</span> <span class=kc>True</span>
+                    <span class=k>break</span>
+
+    <span class=nb>setattr</span><span class=p>(</span><span class=n>obj</span><span class=p>,</span> <span class=n>key</span><span class=p>,</span> <span class=n>ret</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>ret</span></div>
+
+
+
+<div class=viewcode-block id=is_doc_test>
+<a class=viewcode-back href=../../../pycommons.processes.html#pycommons.processes.caller.is_doc_test>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>is_doc_test</span><span class=p>()</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Check if this process was invoked by a unit doctest.</span>
+
+<span class=sd>    :returns: `True` if this function was called by a unit doctest,</span>
+<span class=sd>        `False` otherwise</span>
+
+<span class=sd>    >>> is_doc_test()</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+    <span class=k>return</span> <span class=nb>any</span><span class=p>(</span><span class=n>t</span><span class=o>.</span><span class=n>filename</span><span class=o>.</span><span class=n>endswith</span><span class=p>((</span><span class=s2>"docrunner.py"</span><span class=p>,</span> <span class=s2>"doctest.py"</span><span class=p>))</span>
+               <span class=k>for</span> <span class=n>t</span> <span class=ow>in</span> <span class=n>extract_stack</span><span class=p>())</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.processes.caller</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

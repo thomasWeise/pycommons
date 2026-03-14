@@ -1,0 +1,205 @@
+<!doctype html><html data-content_root=../../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.dev.building.static_analysis — pycommons 0.8.89 documentation</title><link href="../../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/dev/building/static_analysis.html rel=canonical><link href=../../../../genindex.html rel=index title=Index><link href=../../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.building.static_analysis</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.dev.building.static_analysis</h1><div class=highlight><pre>
+<span></span><span class=sd>"""Perform the static code analysis."""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>argparse</span><span class=w> </span><span class=kn>import</span> <span class=n>ArgumentParser</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os</span><span class=w> </span><span class=kn>import</span> <span class=n>chdir</span><span class=p>,</span> <span class=n>getcwd</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Any</span><span class=p>,</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Iterable</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.dev.building.build_info</span><span class=w> </span><span class=kn>import</span> <span class=p>(</span>
+    <span class=n>BuildInfo</span><span class=p>,</span>
+    <span class=n>parse_project_arguments</span><span class=p>,</span>
+    <span class=n>replace_in_cmd</span><span class=p>,</span>
+<span class=p>)</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.arguments</span><span class=w> </span><span class=kn>import</span> <span class=n>pycommons_argparser</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.console</span><span class=w> </span><span class=kn>import</span> <span class=n>logger</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.path</span><span class=w> </span><span class=kn>import</span> <span class=n>Path</span><span class=p>,</span> <span class=n>directory_path</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.processes.shell</span><span class=w> </span><span class=kn>import</span> <span class=n>Command</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>type_error</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__exec</span><span class=p>(</span><span class=n>arguments</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>],</span>
+           <span class=n>info</span><span class=p>:</span> <span class=n>BuildInfo</span><span class=p>,</span>
+           <span class=n>errors</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=n>Any</span><span class=p>])</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Execute a command.</span>
+
+<span class=sd>    :param arguments: the arguments</span>
+<span class=sd>    :param info: the build info</span>
+<span class=sd>    :param errors: the error collector</span>
+<span class=sd>    """</span>
+    <span class=n>cmd</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Command</span><span class=p>]</span> <span class=o>=</span> <span class=n>info</span><span class=o>.</span><span class=n>command</span><span class=p>(</span><span class=n>arguments</span><span class=p>)</span>
+    <span class=k>try</span><span class=p>:</span>
+        <span class=n>cmd</span><span class=o>.</span><span class=n>execute</span><span class=p>(</span><span class=kc>False</span><span class=p>)</span>
+    <span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+        <span class=n>errors</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>cmd</span><span class=si>}</span><span class=s2> failed with </span><span class=si>{</span><span class=n>ve</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+
+<span class=c1>#: the files to exclude</span>
+<span class=n>__EXCLUDES</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span>\
+    <span class=s2>".svn,CVS,.bzr,.hg,.git,__pycache__,.tox,.nox,.eggs,*.egg,.venv"</span>
+
+<span class=c1>#: a list of analysis to be applied to the base directory</span>
+<span class=n>__BASE_ANALYSES</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=o>...</span><span class=p>],</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=p>(</span>
+    <span class=p>(</span><span class=s2>"flake8"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=s2>"--exclude"</span><span class=p>,</span> <span class=n>__EXCLUDES</span><span class=p>,</span>
+     <span class=s2>"--ignore=A005,B008,B009,B010,DUO102,PIE799,PT011,TRY003,TRY101,W503"</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"pyroma"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"pydocstyle"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=s2>"--convention=pep257"</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"vulture"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=s2>"--exclude"</span><span class=p>,</span> <span class=n>__EXCLUDES</span><span class=p>,</span> <span class=s2>"--min-confidence"</span><span class=p>,</span> <span class=s2>"61"</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"dodgy"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>),</span>
+<span class=p>)</span>
+
+<span class=c1>#: the rule sets we use for ruff</span>
+<span class=n>__RUFF_RULES</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span>\
+    <span class=p>(</span><span class=s2>"--select=A,AIR,ANN,ARG,ASYNC,B,BLE,C,C4,COM,D,DJ,DOC,DTZ,E,ERA,EXE,F,"</span>
+     <span class=s2>"FA,FIX,FLY,FURB,G,I,ICN,INP,ISC,INT,LOG,N,NPY,PERF,PGH,PIE,PL,PLC,PLE,"</span>
+     <span class=s2>"PLR,PLW,PT,PYI,Q,RET,RSE,RUF,S,SIM,SLF,SLOT,T,T10,T20,TC,TD,TID,TRY,"</span>
+     <span class=s2>"UP,W,YTT"</span><span class=p>)</span>
+
+<span class=c1>#: the ruff rules that we ignore</span>
+<span class=n>__RUFF_IGNORE</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span>\
+    <span class=p>(</span><span class=s2>"--ignore=A005,ANN001,ANN002,ANN003,ANN204,ANN401,ARG002,B008,B009,B010,"</span>
+     <span class=s2>"C901,D203,D208,D212,D401,D407,D413,DOC201,DOC402,DOC501,FURB189,N801,"</span>
+     <span class=s2>"PGH003,PGH004,PLC2801,PLR0904,PLR0911,PLR0912,PLR0913,PLR0914,PLR0915,"</span>
+     <span class=s2>"PLR0916,PLR0917,PLR1702,PLR2004,PLR6301,PT011,PT012,PT013,"</span>
+     <span class=s2>"PYI041,RUF100,S,TC001,TC002,SLF001,TRY003,UP035,UP047,W"</span><span class=p>)</span>
+
+<span class=c1>#: the pylint rules that we ignore</span>
+<span class=n>__PYLINT_IGNORE</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span>\
+    <span class=p>(</span><span class=s2>"--disable=C0103,C0302,C0325,R0801,R0901,R0902,R0903,R0911,R0912,R0913,"</span>
+     <span class=s2>"R0914,R0915,R0916,R0917,R1702,R1728,W0212,W0238,W0703"</span><span class=p>)</span>
+
+<span class=c1>#: the ruff target version</span>
+<span class=n>__RUF_TARGET_VERSION</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"py312"</span>
+
+<span class=c1>#: a list of analysis to be applied to the package directory</span>
+<span class=n>__PACKAGE_ANALYSES</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=o>...</span><span class=p>],</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=p>(</span>
+    <span class=p>(</span><span class=s2>"pyflakes"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"pylint"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=n>__PYLINT_IGNORE</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"mypy"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=s2>"--no-strict-optional"</span><span class=p>,</span> <span class=s2>"--check-untyped-defs"</span><span class=p>,</span>
+     <span class=s2>"--explicit-package-bases"</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"bandit"</span><span class=p>,</span> <span class=s2>"-r"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=s2>"-s"</span><span class=p>,</span> <span class=s2>"B311"</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"tryceratops"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=s2>"-i"</span><span class=p>,</span> <span class=s2>"TRY003"</span><span class=p>,</span> <span class=s2>"-i"</span><span class=p>,</span> <span class=s2>"TRY101"</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"unimport"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"pycodestyle"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"ruff"</span><span class=p>,</span> <span class=s2>"check"</span><span class=p>,</span> <span class=s2>"--target-version"</span><span class=p>,</span> <span class=n>__RUF_TARGET_VERSION</span><span class=p>,</span> <span class=n>__RUFF_RULES</span><span class=p>,</span>
+     <span class=n>__RUFF_IGNORE</span><span class=p>,</span> <span class=s2>"--line-length"</span><span class=p>,</span> <span class=s2>"79"</span><span class=p>,</span> <span class=s2>"--preview"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>),</span>
+<span class=p>)</span>
+
+<span class=c1>#: a list of analysis to be applied to the test directory</span>
+<span class=n>__TESTS_ANALYSES</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=o>...</span><span class=p>],</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=p>(</span>
+    <span class=p>(</span><span class=s2>"pylint"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=n>__PYLINT_IGNORE</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"mypy"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=s2>"--no-strict-optional"</span><span class=p>,</span> <span class=s2>"--check-untyped-defs"</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"bandit"</span><span class=p>,</span> <span class=s2>"-r"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=s2>"-s"</span><span class=p>,</span> <span class=s2>"B311,B101"</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"tryceratops"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=s2>"-i"</span><span class=p>,</span> <span class=s2>"TRY003"</span><span class=p>,</span> <span class=s2>"-i"</span><span class=p>,</span> <span class=s2>"TRY101"</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"unimport"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"pycodestyle"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"ruff"</span><span class=p>,</span> <span class=s2>"check"</span><span class=p>,</span> <span class=s2>"--target-version"</span><span class=p>,</span> <span class=n>__RUF_TARGET_VERSION</span><span class=p>,</span>
+     <span class=n>__RUFF_RULES</span><span class=p>,</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>__RUFF_IGNORE</span><span class=si>}</span><span class=s2>,INP001"</span><span class=p>,</span> <span class=s2>"--preview"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>),</span>
+<span class=p>)</span>
+
+<span class=c1>#: a list of analysis to be applied to the examples directory</span>
+<span class=n>__EXAMPLES_ANALYSES</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=o>...</span><span class=p>],</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=p>(</span>
+    <span class=p>(</span><span class=s2>"pylint"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=n>__PYLINT_IGNORE</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"bandit"</span><span class=p>,</span> <span class=s2>"-r"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=s2>"-s"</span><span class=p>,</span> <span class=s2>"B311"</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"tryceratops"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>,</span> <span class=s2>"-i"</span><span class=p>,</span> <span class=s2>"TRY003"</span><span class=p>,</span> <span class=s2>"-i"</span><span class=p>,</span> <span class=s2>"TRY101"</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"unimport"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"pycodestyle"</span><span class=p>,</span> <span class=s2>"--ignore=E731,W503"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>),</span>
+    <span class=p>(</span><span class=s2>"ruff"</span><span class=p>,</span> <span class=s2>"check"</span><span class=p>,</span> <span class=s2>"--target-version"</span><span class=p>,</span> <span class=n>__RUF_TARGET_VERSION</span><span class=p>,</span>
+     <span class=n>__RUFF_RULES</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=s2>",T20"</span><span class=p>,</span> <span class=s2>""</span><span class=p>),</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>__RUFF_IGNORE</span><span class=si>}</span><span class=s2>,INP001,T201"</span><span class=p>,</span>
+     <span class=s2>"--line-length"</span><span class=p>,</span> <span class=s2>"79"</span><span class=p>,</span> <span class=s2>"--preview"</span><span class=p>,</span> <span class=s2>"."</span><span class=p>),</span>
+<span class=p>)</span>
+
+<span class=c1>#: a list of analysis to be applied to the examples directory</span>
+<span class=n>__DOC_SOURCE</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=o>...</span><span class=p>],</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=n>__EXAMPLES_ANALYSES</span>
+
+
+<div class=viewcode-block id=static_analysis>
+<a class=viewcode-back href=../../../../pycommons.dev.building.html#pycommons.dev.building.static_analysis.static_analysis>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>static_analysis</span><span class=p>(</span><span class=n>info</span><span class=p>:</span> <span class=n>BuildInfo</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Perform the static code analysis for a Python project.</span>
+
+<span class=sd>    :param info: the build information</span>
+
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> with redirect_stdout(None):</span>
+<span class=sd>    ...     static_analysis(BuildInfo(</span>
+<span class=sd>    ...         Path(__file__).up(4), "pycommons", "tests",</span>
+<span class=sd>    ...             "examples", "docs/source"))</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     static_analysis(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:50])</span>
+<span class=sd>    info should be an instance of pycommons.dev.buildi</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     static_analysis(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:50])</span>
+<span class=sd>    info should be an instance of pycommons.dev.buildi</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>info</span><span class=p>,</span> <span class=n>BuildInfo</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>info</span><span class=p>,</span> <span class=s2>"info"</span><span class=p>,</span> <span class=n>BuildInfo</span><span class=p>)</span>
+
+    <span class=n>text</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"static analysis for </span><span class=si>{</span><span class=n>info</span><span class=si>}</span><span class=s2>"</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Performing </span><span class=si>{</span><span class=n>text</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>current</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>directory_path</span><span class=p>(</span><span class=n>getcwd</span><span class=p>())</span>
+    <span class=k>try</span><span class=p>:</span>
+        <span class=n>errors</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=p>[]</span>
+        <span class=k>for</span> <span class=n>what</span><span class=p>,</span> <span class=n>analysis</span><span class=p>,</span> <span class=n>path</span> <span class=ow>in</span> <span class=p>(</span>
+                <span class=p>(</span><span class=s2>"base"</span><span class=p>,</span> <span class=n>__BASE_ANALYSES</span><span class=p>,</span> <span class=n>info</span><span class=o>.</span><span class=n>base_dir</span><span class=p>),</span>
+                <span class=p>(</span><span class=s2>"package"</span><span class=p>,</span> <span class=n>__PACKAGE_ANALYSES</span><span class=p>,</span> <span class=n>info</span><span class=o>.</span><span class=n>sources_dir</span><span class=p>),</span>
+                <span class=p>(</span><span class=s2>"tests"</span><span class=p>,</span> <span class=n>__TESTS_ANALYSES</span><span class=p>,</span> <span class=n>info</span><span class=o>.</span><span class=n>tests_dir</span><span class=p>),</span>
+                <span class=p>(</span><span class=s2>"examples"</span><span class=p>,</span> <span class=n>__EXAMPLES_ANALYSES</span><span class=p>,</span> <span class=n>info</span><span class=o>.</span><span class=n>examples_dir</span><span class=p>),</span>
+                <span class=p>(</span><span class=s2>"doc"</span><span class=p>,</span> <span class=n>__DOC_SOURCE</span><span class=p>,</span> <span class=n>info</span><span class=o>.</span><span class=n>doc_source_dir</span><span class=p>)):</span>
+            <span class=k>if</span> <span class=n>path</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=k>continue</span>
+
+            <span class=c1># If we only have a single Python file in the directory, then</span>
+            <span class=c1># we will only check this single file.</span>
+            <span class=n>use_path</span><span class=p>:</span> <span class=n>Path</span> <span class=o>=</span> <span class=n>path</span>
+            <span class=n>single_file</span><span class=p>:</span> <span class=n>Path</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+            <span class=k>for</span> <span class=n>thepath</span> <span class=ow>in</span> <span class=n>path</span><span class=o>.</span><span class=n>list_dir</span><span class=p>(</span><span class=kc>True</span><span class=p>,</span> <span class=kc>True</span><span class=p>):</span>
+                <span class=k>if</span> <span class=n>thepath</span><span class=o>.</span><span class=n>is_file</span><span class=p>():</span>
+                    <span class=k>if</span> <span class=n>thepath</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=s2>".py"</span><span class=p>):</span>
+                        <span class=k>if</span> <span class=n>single_file</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+                            <span class=n>single_file</span> <span class=o>=</span> <span class=n>thepath</span>
+                        <span class=k>else</span><span class=p>:</span>
+                            <span class=n>single_file</span> <span class=o>=</span> <span class=kc>None</span>
+                            <span class=k>break</span>
+                <span class=k>else</span><span class=p>:</span>
+                    <span class=n>single_file</span> <span class=o>=</span> <span class=kc>None</span>
+                    <span class=k>break</span>
+            <span class=k>if</span> <span class=n>single_file</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=n>use_path</span> <span class=o>=</span> <span class=n>single_file</span>
+
+            <span class=k>for</span> <span class=n>a</span> <span class=ow>in</span> <span class=n>analysis</span><span class=p>:</span>
+                <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Applying </span><span class=si>{</span><span class=n>a</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=si>}</span><span class=s2> to </span><span class=si>{</span><span class=n>what</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+                <span class=n>__exec</span><span class=p>(</span><span class=n>replace_in_cmd</span><span class=p>(</span><span class=n>a</span><span class=p>,</span> <span class=n>use_path</span><span class=p>),</span> <span class=n>info</span><span class=p>,</span> <span class=n>errors</span><span class=o>.</span><span class=n>append</span><span class=p>)</span>
+    <span class=k>finally</span><span class=p>:</span>
+        <span class=n>chdir</span><span class=p>(</span><span class=n>current</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=nb>list</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>errors</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Successfully completed </span><span class=si>{</span><span class=n>text</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>return</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"The </span><span class=si>{</span><span class=n>text</span><span class=si>}</span><span class=s2> encountered the following errors:"</span><span class=p>)</span>
+    <span class=k>for</span> <span class=n>error</span> <span class=ow>in</span> <span class=n>errors</span><span class=p>:</span>
+        <span class=n>logger</span><span class=p>(</span><span class=n>error</span> <span class=o>+</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=p>)</span>
+
+    <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Failed to do </span><span class=si>{</span><span class=n>text</span><span class=si>}</span><span class=s2>:</span><span class=se>\n</span><span class=si>{</span><span class=s1>'</span><span class=se>\n</span><span class=s1>'</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>errors</span><span class=p>)</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span></div>
+
+
+
+<span class=c1># Run static analysis program if executed as script.</span>
+<span class=c1># This part cannot appear in unit test coverage, but we do test it.</span>
+<span class=k>if</span> <span class=vm>__name__</span> <span class=o>==</span> <span class=s2>"__main__"</span><span class=p>:</span>  <span class=c1># pragma: no cover</span>
+    <span class=n>parser</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>ArgumentParser</span><span class=p>]</span> <span class=o>=</span> <span class=n>pycommons_argparser</span><span class=p>(</span>
+        <span class=vm>__file__</span><span class=p>,</span>
+        <span class=s2>"Apply Static Code Analysis Tools"</span><span class=p>,</span>
+        <span class=s2>"This utility applies a big heap of static code analysis tools in "</span>
+        <span class=s2>"a unified way as I use it throughout my projects."</span><span class=p>)</span>
+    <span class=n>static_analysis</span><span class=p>(</span><span class=n>parse_project_arguments</span><span class=p>(</span><span class=n>parser</span><span class=p>))</span>
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.building.static_analysis</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

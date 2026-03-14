@@ -1,0 +1,211 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.processes.python — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/processes/python.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.processes.python</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.processes.python</h1><div class=highlight><pre>
+<span></span><span class=sd>"""</span>
+<span class=sd>Some utilities for dealing with python.</span>
+
+<span class=sd>>>> PYTHON_INTERPRETER.is_file()</span>
+<span class=sd>True</span>
+
+<span class=sd>>>> PYTHON_INTERPRETER_SHORT</span>
+<span class=sd>'python3'</span>
+
+<span class=sd>>>> len(__BASE_PATHS) > 0</span>
+<span class=sd>True</span>
+<span class=sd>>>> all((isinstance(f, Path) for f in __BASE_PATHS))</span>
+<span class=sd>True</span>
+<span class=sd>>>> all((len(__BASE_PATHS[i]) >= len(__BASE_PATHS[i + 1])</span>
+<span class=sd>...      for i in range(len(__BASE_PATHS) - 1)))</span>
+<span class=sd>True</span>
+<span class=sd>"""</span>
+
+
+<span class=kn>import</span><span class=w> </span><span class=nn>os.path</span>
+<span class=kn>import</span><span class=w> </span><span class=nn>subprocess</span>  <span class=c1># nosec</span>
+<span class=kn>import</span><span class=w> </span><span class=nn>sys</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os</span><span class=w> </span><span class=kn>import</span> <span class=n>environ</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Mapping</span><span class=p>,</span> <span class=n>cast</span>  <span class=c1># pylint: disable=W0611</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.ds.immutable_map</span><span class=w> </span><span class=kn>import</span> <span class=n>immutable_mapping</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.path</span><span class=w> </span><span class=kn>import</span> <span class=n>Path</span><span class=p>,</span> <span class=n>file_path</span>
+
+<span class=c1>#: the Python interpreter used to launch this program</span>
+<span class=n>PYTHON_INTERPRETER</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>file_path</span><span class=p>(</span><span class=n>sys</span><span class=o>.</span><span class=n>executable</span><span class=p>)</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__get_python_interpreter_short</span><span class=p>()</span> <span class=o>-></span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Get the python interpreter.</span>
+
+<span class=sd>    :returns: the fully-qualified path</span>
+<span class=sd>    """</span>
+    <span class=n>inter</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>PYTHON_INTERPRETER</span>
+    <span class=n>inter_version</span><span class=p>:</span> <span class=nb>str</span>
+    <span class=k>try</span><span class=p>:</span>
+        <span class=c1># noqa # nosemgrep</span>
+        <span class=n>retval</span> <span class=o>=</span> <span class=n>subprocess</span><span class=o>.</span><span class=n>run</span><span class=p>(</span>  <span class=c1># nosec # noqa</span>
+            <span class=n>args</span><span class=o>=</span><span class=p>(</span><span class=n>inter</span><span class=p>,</span> <span class=s2>"--version"</span><span class=p>),</span> <span class=n>check</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span>  <span class=c1># nosec # noqa</span>
+            <span class=n>text</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span> <span class=n>timeout</span><span class=o>=</span><span class=mi>10</span><span class=p>,</span> <span class=n>capture_output</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>  <span class=c1># nosec # noqa</span>
+        <span class=n>inter_version</span> <span class=o>=</span> <span class=n>retval</span><span class=o>.</span><span class=n>stdout</span>
+        <span class=k>del</span> <span class=n>retval</span>
+    <span class=k>except</span> <span class=p>(</span><span class=n>subprocess</span><span class=o>.</span><span class=n>SubprocessError</span><span class=p>,</span> <span class=ne>FileNotFoundError</span><span class=p>)</span> <span class=k>as</span> <span class=n>se</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Interpreter </span><span class=si>{</span><span class=n>inter</span><span class=si>!r}</span><span class=s2> is invalid?"</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=nn>se</span>
+    <span class=k>if</span> <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>inter_version</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span>
+            <span class=ow>not</span> <span class=n>inter_version</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"Python 3."</span><span class=p>)):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Interpreter </span><span class=si>{</span><span class=n>inter</span><span class=si>!r}</span><span class=s2> has no version?"</span><span class=p>)</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>__check_is_python</span><span class=p>(</span><span class=n>s</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>__c</span><span class=o>=</span><span class=n>inter_version</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""Check whether a command results in the same Python interpreter."""</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=c1># noqa # nosemgrep</span>
+            <span class=n>rv</span> <span class=o>=</span> <span class=n>subprocess</span><span class=o>.</span><span class=n>run</span><span class=p>(</span>  <span class=c1># nosec # noqa</span>
+                <span class=n>args</span><span class=o>=</span><span class=p>(</span><span class=n>s</span><span class=p>,</span> <span class=s2>"--version"</span><span class=p>),</span> <span class=n>check</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span> <span class=n>text</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span>  <span class=c1># nosec # noqa</span>
+                <span class=n>timeout</span><span class=o>=</span><span class=mi>10</span><span class=p>,</span> <span class=n>capture_output</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>  <span class=c1># nosec # noqa</span>
+        <span class=k>except</span> <span class=p>(</span><span class=n>subprocess</span><span class=o>.</span><span class=n>SubprocessError</span><span class=p>,</span> <span class=ne>FileNotFoundError</span><span class=p>):</span>
+            <span class=k>return</span> <span class=kc>False</span>
+        <span class=k>return</span> <span class=n>rv</span><span class=o>.</span><span class=n>stdout</span> <span class=o>==</span> <span class=n>__c</span>
+
+    <span class=c1># check if we can just use the interpreter basename without the full path</span>
+    <span class=c1># this should usually work</span>
+    <span class=n>bn</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>inter</span><span class=o>.</span><span class=n>basename</span><span class=p>()</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>__check_is_python</span><span class=p>(</span><span class=n>bn</span><span class=p>):</span>
+        <span class=k>return</span> <span class=n>inter</span>
+
+    <span class=c1># if the interpreter is something like "python3.10", then maybe "python3"</span>
+    <span class=c1># works, too?</span>
+    <span class=k>if</span> <span class=n>bn</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"python3."</span><span class=p>):</span>
+        <span class=n>bn2</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>bn</span><span class=p>[:</span><span class=mi>7</span><span class=p>]</span>
+        <span class=n>interp2</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>inter</span><span class=o>.</span><span class=n>up</span><span class=p>(),</span> <span class=n>bn2</span><span class=p>)</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>exists</span><span class=p>(</span><span class=n>interp2</span><span class=p>)</span> <span class=ow>and</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>isfile</span><span class=p>(</span><span class=n>interp2</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span>
+                <span class=n>file_path</span><span class=p>(</span><span class=n>interp2</span><span class=p>)</span> <span class=o>==</span> <span class=n>inter</span><span class=p>))</span> <span class=ow>or</span> <span class=n>__check_is_python</span><span class=p>(</span><span class=n>bn2</span><span class=p>):</span>
+            <span class=k>return</span> <span class=n>bn2</span>
+    <span class=k>return</span> <span class=n>bn</span>
+
+
+<span class=c1>#: The python interpreter in short form.</span>
+<span class=n>PYTHON_INTERPRETER_SHORT</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>__get_python_interpreter_short</span><span class=p>()</span>
+<span class=k>del</span> <span class=n>__get_python_interpreter_short</span>
+
+
+<span class=c1>#: the base paths in which we would search for python modules</span>
+<span class=n>__BASE_PATHS</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=n>Path</span><span class=p>,</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=nb>tuple</span><span class=p>(</span><span class=nb>sorted</span><span class=p>((</span><span class=n>p</span> <span class=k>for</span> <span class=n>p</span> <span class=ow>in</span> <span class=p>{</span>
+    <span class=n>Path</span><span class=p>(</span><span class=n>d</span><span class=p>)</span> <span class=k>for</span> <span class=n>d</span> <span class=ow>in</span> <span class=n>sys</span><span class=o>.</span><span class=n>path</span> <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>d</span><span class=p>)</span> <span class=o>></span> <span class=mi>0</span><span class=p>}</span> <span class=k>if</span> <span class=n>p</span><span class=o>.</span><span class=n>is_dir</span><span class=p>()),</span>
+    <span class=n>key</span><span class=o>=</span><span class=n>cast</span><span class=p>(</span><span class=s2>"Callable[[Path], int]"</span><span class=p>,</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>),</span> <span class=n>reverse</span><span class=o>=</span><span class=kc>True</span><span class=p>))</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__get_python_env</span><span class=p>()</span> <span class=o>-></span> <span class=n>Mapping</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Get the Python-related environment variables in the current environment.</span>
+
+<span class=sd>    :returns: A mapping of variable names to values, or `None` if none were</span>
+<span class=sd>        specified.</span>
+<span class=sd>    """</span>
+    <span class=n>pienv</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"PYTHON_INTERPRETER"</span>
+    <span class=n>selected</span><span class=p>:</span> <span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=p>{</span><span class=n>k</span><span class=p>:</span> <span class=n>v</span> <span class=k>for</span> <span class=n>k</span><span class=p>,</span> <span class=n>v</span> <span class=ow>in</span> <span class=n>environ</span><span class=o>.</span><span class=n>items</span><span class=p>()</span> <span class=k>if</span> <span class=n>k</span> <span class=ow>in</span> <span class=p>{</span>
+        <span class=s2>"PATH"</span><span class=p>,</span> <span class=n>pienv</span><span class=p>,</span> <span class=s2>"PYTHONCASEOK"</span><span class=p>,</span> <span class=s2>"PYTHONCOERCECLOCALE"</span><span class=p>,</span>
+        <span class=s2>"PYTHONDONTWRITEBYTECODE"</span><span class=p>,</span> <span class=s2>"PYTHONEXECUTABLE"</span><span class=p>,</span> <span class=s2>"PYTHONFAULTHANDLER"</span><span class=p>,</span>
+        <span class=s2>"PYTHONHASHSEED"</span><span class=p>,</span> <span class=s2>"PYTHONHOME"</span><span class=p>,</span> <span class=s2>"PYTHONINTMAXSTRDIGITS"</span><span class=p>,</span>
+        <span class=s2>"PYTHONIOENCODING"</span><span class=p>,</span> <span class=s2>"PYTHONLEGACYWINDOWSFSENCODING"</span><span class=p>,</span>
+        <span class=s2>"PYTHONLEGACYWINDOWSSTDIO"</span><span class=p>,</span> <span class=s2>"PYTHONNOUSERSITE"</span><span class=p>,</span> <span class=s2>"PYTHONOPTIMIZE"</span><span class=p>,</span>
+        <span class=s2>"PYTHONPATH"</span><span class=p>,</span> <span class=s2>"PYTHONPLATLIBDIR"</span><span class=p>,</span> <span class=s2>"PYTHONPYCACHEPREFIX"</span><span class=p>,</span>
+        <span class=s2>"PYTHONSAFEPATH"</span><span class=p>,</span> <span class=s2>"PYTHONUNBUFFERED"</span><span class=p>,</span> <span class=s2>"PYTHONUSERBASE"</span><span class=p>,</span> <span class=s2>"PYTHONUTF8"</span><span class=p>,</span>
+        <span class=s2>"PYTHONWARNDEFAULTENCODING"</span><span class=p>,</span> <span class=s2>"PYTHONWARNINGS"</span><span class=p>,</span> <span class=s2>"VIRTUAL_ENV"</span><span class=p>}}</span>
+    <span class=k>if</span> <span class=n>pienv</span> <span class=ow>not</span> <span class=ow>in</span> <span class=n>selected</span><span class=p>:</span>
+        <span class=n>selected</span><span class=p>[</span><span class=n>pienv</span><span class=p>]</span> <span class=o>=</span> <span class=n>PYTHON_INTERPRETER</span>
+    <span class=k>return</span> <span class=n>immutable_mapping</span><span class=p>(</span><span class=n>selected</span><span class=p>)</span>
+
+
+<span class=c1>#: The environment variables related to Python that were set in the current</span>
+<span class=c1>#: process. It makes sense to pass these on with any :func:`python_command`</span>
+<span class=c1>#: invocation or other calls to the Python interpreter.</span>
+<span class=c1>#: This collection includes information about the Python interpreter,</span>
+<span class=c1>#: executable, `PATH`, and the virtual environment, if any, as well as any</span>
+<span class=c1>#: Python-related environment variables passed to this process.</span>
+<span class=c1>#: The special variable `PYTHON_INTERPRETER` will be passed into this</span>
+<span class=c1>#: environment. If it already exists in this process' environment, it will be</span>
+<span class=c1>#: passed along as-is. If it does not exist in the current environment, it is</span>
+<span class=c1>#: created and made to point to the Python executable that was used to</span>
+<span class=c1>#: launch this process.</span>
+<span class=n>PYTHON_ENV</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Mapping</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=n>__get_python_env</span><span class=p>()</span>
+<span class=k>del</span> <span class=n>__get_python_env</span>
+
+
+<div class=viewcode-block id=python_command>
+<a class=viewcode-back href=../../../pycommons.processes.html#pycommons.processes.python.python_command>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>python_command</span><span class=p>(</span>
+        <span class=n>file</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>use_short_interpreter</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>True</span><span class=p>)</span> <span class=o>-></span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Get a python command that could be used to interpret the given file.</span>
+
+<span class=sd>    This function tries to detect whether `file` identifies a Python module</span>
+<span class=sd>    of an installed package, in which case it will issue a `-m` flag in the</span>
+<span class=sd>    resulting command, or whether it is some other script, in which it will</span>
+<span class=sd>    just return a normal interpreter invocation.</span>
+
+<span class=sd>    Notice that you should forward :const:`PYTHON_ENV` as environment to the</span>
+<span class=sd>    new Python process if it uses any packages. If we are currently running</span>
+<span class=sd>    in a virtual environment, we want to tell this command about that.</span>
+
+<span class=sd>    :param file: the python script</span>
+<span class=sd>    :param use_short_interpreter: use the short interpreter path, for</span>
+<span class=sd>        reabability and maybe portablity, or the full path?</span>
+<span class=sd>    :returns: a list that can be passed to the shell to run that program, see,</span>
+<span class=sd>        e.g., :class:`pycommons.processes.shell.Command`.</span>
+
+<span class=sd>    >>> python_command(os.__file__)</span>
+<span class=sd>    ['python3', '-m', 'os']</span>
+<span class=sd>    >>> python_command(__file__)</span>
+<span class=sd>    ['python3', '-m', 'pycommons.processes.python']</span>
+<span class=sd>    >>> from tempfile import mkstemp</span>
+<span class=sd>    >>> from os import remove as osremovex</span>
+<span class=sd>    >>> from os import close as osclosex</span>
+<span class=sd>    >>> h, p = mkstemp(text=True)</span>
+<span class=sd>    >>> osclosex(h)</span>
+<span class=sd>    >>> python_command(p) == [PYTHON_INTERPRETER_SHORT, p]</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> python_command(p, False) == [PYTHON_INTERPRETER, p]</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> osremovex(p)</span>
+
+<span class=sd>    >>> h, p = mkstemp(dir=file_path(__file__).up(), text=True)</span>
+<span class=sd>    >>> osclosex(h)</span>
+<span class=sd>    >>> python_command(p) == [PYTHON_INTERPRETER_SHORT, p]</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> python_command(p, False) == [PYTHON_INTERPRETER, p]</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> osremovex(p)</span>
+
+<span class=sd>    >>> the_pack = file_path(__file__).up()</span>
+<span class=sd>    >>> h, p = mkstemp(dir=the_pack,</span>
+<span class=sd>    ...                suffix=".py", text=True)</span>
+<span class=sd>    >>> osclosex(h)</span>
+<span class=sd>    >>> the_str = p[len(the_pack.up(2)) + 1:-3].replace(os.sep, '.')</span>
+<span class=sd>    >>> python_command(p) == [PYTHON_INTERPRETER_SHORT, "-m", the_str]</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> python_command(p, False) == [PYTHON_INTERPRETER, "-m", the_str]</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> osremovex(p)</span>
+<span class=sd>    """</span>
+    <span class=c1># first, get the real path to the module</span>
+    <span class=n>module</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>file_path</span><span class=p>(</span><span class=n>file</span><span class=p>)</span>
+    <span class=n>start</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>
+    <span class=n>is_module</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=kc>False</span>  <span class=c1># is this is a module of an installed package?</span>
+
+    <span class=k>for</span> <span class=n>bp</span> <span class=ow>in</span> <span class=n>__BASE_PATHS</span><span class=p>:</span>
+        <span class=k>if</span> <span class=n>bp</span><span class=o>.</span><span class=n>contains</span><span class=p>(</span><span class=n>module</span><span class=p>):</span>
+            <span class=n>start</span> <span class=o>+=</span> <span class=nb>len</span><span class=p>(</span><span class=n>bp</span><span class=p>)</span> <span class=o>+</span> <span class=mi>1</span>
+            <span class=n>is_module</span> <span class=o>=</span> <span class=kc>True</span>
+            <span class=k>break</span>
+
+    <span class=n>end</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=nb>len</span><span class=p>(</span><span class=n>module</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>is_module</span><span class=p>:</span>
+        <span class=k>if</span> <span class=n>module</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=s2>".py"</span><span class=p>):</span>
+            <span class=n>end</span> <span class=o>-=</span> <span class=mi>3</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>is_module</span> <span class=o>=</span> <span class=kc>False</span>
+
+    <span class=n>interpreter</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=n>PYTHON_INTERPRETER_SHORT</span> \
+        <span class=k>if</span> <span class=n>use_short_interpreter</span> <span class=k>else</span> <span class=n>PYTHON_INTERPRETER</span>
+    <span class=k>if</span> <span class=n>is_module</span><span class=p>:</span>
+        <span class=k>return</span> <span class=p>[</span><span class=n>interpreter</span><span class=p>,</span> <span class=s2>"-m"</span><span class=p>,</span> <span class=n>module</span><span class=p>[</span><span class=n>start</span><span class=p>:</span><span class=n>end</span><span class=p>]</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=n>os</span><span class=o>.</span><span class=n>sep</span><span class=p>,</span> <span class=s2>"."</span><span class=p>)]</span>
+    <span class=k>return</span> <span class=p>[</span><span class=n>interpreter</span><span class=p>,</span> <span class=n>module</span><span class=p>]</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.processes.python</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

@@ -1,0 +1,142 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.ds.cache — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/ds/cache.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.ds.cache</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.ds.cache</h1><div class=highlight><pre>
+<span></span><span class=sd>"""A factory for functions checking whether argument values are new."""</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>TypeVar</span>
+
+<span class=c1>#: a type variable for the representation-base cache</span>
+<span class=c1>#: :func:`pycommons.ds.cache.repr_cache`.</span>
+<span class=n>T</span> <span class=o>=</span> <span class=n>TypeVar</span><span class=p>(</span><span class=s2>"T"</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=is_new>
+<a class=viewcode-back href=../../../pycommons.ds.html#pycommons.ds.cache.is_new>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>is_new</span><span class=p>()</span> <span class=o>-></span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>str</span><span class=p>],</span> <span class=nb>bool</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Create a function returning `True` when seeing new values.</span>
+
+<span class=sd>    Creates a function which returns `True` only the first time it receives a</span>
+<span class=sd>    given  argument and `False` all subsequent times.</span>
+<span class=sd>    This is based on https://stackoverflow.com/questions/27427067</span>
+
+<span class=sd>    :returns: a function `is_new(xx)` that will return `True` the first</span>
+<span class=sd>        time it encounters any value `xx` and `False` for all values it has</span>
+<span class=sd>        already seen</span>
+
+<span class=sd>    >>> check1: Callable[[str], bool] = is_new()</span>
+<span class=sd>    >>> print(check1("a"))</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> print(check1("a"))</span>
+<span class=sd>    False</span>
+<span class=sd>    >>> print(check1("b"))</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> print(check1("b"))</span>
+<span class=sd>    False</span>
+
+<span class=sd>    >>> check2: Callable[[int], bool] = is_new()</span>
+<span class=sd>    >>> print(check2(1))</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> print(check2(1))</span>
+<span class=sd>    False</span>
+<span class=sd>    >>> print(check2(3))</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> print(check2(4))</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> print(check2(3))</span>
+<span class=sd>    False</span>
+<span class=sd>    """</span>
+    <span class=n>setdefault</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>]</span> <span class=o>=</span> <span class=p>{}</span><span class=o>.</span><span class=n>setdefault</span>
+    <span class=n>n</span> <span class=o>=</span> <span class=mi>0</span>  <span class=c1># noqa</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>__add</span><span class=p>(</span><span class=n>x</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+        <span class=k>nonlocal</span> <span class=n>n</span>
+        <span class=n>n</span> <span class=o>+=</span> <span class=mi>1</span>
+        <span class=k>return</span> <span class=n>setdefault</span><span class=p>(</span><span class=n>x</span><span class=p>,</span> <span class=n>n</span><span class=p>)</span> <span class=o>==</span> <span class=n>n</span>
+
+    <span class=k>return</span> <span class=n>__add</span></div>
+
+
+
+<div class=viewcode-block id=repr_cache>
+<a class=viewcode-back href=../../../pycommons.ds.html#pycommons.ds.cache.repr_cache>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>repr_cache</span><span class=p>()</span> <span class=o>-></span> <span class=n>Callable</span><span class=p>[[</span><span class=n>T</span><span class=p>],</span> <span class=n>T</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Create a cache based on the string representation of an object.</span>
+
+<span class=sd>    In this type of cache is that the `repr`-representations of objects</span>
+<span class=sd>    are used as keys. The first time an object with a given representation is</span>
+<span class=sd>    encountered, it is stored in the cache and returned. The next time an</span>
+<span class=sd>    object with the same representation is put into this method, the original</span>
+<span class=sd>    object with that representation is returned instead.</span>
+
+<span class=sd>    This can be used to still cache and canonically retrieve objects which by</span>
+<span class=sd>    themselves are not hashable, like numpy arrays. While the cache itself is</span>
+<span class=sd>    not memory-friendly, it can be used to build data structures that re-use</span>
+<span class=sd>    the same objects again and again. If these data structures are heavily</span>
+<span class=sd>    used, then this can improve the hardware-cache-friendliness of the</span>
+<span class=sd>    corresponding code.</span>
+
+<span class=sd>    :return: the cache function</span>
+<span class=sd>    :raises TypeError: if the type of a cached object is incompatible with the</span>
+<span class=sd>        type of a requested object</span>
+
+<span class=sd>    >>> cache1: Callable[[str], str] = repr_cache()</span>
+<span class=sd>    >>> a = f"{1 * 5}"</span>
+<span class=sd>    >>> b = "5"</span>
+<span class=sd>    >>> a is b</span>
+<span class=sd>    False</span>
+
+<span class=sd>    >>> cache1(a)</span>
+<span class=sd>    '5'</span>
+<span class=sd>    >>> cache1(b) is a</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> cache2: Callable[[float], float] = repr_cache()</span>
+<span class=sd>    >>> x = 5.78</span>
+<span class=sd>    >>> y = 578 / 100</span>
+<span class=sd>    >>> y is x</span>
+<span class=sd>    False</span>
+<span class=sd>    >>> cache2(y)</span>
+<span class=sd>    5.78</span>
+<span class=sd>    >>> cache2(x) is y</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> cache3: Callable[[dict[int, str]], dict[int, str]] = repr_cache()</span>
+<span class=sd>    >>> a = {1: '1', 3: '3', 7: '7'}</span>
+<span class=sd>    >>> b = {1: '1', 3: '3', 7: '7'}</span>
+<span class=sd>    >>> print(cache3(a))</span>
+<span class=sd>    {1: '1', 3: '3', 7: '7'}</span>
+<span class=sd>    >>> print(cache3(a) is a)</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> print(cache3(b) is a)</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> print(cache3(b) is b)</span>
+<span class=sd>    False</span>
+
+<span class=sd>    >>> class Dummy:</span>
+<span class=sd>    ...     def __repr__(self):</span>
+<span class=sd>    ...         return "22222"</span>
+<span class=sd>    >>> cache4: Callable[[Dummy], Dummy] = repr_cache()</span>
+<span class=sd>    >>> _ = cache4(Dummy())</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     cache4(22222)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     s = str(te)</span>
+<span class=sd>    >>> print(s[:34])</span>
+<span class=sd>    Cache yields element of wrong type</span>
+<span class=sd>    >>> "Dummy" in s</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> "int" in s</span>
+<span class=sd>    True</span>
+<span class=sd>    """</span>
+    <span class=n>setdefault</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>]</span> <span class=o>=</span> <span class=p>{}</span><span class=o>.</span><span class=n>setdefault</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>__add</span><span class=p>(</span><span class=n>x</span><span class=p>:</span> <span class=n>T</span><span class=p>)</span> <span class=o>-></span> <span class=n>T</span><span class=p>:</span>
+        <span class=n>z</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>T</span><span class=p>]</span> <span class=o>=</span> <span class=n>setdefault</span><span class=p>(</span><span class=nb>repr</span><span class=p>(</span><span class=n>x</span><span class=p>),</span> <span class=n>x</span><span class=p>)</span>
+        <span class=n>tpe</span> <span class=o>=</span> <span class=nb>type</span><span class=p>(</span><span class=n>x</span><span class=p>)</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>z</span><span class=p>,</span> <span class=n>tpe</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=ne>TypeError</span><span class=p>(</span><span class=s2>"Cache yields element of wrong type "</span>
+                            <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=nb>type</span><span class=p>(</span><span class=n>z</span><span class=p>)</span><span class=si>}</span><span class=s2>, should be </span><span class=si>{</span><span class=n>tpe</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>z</span>
+
+    <span class=k>return</span> <span class=n>__add</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.ds.cache</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

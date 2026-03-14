@@ -1,0 +1,801 @@
+<!doctype html><html data-content_root=../../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.dev.tests.links_in_md — pycommons 0.8.89 documentation</title><link href="../../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/dev/tests/links_in_md.html rel=canonical><link href=../../../../genindex.html rel=index title=Index><link href=../../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.tests.links_in_md</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.dev.tests.links_in_md</h1><div class=highlight><pre>
+<span></span><span class=sd>"""Test all the links in."""</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>os</span><span class=w> </span><span class=kn>import</span> <span class=n>environ</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>random</span><span class=w> </span><span class=kn>import</span> <span class=n>randint</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>time</span><span class=w> </span><span class=kn>import</span> <span class=n>sleep</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Final</span><span class=p>,</span> <span class=n>cast</span>
+
+<span class=c1># noinspection PyPackageRequirements</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>certifi</span><span class=w> </span><span class=kn>import</span> <span class=n>where</span>
+
+<span class=c1># noinspection PyPackageRequirements</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>urllib3</span><span class=w> </span><span class=kn>import</span> <span class=n>PoolManager</span>  <span class=c1># type: ignore</span>
+
+<span class=c1># noinspection PyPackageRequirements</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>urllib3.response</span><span class=w> </span><span class=kn>import</span> <span class=n>HTTPResponse</span>  <span class=c1># type: ignore</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.console</span><span class=w> </span><span class=kn>import</span> <span class=n>logger</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.path</span><span class=w> </span><span class=kn>import</span> <span class=n>UTF8</span><span class=p>,</span> <span class=n>Path</span><span class=p>,</span> <span class=n>file_path</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.net.url</span><span class=w> </span><span class=kn>import</span> <span class=n>URL</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.strings.string_tools</span><span class=w> </span><span class=kn>import</span> <span class=n>replace_str</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>check_int_range</span><span class=p>,</span> <span class=n>type_error</span>
+
+<span class=c1>#: The hosts that somtimes are unreachable from my local machine.</span>
+<span class=c1>#: When the test is executed in a GitHub workflow, all hosts should be</span>
+<span class=c1>#: reachable, except sometimes our institute's website and fsf.org.</span>
+<span class=n>__SOMETIMES_UNREACHABLE_HOSTS</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>set</span><span class=p>[</span><span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> \
+    <span class=p>{</span><span class=s2>"fsf.org"</span><span class=p>}</span> <span class=k>if</span> <span class=s2>"GITHUB_JOB"</span> <span class=ow>in</span> <span class=n>environ</span> <span class=k>else</span> \
+    <span class=p>{</span><span class=s2>"fsf.org"</span><span class=p>,</span> <span class=s2>"img.shields.io"</span><span class=p>,</span> <span class=s2>"pypi.org"</span><span class=p>,</span> <span class=s2>"docs.python.org"</span><span class=p>}</span>
+
+<span class=c1>#: URLs that we never need to check because they are OK</span>
+<span class=n>__CORRECT_URLS</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>set</span><span class=p>[</span><span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=p>{</span>
+    <span class=s2>"https://example.com"</span><span class=p>,</span> <span class=s2>"http://example.com"</span><span class=p>,</span>
+    <span class=s2>"https://github.com"</span><span class=p>,</span> <span class=s2>"http://github.com"</span><span class=p>,</span>
+    <span class=p>(</span><span class=s2>"https://www.acm.org/publications/policies/artifact-review"</span>
+     <span class=s2>"-and-badging-current"</span><span class=p>)}</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__ve</span><span class=p>(</span><span class=n>msg</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>text</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>idx</span><span class=p>:</span> <span class=nb>int</span><span class=p>)</span> <span class=o>-></span> <span class=ne>ValueError</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Raise a value error for the given text piece.</span>
+
+<span class=sd>    :param msg: the message</span>
+<span class=sd>    :param text: the string</span>
+<span class=sd>    :param idx: the index</span>
+<span class=sd>    :returns: a :class:`ValueError` ready to be raised</span>
+<span class=sd>    :raises TypeError: if either argument is of the wrong type</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __ve(None, " ", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __ve(1, " ", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __ve("bla", None, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __ve("bla", 1, 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __ve("bla", "txt", None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    idx should be an instance of int but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __ve("bla", "txt", "x")</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    idx should be an instance of int but is str, namely 'x'.</span>
+
+<span class=sd>    >>> print(repr(__ve("", "txt", 1)))</span>
+<span class=sd>    ValueError('Empty message!')</span>
+
+<span class=sd>    >>> print(repr(__ve("msg", "", 1)))</span>
+<span class=sd>    ValueError("Empty text '' for message 'msg'.")</span>
+
+<span class=sd>    >>> print(repr(__ve("msg", "txt", 5)))</span>
+<span class=sd>    ValueError("Index 5 is outside of text of length 3 for message 'msg'.")</span>
+
+<span class=sd>    >>> print(repr(__ve("msg", "long text", 2)))</span>
+<span class=sd>    ValueError("msg: '...long text...'")</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>msg</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>return</span> <span class=ne>ValueError</span><span class=p>(</span><span class=s2>"Empty message!"</span><span class=p>)</span>
+    <span class=n>len_text</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>text</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>len_text</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>return</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Empty text </span><span class=si>{</span><span class=n>text</span><span class=si>!r}</span><span class=s2> for message </span><span class=si>{</span><span class=n>msg</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>idx</span><span class=p>,</span> <span class=nb>int</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>idx</span><span class=p>,</span> <span class=s2>"idx"</span><span class=p>,</span> <span class=nb>int</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>len_text</span> <span class=o><=</span> <span class=n>idx</span><span class=p>:</span>
+        <span class=k>return</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Index </span><span class=si>{</span><span class=n>idx</span><span class=si>}</span><span class=s2> is outside of text of length"</span>
+                          <span class=sa>f</span><span class=s2>" </span><span class=si>{</span><span class=n>len_text</span><span class=si>}</span><span class=s2> for message </span><span class=si>{</span><span class=n>msg</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>piece</span> <span class=o>=</span> <span class=n>text</span><span class=p>[</span><span class=nb>max</span><span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=n>idx</span> <span class=o>-</span> <span class=mi>32</span><span class=p>):</span><span class=nb>min</span><span class=p>(</span><span class=n>len_text</span><span class=p>,</span> <span class=n>idx</span> <span class=o>+</span> <span class=mi>64</span><span class=p>)]</span><span class=o>.</span><span class=n>strip</span><span class=p>()</span>
+    <span class=k>return</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>msg</span><span class=si>}</span><span class=s2>: '...</span><span class=si>{</span><span class=n>piece</span><span class=si>}</span><span class=s2>...'"</span><span class=p>)</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__make_headers</span><span class=p>()</span> <span class=o>-></span> <span class=nb>tuple</span><span class=p>[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span><span class=p>,</span> <span class=o>...</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Make the headers.</span>
+
+<span class=sd>    :returns: the headers</span>
+<span class=sd>    """</span>
+    <span class=n>headers</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=p>[</span><span class=kc>None</span><span class=p>]</span>
+    <span class=n>headers</span><span class=o>.</span><span class=n>extend</span><span class=p>(</span>
+        <span class=p>{</span><span class=s2>"User-Agent"</span><span class=p>:</span> <span class=n>ua</span><span class=p>}</span> <span class=k>for</span> <span class=n>ua</span> <span class=ow>in</span> <span class=p>(</span>
+            <span class=p>(</span><span class=s2>"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:138.0) "</span>
+             <span class=s2>"Gecko/20100101 Firefox/138.0"</span><span class=p>),</span>
+            <span class=p>(</span><span class=s2>"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ("</span>
+             <span class=s2>"KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"</span>
+             <span class=s2>" Edg/136.0.0.0"</span><span class=p>),</span>
+            <span class=p>(</span><span class=s2>"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like"</span>
+             <span class=s2>" Gecko) Chrome/136.0.0.0 Safari/537.36"</span><span class=p>),</span>
+            <span class=p>(</span><span class=s2>"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:106.0) "</span>
+             <span class=s2>"Gecko/20100101 Firefox/106.0"</span><span class=p>),</span>
+            <span class=p>(</span><span class=s2>"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like"</span>
+             <span class=s2>" Gecko) Chrome/109.0.0.0 Safari/537.36"</span><span class=p>),</span>
+            <span class=p>(</span><span class=s2>"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "</span>
+             <span class=s2>"(KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0."</span>
+             <span class=s2>"1518.55"</span><span class=p>),</span>
+            <span class=p>(</span><span class=s2>"Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 "</span>
+             <span class=s2>"Version/12.16.2"</span><span class=p>),</span>
+            <span class=p>(</span><span class=s2>"Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) "</span>
+             <span class=s2>"like Gecko"</span><span class=p>),</span>
+            <span class=p>(</span><span class=s2>"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/"</span>
+             <span class=s2>"537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A"</span><span class=p>),</span>
+            <span class=s2>"Mozilla/5.0 (PLAYSTATION 3; 3.55)"</span><span class=p>,</span>
+            <span class=p>(</span><span class=s2>"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ("</span>
+             <span class=s2>"KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/114.0."</span>
+             <span class=s2>"1823.901"</span><span class=p>),</span>
+            <span class=p>(</span><span class=s2>"mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/537.36 ("</span>
+             <span class=s2>"khtml, like gecko) chrome/80.0.3987.87 safari/537.36 edg/80.0."</span>
+             <span class=s2>"361.502"</span><span class=p>),</span>
+            <span class=s2>"Mozilla/5.0 (X11; Linux i686; rv:13.0) Gecko/13.0 Firefox/13.0"</span><span class=p>,</span>
+            <span class=p>(</span><span class=s2>"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML"</span>
+             <span class=s2>", like Gecko) Ubuntu Chromium/80.0.3987.149 HeadlessChrome/"</span>
+             <span class=s2>"80.0.3987.149 Safari/537.36"</span><span class=p>)))</span>
+    <span class=k>return</span> <span class=nb>tuple</span><span class=p>(</span><span class=n>headers</span><span class=p>)</span>
+
+
+<span class=c1>#: The headers to use for the HTTP requests.</span>
+<span class=c1>#: It seems that some websites may throttle requests.</span>
+<span class=c1>#: Maybe by using different headers, we can escape this.</span>
+<span class=n>__HEADERS</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span><span class=p>,</span> <span class=o>...</span><span class=p>]]</span> <span class=o>=</span> <span class=n>__make_headers</span><span class=p>()</span>
+<span class=k>del</span> <span class=n>__make_headers</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__needs_body</span><span class=p>(</span><span class=n>url</span><span class=p>:</span> <span class=n>URL</span><span class=p>)</span> <span class=o>-></span> <span class=nb>bool</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Check whether we need the body of the given url.</span>
+
+<span class=sd>    If the complete body of the document needs to be downloaded, this function</span>
+<span class=sd>    returns `True`. This is the case, for example, if we are talking about</span>
+<span class=sd>    html documents. In this case, we need to (later) scan for internal</span>
+<span class=sd>    references, i.e., for stuff like `id="..."` attributes. However, if the</span>
+<span class=sd>    url does not point to an HTML document, maybe a PDF, then we do not need</span>
+<span class=sd>    the whole body and return `False`. In the latter case, it is sufficient to</span>
+<span class=sd>    do a `HEAD` HTTP request, in the former case we need a full `GET`.</span>
+
+<span class=sd>    :param url: the url string</span>
+<span class=sd>    :returns: `True` if the body is needed, `False` otherwise</span>
+<span class=sd>    :raises TypeError: if `base_url` is not a string</span>
+
+<span class=sd>    >>> __needs_body(URL("http://www.github.com/"))</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> __needs_body(URL("http://www.github.com"))</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> __needs_body(URL("http://www.github.com/1.htm"))</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> __needs_body(URL("http://www.github.com/1.html"))</span>
+<span class=sd>    True</span>
+<span class=sd>    >>> __needs_body(URL("http://www.github.com/1.jpg"))</span>
+<span class=sd>    False</span>
+<span class=sd>    >>> __needs_body(URL("http://www.github.com/1"))</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __needs_body(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:59])</span>
+<span class=sd>    url should be an instance of pycommons.net.url.URL but is N</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __needs_body(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:59])</span>
+<span class=sd>    url should be an instance of pycommons.net.url.URL but is i</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>url</span><span class=p>,</span> <span class=n>URL</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>url</span><span class=p>,</span> <span class=s2>"url"</span><span class=p>,</span> <span class=n>URL</span><span class=p>)</span>
+    <span class=k>return</span> <span class=p>(</span><span class=n>url</span><span class=o>.</span><span class=n>path</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>or</span> <span class=nb>str</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span>
+        <span class=n>url</span><span class=o>.</span><span class=n>path</span><span class=p>,</span> <span class=p>(</span><span class=s2>".html"</span><span class=p>,</span> <span class=s2>".htm"</span><span class=p>,</span> <span class=s2>"/"</span><span class=p>))</span> <span class=ow>or</span> <span class=p>(</span><span class=s2>"."</span> <span class=ow>not</span> <span class=ow>in</span> <span class=n>url</span><span class=o>.</span><span class=n>path</span><span class=p>)</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__find_fragment_html</span><span class=p>(</span><span class=n>body</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>fragment</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>url</span><span class=p>:</span> <span class=n>URL</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Check whether the fragment is contained in the body as ID.</span>
+
+<span class=sd>    :param body: the body that was loaded</span>
+<span class=sd>    :param fragment: the fragment</span>
+<span class=sd>    :param url: the url from which the body was loaded</span>
+<span class=sd>    :raises TypeError: if `body`, `fragment`, or `url` are not all strings</span>
+<span class=sd>    :raises ValueError: if `body` does not contain `fragment` as an ID</span>
+<span class=sd>        somewhere</span>
+
+<span class=sd>    >>> __find_fragment_html("&LTp id='1'>bla&LT/p>", "1",</span>
+<span class=sd>    ...                      URL("http://example.com#1"))</span>
+<span class=sd>    >>> __find_fragment_html("&LTp id=\"1\">bla&LT/p>", "1",</span>
+<span class=sd>    ...                      URL("http://example.com#1"))</span>
+<span class=sd>    >>> __find_fragment_html("&LTp id=1>bla&LT/p>", "1",</span>
+<span class=sd>    ...                      URL("http://example.com#1"))</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __find_fragment_html(None, "1", URL("http://example.com#1"))</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __find_fragment_html(1, "1", URL("http://example.com#1"))</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __find_fragment_html("&LTp id='1'>bla&LT/p>", None,</span>
+<span class=sd>    ...                          URL("http://example.com#1"))</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __find_fragment_html("&LTp id='1'>bla&LT/p>", 1,</span>
+<span class=sd>    ...                          URL("http://example.com#1"))</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __find_fragment_html("&LTp id='1'>bla&LT/p>", None,</span>
+<span class=sd>    ...                          URL("http://example.com#1"))</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __find_fragment_html("&LTp id='1'>bla&LT/p>", 1,</span>
+<span class=sd>    ...                          URL("http://example.com#1"))</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __find_fragment_html("&LTp id='1'>bla&LT/p>", "1", None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    url should be an instance of pycommons.net.url.URL but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __find_fragment_html("&LTp id='1'>bla&LT/p>", "1", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    url should be an instance of pycommons.net.url.URL but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __find_fragment_html("", "1",</span>
+<span class=sd>    ...                          URL("http://example.com#1"))</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Empty body: ''.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __find_fragment_html("&LTp id='1'>bla&LT/p>", "",</span>
+<span class=sd>    ...                          URL("http://example.com"))</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Empty fragment: ''.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __find_fragment_html("&LTp id='1'>bla&LT/p>", "1",</span>
+<span class=sd>    ...                          URL("http://example.com"))</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(ve)</span>
+<span class=sd>    Url 'http://example.com' does not end in fragment '1'.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __find_fragment_html("&LTp id='x1'>bla&LT/p>", "1",</span>
+<span class=sd>    ...                          URL("http://example.com#1"))</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:-4])</span>
+<span class=sd>    Did not find id='1' of 'http://example.com#1' in body "&LTp id='x1'>bla&LT/</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>body</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Empty body: </span><span class=si>{</span><span class=n>body</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>fragment</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Empty fragment: </span><span class=si>{</span><span class=n>fragment</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>url</span><span class=p>,</span> <span class=n>URL</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>url</span><span class=p>,</span> <span class=s2>"url"</span><span class=p>,</span> <span class=n>URL</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>url</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=n>fragment</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"Url </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2> does not end in fragment </span><span class=si>{</span><span class=n>fragment</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=k>for</span> <span class=n>qt</span> <span class=ow>in</span> <span class=p>(</span><span class=s2>""</span><span class=p>,</span> <span class=s2>"'"</span><span class=p>,</span> <span class=s1>'"'</span><span class=p>):</span>
+        <span class=k>if</span> <span class=sa>f</span><span class=s2>"id=</span><span class=si>{</span><span class=n>qt</span><span class=si>}{</span><span class=n>fragment</span><span class=si>}{</span><span class=n>qt</span><span class=si>}</span><span class=s2>"</span> <span class=ow>in</span> <span class=n>body</span><span class=p>:</span>
+            <span class=k>return</span>
+
+    <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+        <span class=sa>f</span><span class=s2>"Did not find id=</span><span class=si>{</span><span class=n>fragment</span><span class=si>!r}</span><span class=s2> of </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2> in body </span><span class=si>{</span><span class=n>body</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+
+<span class=k>def</span><span class=w> </span><span class=nf>__check_url</span><span class=p>(</span><span class=n>urlstr</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>valid_urls</span><span class=p>:</span> <span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>],</span>
+                <span class=n>http</span><span class=p>:</span> <span class=n>PoolManager</span> <span class=o>=</span> <span class=n>PoolManager</span><span class=p>(</span>
+                    <span class=n>cert_reqs</span><span class=o>=</span><span class=s2>"CERT_REQUIRED"</span><span class=p>,</span> <span class=n>ca_certs</span><span class=o>=</span><span class=n>where</span><span class=p>()))</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sa>r</span><span class=sd>"""</span>
+<span class=sd>    Check whether a URL is valid and can be reached.</span>
+
+<span class=sd>    :param urlstr: the URL to be checked</span>
+<span class=sd>    :param valid_urls: the set of valid urls</span>
+<span class=sd>    :param http: the pool manager</span>
+<span class=sd>    :raises TypeError: if any of the parameters is of the wrong type</span>
+<span class=sd>    :raises ValueError: if the url `urlstr` cannot be loaded or if it has a</span>
+<span class=sd>        fragment part that is not discovered in the body of the loaded</span>
+<span class=sd>        document.</span>
+
+<span class=sd>    >>> vu = dict()</span>
+<span class=sd>    >>> __check_url("mailto:tweise@hfuu.edu.cn", vu)</span>
+<span class=sd>    >>> __check_url("mailto:tweise@hfuu.edu.cn", vu)</span>
+<span class=sd>    >>> __check_url("tweise@hfuu.edu.cn", vu)</span>
+
+<span class=sd>    >>> __check_url("https://thomasweise.github.io/pycommons/#introduction",</span>
+<span class=sd>    ...             {})</span>
+
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> with redirect_stdout(None):   # check __SOMETIMES_UNREACHABLE</span>
+<span class=sd>    ...     __check_url("https://fsf.org/111111111111111", vu)</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     with redirect_stdout(None):</span>
+<span class=sd>    ...         __check_url("https://github.io.github.io/111111111", vu)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve))</span>
+<span class=sd>    Could not load url 'https://github.io.github.io/111111111'.</span>
+
+<span class=sd>    >>> with redirect_stdout(None):</span>
+<span class=sd>    ...     __check_url("https://thomasweise.github.io/pycommons", vu)</span>
+<span class=sd>    ...     __check_url("http://example.com/", vu)</span>
+<span class=sd>    ...     __check_url("https://thomasweise.github.io/pycommons/pycommons"</span>
+<span class=sd>    ...                 ".io.html", vu)</span>
+<span class=sd>    >>> __check_url("https://thomasweise.github.io/pycommons", vu)</span>
+<span class=sd>    >>> __check_url(</span>
+<span class=sd>    ...     "https://thomasweise.github.io/pycommons/pycommons.io.html", vu)</span>
+
+<span class=sd>    >>> __check_url("https://thomasweise.github.io/pycommons/pycommons"</span>
+<span class=sd>    ...             ".io.html#pycommons.io.path.Path", vu)</span>
+<span class=sd>    >>> __check_url("http://example.com", vu)</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __check_url("bwri435//sdfsdf:-@@", vu)</span>
+<span class=sd>    ... except ValueError as ve:</span>
+<span class=sd>    ...     print(str(ve)[:50])</span>
+<span class=sd>    Error in url 'bwri435//sdfsdf:-@@': URL part 'bwri</span>
+
+<span class=sd>    >>> with redirect_stdout(None):</span>
+<span class=sd>    ...     try:</span>
+<span class=sd>    ...         __check_url(</span>
+<span class=sd>    ...             "https://thomasweise.github.io/sifwrwruS.jpg#34", vu)</span>
+<span class=sd>    ...     except ValueError as ve:</span>
+<span class=sd>    ...         s = str(ve)</span>
+<span class=sd>    >>> print(s[:61])</span>
+<span class=sd>    Url 'https://thomasweise.github.io/sifwrwruS.jpg#34' does not</span>
+
+<span class=sd>    >>> with redirect_stdout(None):</span>
+<span class=sd>    ...     try:</span>
+<span class=sd>    ...         __check_url("ssh://u@thomasweise.github.io/sifwrwruSSXFd", vu)</span>
+<span class=sd>    ...     except ValueError as ve:</span>
+<span class=sd>    ...         s = str(ve)</span>
+<span class=sd>    >>> print(s)</span>
+<span class=sd>    Invalid scheme for url 'ssh://u@thomasweise.github.io/sifwrwruSSXFd'.</span>
+
+<span class=sd>    >>> with redirect_stdout(None):</span>
+<span class=sd>    ...     try:</span>
+<span class=sd>    ...         __check_url(</span>
+<span class=sd>    ...             "https://thomasweise.github.io/sifwrwruSSXFdfDX", vu)</span>
+<span class=sd>    ...     except ValueError as ve:</span>
+<span class=sd>    ...         s = str(ve)</span>
+<span class=sd>    >>> s.endswith("returns code 404.") or s.startswith("Could not load url")</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __check_url(None, dict())</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __check_url(1, dict())</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    descriptor '__len__' requires a 'str' object but received a 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __check_url("http://example.com", None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    valid_urls should be an instance of dict but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __check_url("http://example.com", 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    valid_urls should be an instance of dict but is int, namely 1.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __check_url("http://example.com", dict(), None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    http should be an instance of urllib3.poolmanager.PoolManager but is None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     __check_url("http://example.com", dict(), 1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:50])</span>
+<span class=sd>    http should be an instance of urllib3.poolmanager.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>valid_urls</span><span class=p>,</span> <span class=nb>dict</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>valid_urls</span><span class=p>,</span> <span class=s2>"valid_urls"</span><span class=p>,</span> <span class=nb>dict</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>http</span><span class=p>,</span> <span class=n>PoolManager</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>http</span><span class=p>,</span> <span class=s2>"http"</span><span class=p>,</span> <span class=n>PoolManager</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=n>urlstr</span> <span class=ow>in</span> <span class=n>valid_urls</span><span class=p>:</span>
+        <span class=k>return</span>
+
+    <span class=k>try</span><span class=p>:</span>
+        <span class=n>url</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>URL</span><span class=p>]</span> <span class=o>=</span> <span class=n>URL</span><span class=p>(</span><span class=n>urlstr</span><span class=p>)</span>
+    <span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Error in url </span><span class=si>{</span><span class=n>urlstr</span><span class=si>!r}</span><span class=s2>: </span><span class=si>{</span><span class=n>ve</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=kc>None</span>
+
+    <span class=k>if</span> <span class=p>(</span><span class=n>url</span> <span class=ow>in</span> <span class=n>__CORRECT_URLS</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>url</span> <span class=ow>in</span> <span class=n>valid_urls</span><span class=p>):</span>
+        <span class=k>return</span>
+    <span class=k>if</span> <span class=n>url</span><span class=o>.</span><span class=n>scheme</span> <span class=o>==</span> <span class=s2>"mailto"</span><span class=p>:</span>
+        <span class=k>return</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>url</span><span class=o>.</span><span class=n>scheme</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"http"</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid scheme for url </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>needs_body</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>bool</span><span class=p>]</span> <span class=o>=</span> <span class=n>__needs_body</span><span class=p>(</span><span class=n>url</span><span class=p>)</span>
+
+    <span class=n>base_url</span><span class=p>:</span> <span class=n>URL</span> <span class=o>=</span> <span class=n>url</span>
+    <span class=n>fragment</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]</span> <span class=o>=</span> <span class=n>url</span><span class=o>.</span><span class=n>fragment</span>
+    <span class=k>if</span> <span class=n>fragment</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>base_url</span> <span class=o>=</span> <span class=n>URL</span><span class=p>(</span><span class=n>url</span><span class=p>[:</span><span class=n>url</span><span class=o>.</span><span class=n>index</span><span class=p>(</span><span class=s2>"#"</span><span class=p>)])</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=n>needs_body</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"Url </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2> does not need body but has "</span>
+                <span class=sa>f</span><span class=s2>"fragment </span><span class=si>{</span><span class=n>url</span><span class=o>.</span><span class=n>fragment</span><span class=si>!r}</span><span class=s2>?"</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>base_url</span> <span class=ow>in</span> <span class=n>valid_urls</span><span class=p>:</span>
+            <span class=n>__find_fragment_html</span><span class=p>(</span><span class=n>valid_urls</span><span class=p>[</span><span class=n>base_url</span><span class=p>],</span> <span class=n>fragment</span><span class=p>,</span> <span class=n>url</span><span class=p>)</span>
+            <span class=k>return</span>
+
+    <span class=n>code</span><span class=p>:</span> <span class=nb>int</span>
+    <span class=n>body</span><span class=p>:</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=n>method</span> <span class=o>=</span> <span class=s2>"GET"</span> <span class=k>if</span> <span class=n>needs_body</span> <span class=k>else</span> <span class=s2>"HEAD"</span>
+    <span class=n>error</span><span class=p>:</span> <span class=ne>BaseException</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=n>response</span><span class=p>:</span> <span class=n>HTTPResponse</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=n>headers</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]]</span> <span class=o>=</span> <span class=nb>list</span><span class=p>(</span><span class=n>__HEADERS</span><span class=p>)</span>
+    <span class=n>header_count</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>
+
+<span class=c1># Sometimes, access to the URLs on GitHub fails.</span>
+<span class=c1># I think they probably throttle access from here.</span>
+<span class=c1># Therefore, we first do a request with 5s timeout and 0 retries.</span>
+<span class=c1># If that fails, we wait 2 seconds and try with timeout 8 and 3 retries.</span>
+<span class=c1># If that fails, we wait for 5s, then try with timeout 30 and 3 retries.</span>
+<span class=c1># If that fails too, we assume that the URL is really incorrect, which rarely</span>
+<span class=c1># should not be the case (justifying the many retries).</span>
+    <span class=k>for</span> <span class=n>sleep_time</span><span class=p>,</span> <span class=n>retries</span><span class=p>,</span> <span class=n>timeout</span> <span class=ow>in</span> <span class=p>(</span>
+            <span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>5</span><span class=p>),</span> <span class=p>(</span><span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>8</span><span class=p>),</span> <span class=p>(</span><span class=mi>5</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>30</span><span class=p>)):</span>
+        <span class=k>if</span> <span class=n>sleep_time</span> <span class=o>></span> <span class=mi>0</span><span class=p>:</span>
+            <span class=n>sleep</span><span class=p>(</span><span class=n>sleep_time</span><span class=p>)</span>
+
+<span class=c1># We try to get a random header to deal with the problem that some pages</span>
+<span class=c1># will not permit certain user agents. To handle this issue, we try to not</span>
+<span class=c1># use any user agent twice. We randomly pick a user agent and, if it fails,</span>
+<span class=c1># make sure to use all other user agents first before we use that one again.</span>
+        <span class=k>if</span> <span class=n>header_count</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=n>header_count</span> <span class=o>=</span> <span class=nb>len</span><span class=p>(</span><span class=n>headers</span><span class=p>)</span>
+        <span class=n>header_idx</span> <span class=o>=</span> <span class=n>randint</span><span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=n>header_count</span> <span class=o>-</span> <span class=mi>1</span><span class=p>)</span>  <span class=c1># noqa: S311</span>
+        <span class=n>header</span><span class=p>:</span> <span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>headers</span><span class=p>[</span><span class=n>header_idx</span><span class=p>]</span>
+        <span class=n>header_count</span> <span class=o>-=</span> <span class=mi>1</span>
+        <span class=n>headers</span><span class=p>[</span><span class=n>header_count</span><span class=p>],</span> <span class=n>headers</span><span class=p>[</span><span class=n>header_idx</span><span class=p>]</span> \
+            <span class=o>=</span> <span class=n>header</span><span class=p>,</span> <span class=n>headers</span><span class=p>[</span><span class=n>header_count</span><span class=p>]</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=n>response</span> <span class=o>=</span> <span class=n>cast</span><span class=p>(</span><span class=s2>"HTTPResponse"</span><span class=p>,</span> <span class=n>http</span><span class=o>.</span><span class=n>request</span><span class=p>(</span>
+                <span class=n>method</span><span class=p>,</span> <span class=n>base_url</span><span class=p>,</span> <span class=n>timeout</span><span class=o>=</span><span class=n>timeout</span><span class=p>,</span> <span class=n>redirect</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span>
+                <span class=n>retries</span><span class=o>=</span><span class=n>retries</span><span class=p>,</span> <span class=n>headers</span><span class=o>=</span><span class=n>header</span><span class=p>))</span>
+            <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>response</span><span class=p>,</span> <span class=n>HTTPResponse</span><span class=p>)</span> <span class=ow>and</span> <span class=nb>isinstance</span><span class=p>(</span>
+                    <span class=n>response</span><span class=o>.</span><span class=n>status</span><span class=p>,</span> <span class=nb>int</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span><span class=n>response</span><span class=o>.</span><span class=n>status</span> <span class=o>==</span> <span class=mi>200</span><span class=p>):</span>
+                <span class=n>error</span> <span class=o>=</span> <span class=kc>None</span>
+                <span class=k>break</span>
+        <span class=k>except</span> <span class=ne>BaseException</span> <span class=k>as</span> <span class=n>be</span><span class=p>:</span>  <span class=c1># noqa</span>
+            <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Attempt sleep=</span><span class=si>{</span><span class=n>sleep_time</span><span class=si>}</span><span class=s2>, retries=</span><span class=si>{</span><span class=n>retries</span><span class=si>}</span><span class=s2>, "</span>
+                   <span class=sa>f</span><span class=s2>"timeout=</span><span class=si>{</span><span class=n>timeout</span><span class=si>}</span><span class=s2>, error=</span><span class=si>{</span><span class=nb>str</span><span class=p>(</span><span class=n>be</span><span class=p>)</span><span class=si>!r}</span><span class=s2>, and "</span>
+                   <span class=sa>f</span><span class=s2>"header=</span><span class=si>{</span><span class=n>header</span><span class=si>!r}</span><span class=s2> for </span><span class=si>{</span><span class=n>base_url</span><span class=si>!r}</span><span class=s2> gave </span><span class=si>{</span><span class=n>be</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+            <span class=n>error</span> <span class=o>=</span> <span class=n>be</span>
+
+    <span class=k>if</span> <span class=n>error</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=c1># sometimes, I cannot reach some hosts from here...</span>
+        <span class=k>if</span> <span class=n>url</span><span class=o>.</span><span class=n>host</span> <span class=ow>in</span> <span class=n>__SOMETIMES_UNREACHABLE_HOSTS</span><span class=p>:</span>
+            <span class=k>return</span>  <span class=c1># we will accept this here</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Could not load url </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=nn>error</span>
+
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>response</span><span class=p>,</span> <span class=n>HTTPResponse</span><span class=p>):</span>  <span class=c1># should be impossible...</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Response </span><span class=si>{</span><span class=n>response</span><span class=si>}</span><span class=s2> from url=</span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2>?"</span><span class=p>)</span>  <span class=c1># noqa</span>
+
+    <span class=n>code</span> <span class=o>=</span> <span class=n>check_int_range</span><span class=p>(</span><span class=n>response</span><span class=o>.</span><span class=n>status</span><span class=p>,</span> <span class=s2>"response.status"</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>10000</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>needs_body</span><span class=p>:</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=n>body</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>response</span><span class=o>.</span><span class=n>data</span><span class=o>.</span><span class=n>decode</span><span class=p>(</span><span class=n>UTF8</span><span class=p>))</span>
+        <span class=k>except</span> <span class=ne>BaseException</span> <span class=k>as</span> <span class=n>be</span><span class=p>:</span>    <span class=c1># noqa</span>
+            <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Error in body of url </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2>: </span><span class=si>{</span><span class=n>be</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span> <span class=kn>from</span><span class=w> </span><span class=nn>be</span>
+
+    <span class=n>body_len</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=mi>0</span> <span class=k>if</span> <span class=n>body</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>body</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Checked url </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2> got code </span><span class=si>{</span><span class=n>code</span><span class=si>}</span><span class=s2> for method </span><span class=si>{</span><span class=n>method</span><span class=si>!r}</span><span class=s2> and "</span>
+           <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>body_len</span><span class=si>}</span><span class=s2> chars."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>code</span> <span class=o>!=</span> <span class=mi>200</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Url </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2> returns code </span><span class=si>{</span><span class=n>code</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=n>needs_body</span> <span class=ow>and</span> <span class=p>((</span><span class=n>body</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>body_len</span> <span class=o><=</span> <span class=mi>0</span><span class=p>)):</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+            <span class=sa>f</span><span class=s2>"Stripped body for </span><span class=si>{</span><span class=n>url</span><span class=si>!r}</span><span class=s2> / </span><span class=si>{</span><span class=n>base_url</span><span class=si>!r}</span><span class=s2> is </span><span class=si>{</span><span class=n>body</span><span class=si>!r}</span><span class=s2>?"</span><span class=p>)</span>
+
+    <span class=n>valid_urls</span><span class=p>[</span><span class=n>base_url</span><span class=p>]</span> <span class=o>=</span> <span class=n>body</span>
+    <span class=k>if</span> <span class=n>url</span> <span class=ow>is</span> <span class=ow>not</span> <span class=n>base_url</span><span class=p>:</span>
+        <span class=n>valid_urls</span><span class=p>[</span><span class=n>url</span><span class=p>]</span> <span class=o>=</span> <span class=n>body</span>
+
+    <span class=k>if</span> <span class=n>fragment</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>__find_fragment_html</span><span class=p>(</span><span class=n>body</span><span class=p>,</span> <span class=n>fragment</span><span class=p>,</span> <span class=n>url</span><span class=p>)</span>
+
+
+<div class=viewcode-block id=check_links_in_md>
+<a class=viewcode-back href=../../../../pycommons.dev.tests.html#pycommons.dev.tests.links_in_md.check_links_in_md>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>check_links_in_md</span><span class=p>(</span><span class=n>file</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Test all the links in the given file.</span>
+
+<span class=sd>    :param file: the file to check</span>
+
+<span class=sd>    >>> from pycommons.io.temp import temp_file</span>
+<span class=sd>    >>> with temp_file() as tf:</span>
+<span class=sd>    ...     tf.write_all_str("[test](https://example.com)")</span>
+<span class=sd>    ...     check_links_in_md(tf)</span>
+
+<span class=sd>    >>> with temp_file() as tf:</span>
+<span class=sd>    ...     try:</span>
+<span class=sd>    ...         check_links_in_md(tf)</span>
+<span class=sd>    ...     except ValueError as ve:</span>
+<span class=sd>    ...         print(str(ve)[-19:])</span>
+<span class=sd>    ' contains no text.</span>
+<span class=sd>    """</span>
+    <span class=c1># First, we load the file as a single string</span>
+    <span class=n>readme</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>file_path</span><span class=p>(</span><span class=n>file</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Checking all links in the file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>text</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>readme</span><span class=o>.</span><span class=n>read_all_str</span><span class=p>()</span>
+    <span class=n>text_len</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>text</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Got </span><span class=si>{</span><span class=n>text_len</span><span class=si>}</span><span class=s2> characters from file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>text_len</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2> file is empty?"</span><span class=p>)</span>
+
+    <span class=c1># remove all code blocks</span>
+    <span class=n>total_links_checked</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>
+    <span class=n>start</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>
+    <span class=n>lines</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=p>[]</span>
+    <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>
+        <span class=n>start</span> <span class=o>+=</span> <span class=mi>1</span>
+        <span class=n>i</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>"</span><span class=se>\n</span><span class=s2>```"</span><span class=p>,</span> <span class=n>start</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>i</span> <span class=o><</span> <span class=n>start</span><span class=p>:</span>
+            <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:]</span><span class=o>.</span><span class=n>strip</span><span class=p>())</span>
+            <span class=k>break</span>
+        <span class=n>j</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>"</span><span class=se>\n</span><span class=s2>```"</span><span class=p>,</span> <span class=n>i</span> <span class=o>+</span> <span class=mi>1</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>j</span> <span class=o><</span> <span class=n>i</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=n>__ve</span><span class=p>(</span><span class=s2>"Multi-line code start without "</span>
+                       <span class=sa>f</span><span class=s2>"end in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>"</span><span class=p>,</span> <span class=n>text</span><span class=p>,</span> <span class=n>i</span><span class=p>)</span>
+        <span class=n>k</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=p>,</span> <span class=n>j</span> <span class=o>+</span> <span class=mi>1</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>k</span> <span class=o><</span> <span class=n>j</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=n>__ve</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Code end without newline in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>"</span><span class=p>,</span>
+                       <span class=n>text</span><span class=p>,</span> <span class=n>i</span><span class=p>)</span>
+        <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:</span><span class=n>i</span><span class=p>]</span><span class=o>.</span><span class=n>strip</span><span class=p>())</span>
+        <span class=n>start</span> <span class=o>=</span> <span class=n>k</span>
+
+    <span class=n>text</span> <span class=o>=</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>lines</span><span class=p>)</span><span class=o>.</span><span class=n>strip</span><span class=p>()</span>
+    <span class=n>lines</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+
+    <span class=c1># these are all urls that have been verified</span>
+    <span class=n>valid_urls</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>]]</span> <span class=o>=</span> <span class=p>{}</span>
+
+    <span class=c1># build the map of local reference marks</span>
+    <span class=n>start</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>
+    <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>
+        <span class=n>start</span> <span class=o>+=</span> <span class=mi>1</span>
+        <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span> <span class=k>if</span> <span class=p>((</span><span class=n>start</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>and</span> <span class=n>text</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s2>"#"</span><span class=p>))</span> \
+            <span class=k>else</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>"</span><span class=se>\n</span><span class=s2>#"</span><span class=p>,</span> <span class=n>start</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>i</span> <span class=o><</span> <span class=n>start</span><span class=p>:</span>
+            <span class=k>break</span>
+        <span class=n>j</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>" "</span><span class=p>,</span> <span class=n>i</span> <span class=o>+</span> <span class=mi>1</span><span class=p>)</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>j</span> <span class=o><</span> <span class=n>i</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>j</span> <span class=o>-</span> <span class=mi>1</span><span class=p>]</span> <span class=o>!=</span> <span class=s2>"#"</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>__ve</span><span class=p>(</span><span class=s2>"Headline without space after # "</span>
+                       <span class=sa>f</span><span class=s2>"in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>"</span><span class=p>,</span> <span class=n>text</span><span class=p>,</span> <span class=n>i</span><span class=p>)</span>
+        <span class=n>k</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=p>,</span> <span class=n>j</span> <span class=o>+</span> <span class=mi>1</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>k</span> <span class=o><</span> <span class=n>j</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=n>__ve</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Headline without end in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>"</span><span class=p>,</span> <span class=n>text</span><span class=p>,</span> <span class=n>i</span><span class=p>)</span>
+        <span class=n>rid</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>text</span><span class=p>[</span><span class=n>j</span><span class=p>:</span><span class=n>k</span><span class=p>]</span><span class=o>.</span><span class=n>strip</span><span class=p>()</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=s2>" "</span><span class=p>,</span> <span class=s2>"-"</span><span class=p>)</span>
+        <span class=k>for</span> <span class=n>ch</span> <span class=ow>in</span> <span class=s2>".:,()`/"</span><span class=p>:</span>
+            <span class=n>rid</span> <span class=o>=</span> <span class=n>rid</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=n>ch</span><span class=p>,</span> <span class=s2>""</span><span class=p>)</span>
+        <span class=n>rid</span> <span class=o>=</span> <span class=n>replace_str</span><span class=p>(</span><span class=s2>"--"</span><span class=p>,</span> <span class=s2>"-"</span><span class=p>,</span> <span class=n>rid</span><span class=p>)</span><span class=o>.</span><span class=n>lower</span><span class=p>()</span>
+        <span class=k>if</span> <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>rid</span><span class=p>)</span> <span class=o><=</span> <span class=mi>2</span><span class=p>)</span> <span class=ow>or</span> <span class=p>((</span><span class=n>rid</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span> <span class=ow>not</span> <span class=ow>in</span> <span class=s2>"123456789"</span><span class=p>)</span> <span class=ow>and</span> <span class=p>(</span>
+                <span class=n>start</span> <span class=o>></span> <span class=mi>0</span><span class=p>))</span> <span class=ow>or</span> <span class=p>(</span><span class=s2>"-"</span> <span class=ow>not</span> <span class=ow>in</span> <span class=n>rid</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>__ve</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid id </span><span class=si>{</span><span class=n>rid</span><span class=si>!r}</span><span class=s2> in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>"</span><span class=p>,</span> <span class=n>text</span><span class=p>,</span> <span class=n>i</span><span class=p>)</span>
+        <span class=n>valid_urls</span><span class=p>[</span><span class=sa>f</span><span class=s2>"#</span><span class=si>{</span><span class=n>rid</span><span class=si>}</span><span class=s2>"</span><span class=p>]</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=n>start</span> <span class=o>=</span> <span class=n>k</span>
+
+    <span class=c1># remove all inline code</span>
+    <span class=n>start</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>
+    <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>
+        <span class=n>start</span> <span class=o>+=</span> <span class=mi>1</span>
+        <span class=n>i</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>"`"</span><span class=p>,</span> <span class=n>start</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>i</span> <span class=o><</span> <span class=n>start</span><span class=p>:</span>
+            <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:]</span><span class=o>.</span><span class=n>strip</span><span class=p>())</span>
+            <span class=k>break</span>
+        <span class=n>j</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>"`"</span><span class=p>,</span> <span class=n>i</span> <span class=o>+</span> <span class=mi>1</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>j</span> <span class=o><</span> <span class=n>i</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=n>__ve</span><span class=p>(</span><span class=s2>"Multi-line code start "</span>
+                       <span class=sa>f</span><span class=s2>"without end in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>"</span><span class=p>,</span> <span class=n>text</span><span class=p>,</span> <span class=n>i</span><span class=p>)</span>
+        <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:</span><span class=n>i</span><span class=p>]</span><span class=o>.</span><span class=n>strip</span><span class=p>())</span>
+        <span class=n>start</span> <span class=o>=</span> <span class=n>j</span>
+    <span class=n>text</span> <span class=o>=</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>lines</span><span class=p>)</span><span class=o>.</span><span class=n>strip</span><span class=p>()</span>
+    <span class=n>lines</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Now checking '![...]()' style urls in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=c1># now gather the links to images and remove them</span>
+    <span class=n>start</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>
+    <span class=n>lines</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+    <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>
+        <span class=n>start</span> <span class=o>+=</span> <span class=mi>1</span>
+        <span class=n>i</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>"!["</span><span class=p>,</span> <span class=n>start</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>i</span> <span class=o><</span> <span class=n>start</span><span class=p>:</span>
+            <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:])</span>
+            <span class=k>break</span>
+        <span class=n>j</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>"]"</span><span class=p>,</span> <span class=n>i</span> <span class=o>+</span> <span class=mi>1</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>j</span> <span class=o><=</span> <span class=n>i</span><span class=p>:</span>
+            <span class=k>break</span>
+        <span class=k>if</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span> <span class=ow>in</span> <span class=n>text</span><span class=p>[</span><span class=n>i</span><span class=p>:</span><span class=n>j</span><span class=p>]:</span>
+            <span class=n>start</span> <span class=o>=</span> <span class=n>i</span>
+        <span class=n>j</span> <span class=o>+=</span> <span class=mi>1</span>
+        <span class=k>if</span> <span class=n>text</span><span class=p>[</span><span class=n>j</span><span class=p>]</span> <span class=o>!=</span> <span class=s2>"("</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=n>__ve</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid image sequence in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>"</span><span class=p>,</span> <span class=n>text</span><span class=p>,</span> <span class=n>i</span><span class=p>)</span>
+        <span class=n>k</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>")"</span><span class=p>,</span> <span class=n>j</span> <span class=o>+</span> <span class=mi>1</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>k</span> <span class=o><=</span> <span class=n>j</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=n>__ve</span><span class=p>(</span><span class=s2>"No closing gap for image sequence "</span>
+                       <span class=sa>f</span><span class=s2>"in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>"</span><span class=p>,</span> <span class=n>text</span><span class=p>,</span> <span class=n>i</span><span class=p>)</span>
+
+        <span class=n>__check_url</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>j</span> <span class=o>+</span> <span class=mi>1</span><span class=p>:</span><span class=n>k</span><span class=p>],</span> <span class=n>valid_urls</span><span class=p>)</span>
+        <span class=n>total_links_checked</span> <span class=o>+=</span> <span class=mi>1</span>
+
+        <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:</span><span class=n>i</span><span class=p>])</span>
+        <span class=n>start</span> <span class=o>=</span> <span class=n>k</span>
+
+    <span class=n>text</span> <span class=o>=</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>lines</span><span class=p>)</span>
+    <span class=n>lines</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Now checking '[...]()' style urls in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=c1># now gather the links and remove them</span>
+    <span class=n>start</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>
+    <span class=n>lines</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+    <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>
+        <span class=n>start</span> <span class=o>+=</span> <span class=mi>1</span>
+        <span class=n>i</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>"["</span><span class=p>,</span> <span class=n>start</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>i</span> <span class=o><</span> <span class=n>start</span><span class=p>:</span>
+            <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:])</span>
+            <span class=k>break</span>
+        <span class=n>j</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>"]"</span><span class=p>,</span> <span class=n>i</span> <span class=o>+</span> <span class=mi>1</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>j</span> <span class=o><=</span> <span class=n>i</span><span class=p>:</span>
+            <span class=k>break</span>
+        <span class=k>if</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span> <span class=ow>in</span> <span class=n>text</span><span class=p>[</span><span class=n>i</span><span class=p>:</span><span class=n>j</span><span class=p>]:</span>
+            <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:</span><span class=n>i</span><span class=p>])</span>
+            <span class=n>start</span> <span class=o>=</span> <span class=n>i</span>
+            <span class=k>continue</span>
+        <span class=n>j</span> <span class=o>+=</span> <span class=mi>1</span>
+        <span class=k>if</span> <span class=n>text</span><span class=p>[</span><span class=n>j</span><span class=p>]</span> <span class=o>!=</span> <span class=s2>"("</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=n>__ve</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Invalid [...](...) link in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>"</span><span class=p>,</span> <span class=n>text</span><span class=p>,</span> <span class=n>i</span><span class=p>)</span>
+        <span class=n>k</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>")"</span><span class=p>,</span> <span class=n>j</span> <span class=o>+</span> <span class=mi>1</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>k</span> <span class=o><=</span> <span class=n>j</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=n>__ve</span><span class=p>(</span><span class=s2>"No closing gap for [...](...)"</span>
+                       <span class=sa>f</span><span class=s2>" link in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>"</span><span class=p>,</span> <span class=n>text</span><span class=p>,</span> <span class=n>i</span><span class=p>)</span>
+
+        <span class=n>__check_url</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>j</span> <span class=o>+</span> <span class=mi>1</span><span class=p>:</span><span class=n>k</span><span class=p>],</span> <span class=n>valid_urls</span><span class=p>)</span>
+        <span class=n>total_links_checked</span> <span class=o>+=</span> <span class=mi>1</span>
+
+        <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:</span><span class=n>i</span><span class=p>])</span>
+        <span class=n>start</span> <span class=o>=</span> <span class=n>k</span>
+
+    <span class=n>text</span> <span class=o>=</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>lines</span><span class=p>)</span>
+    <span class=n>lines</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Now checking ' href=' style urls in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=c1># now gather the href links and remove them</span>
+    <span class=k>for</span> <span class=n>quot</span> <span class=ow>in</span> <span class=s2>"'</span><span class=se>\"</span><span class=s2>"</span><span class=p>:</span>
+        <span class=n>start</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>
+        <span class=n>lines</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+        <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>
+            <span class=n>start</span> <span class=o>+=</span> <span class=mi>1</span>
+            <span class=n>start_str</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>" href=</span><span class=si>{</span><span class=n>quot</span><span class=si>}</span><span class=s2>"</span>
+            <span class=n>i</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=n>start_str</span><span class=p>,</span> <span class=n>start</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>i</span> <span class=o><</span> <span class=n>start</span><span class=p>:</span>
+                <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:])</span>
+                <span class=k>break</span>
+            <span class=n>j</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=n>quot</span><span class=p>,</span> <span class=n>i</span> <span class=o>+</span> <span class=nb>len</span><span class=p>(</span><span class=n>start_str</span><span class=p>))</span>
+            <span class=k>if</span> <span class=n>j</span> <span class=o><=</span> <span class=n>i</span><span class=p>:</span>
+                <span class=k>break</span>
+            <span class=k>if</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span> <span class=ow>in</span> <span class=n>text</span><span class=p>[</span><span class=n>i</span><span class=p>:</span><span class=n>j</span><span class=p>]:</span>
+                <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:</span><span class=n>i</span><span class=p>])</span>
+                <span class=n>start</span> <span class=o>=</span> <span class=n>i</span>
+                <span class=k>continue</span>
+            <span class=n>__check_url</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>i</span> <span class=o>+</span> <span class=nb>len</span><span class=p>(</span><span class=n>start_str</span><span class=p>):</span><span class=n>j</span><span class=p>],</span> <span class=n>valid_urls</span><span class=p>)</span>
+            <span class=n>total_links_checked</span> <span class=o>+=</span> <span class=mi>1</span>
+
+            <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:</span><span class=n>i</span><span class=p>])</span>
+            <span class=n>start</span> <span class=o>=</span> <span class=n>j</span>
+
+        <span class=n>text</span> <span class=o>=</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>lines</span><span class=p>)</span>
+        <span class=n>lines</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Now checking ' src=' style urls in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=c1># now gather the image links and remove them</span>
+    <span class=k>for</span> <span class=n>quot</span> <span class=ow>in</span> <span class=s2>"'</span><span class=se>\"</span><span class=s2>"</span><span class=p>:</span>
+        <span class=n>start</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>
+        <span class=n>lines</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+        <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>
+            <span class=n>start</span> <span class=o>+=</span> <span class=mi>1</span>
+            <span class=n>start_str</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>" src=</span><span class=si>{</span><span class=n>quot</span><span class=si>}</span><span class=s2>"</span>
+            <span class=n>i</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=n>start_str</span><span class=p>,</span> <span class=n>start</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>i</span> <span class=o><</span> <span class=n>start</span><span class=p>:</span>
+                <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:])</span>
+                <span class=k>break</span>
+            <span class=n>j</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=n>quot</span><span class=p>,</span> <span class=n>i</span> <span class=o>+</span> <span class=nb>len</span><span class=p>(</span><span class=n>start_str</span><span class=p>))</span>
+            <span class=k>if</span> <span class=n>j</span> <span class=o><=</span> <span class=n>i</span><span class=p>:</span>
+                <span class=k>break</span>
+            <span class=k>if</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span> <span class=ow>in</span> <span class=n>text</span><span class=p>[</span><span class=n>i</span><span class=p>:</span><span class=n>j</span><span class=p>]:</span>
+                <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:</span><span class=n>i</span><span class=p>])</span>
+                <span class=n>start</span> <span class=o>=</span> <span class=n>i</span>
+                <span class=k>continue</span>
+            <span class=n>__check_url</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>i</span> <span class=o>+</span> <span class=nb>len</span><span class=p>(</span><span class=n>start_str</span><span class=p>):</span><span class=n>j</span><span class=p>],</span> <span class=n>valid_urls</span><span class=p>)</span>
+            <span class=n>total_links_checked</span> <span class=o>+=</span> <span class=mi>1</span>
+
+            <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:</span><span class=n>i</span><span class=p>])</span>
+            <span class=n>start</span> <span class=o>=</span> <span class=n>j</span>
+
+        <span class=n>text</span> <span class=o>=</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>lines</span><span class=p>)</span>
+        <span class=n>lines</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Now checking '<...>' style urls in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>start</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>
+    <span class=n>lines</span><span class=o>.</span><span class=n>clear</span><span class=p>()</span>
+    <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>
+        <span class=n>start</span> <span class=o>+=</span> <span class=mi>1</span>
+        <span class=n>i</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>"&LThttp"</span><span class=p>,</span> <span class=n>start</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>i</span> <span class=o><</span> <span class=n>start</span><span class=p>:</span>
+            <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:])</span>
+            <span class=k>break</span>
+        <span class=n>j</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>find</span><span class=p>(</span><span class=s2>">"</span><span class=p>,</span> <span class=n>i</span> <span class=o>+</span> <span class=mi>1</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>j</span> <span class=o><=</span> <span class=n>i</span><span class=p>:</span>
+            <span class=k>break</span>
+        <span class=k>if</span> <span class=s2>"</span><span class=se>\n</span><span class=s2>"</span> <span class=ow>in</span> <span class=n>text</span><span class=p>[</span><span class=n>i</span><span class=p>:</span><span class=n>j</span><span class=p>]:</span>
+            <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:</span><span class=n>i</span><span class=p>])</span>
+            <span class=n>start</span> <span class=o>=</span> <span class=n>i</span>
+            <span class=k>continue</span>
+        <span class=n>__check_url</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>i</span> <span class=o>+</span> <span class=mi>1</span><span class=p>:</span><span class=n>j</span><span class=p>],</span> <span class=n>valid_urls</span><span class=p>)</span>
+        <span class=n>total_links_checked</span> <span class=o>+=</span> <span class=mi>1</span>
+
+        <span class=n>lines</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>text</span><span class=p>[</span><span class=n>start</span><span class=p>:</span><span class=n>i</span><span class=p>])</span>
+        <span class=n>start</span> <span class=o>=</span> <span class=n>j</span>
+
+    <span class=k>if</span> <span class=n>total_links_checked</span> <span class=o><=</span> <span class=mi>0</span><span class=p>:</span>
+        <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Found no links in file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Finished testing all links </span><span class=si>{</span><span class=n>total_links_checked</span><span class=si>}</span><span class=s2> in "</span>
+           <span class=sa>f</span><span class=s2>"file </span><span class=si>{</span><span class=n>readme</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.tests.links_in_md</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

@@ -1,0 +1,57 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.io.console — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/io/console.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.io.console</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.io.console</h1><div class=highlight><pre>
+<span></span><span class=sd>"""The `logger` routine for writing a log string to stdout."""</span>
+<span class=kn>import</span><span class=w> </span><span class=nn>datetime</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.processes.caller</span><span class=w> </span><span class=kn>import</span> <span class=n>is_doc_test</span>
+
+<span class=c1>#: the "now" function</span>
+<span class=n>__DTN</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>[[],</span> <span class=n>datetime</span><span class=o>.</span><span class=n>datetime</span><span class=p>]]</span> <span class=o>=</span> <span class=n>datetime</span><span class=o>.</span><span class=n>datetime</span><span class=o>.</span><span class=n>now</span>
+
+
+<div class=viewcode-block id=logger>
+<a class=viewcode-back href=../../../pycommons.io.html#pycommons.io.console.logger>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>logger</span><span class=p>(</span><span class=n>message</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>note</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=s2>""</span><span class=p>,</span>
+           <span class=n>do_print</span><span class=p>:</span> <span class=nb>bool</span> <span class=o>=</span> <span class=ow>not</span> <span class=n>is_doc_test</span><span class=p>())</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Write a message to the console log.</span>
+
+<span class=sd>    The line starts with the current date and time, includes the note, and</span>
+<span class=sd>    then the message string after an ": ".</span>
+<span class=sd>    This function can use a `lock` context to prevent multiple processes or</span>
+<span class=sd>    threads to write to the console at the same time.</span>
+
+<span class=sd>    :param message: the message</span>
+<span class=sd>    :param note: a note to put between the time and the message</span>
+<span class=sd>    :param do_print: really print the output, by default `False` if this</span>
+<span class=sd>        method is called from a "doctest", `True` otherwise</span>
+
+<span class=sd>    >>> from io import StringIO</span>
+<span class=sd>    >>> from contextlib import redirect_stdout</span>
+<span class=sd>    >>> sio = StringIO()</span>
+<span class=sd>    >>> dt1 = datetime.datetime.now()</span>
+<span class=sd>    >>> with redirect_stdout(sio):</span>
+<span class=sd>    ...     logger("hello world!", do_print=True)</span>
+<span class=sd>    >>> line = sio.getvalue().strip()</span>
+<span class=sd>    >>> print(line[line.index(" ", line.index(" ") + 1) + 1:])</span>
+<span class=sd>    hello world!</span>
+<span class=sd>    >>> dt2 = datetime.datetime.now()</span>
+<span class=sd>    >>> dtx = datetime.datetime.strptime(line[:26], "%Y-%m-%d %H:%M:%S.%f")</span>
+<span class=sd>    >>> dt1 <= dtx <= dt2</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> sio = StringIO()</span>
+<span class=sd>    >>> with redirect_stdout(sio):</span>
+<span class=sd>    ...     logger("hello world!", "note", do_print=True)</span>
+<span class=sd>    >>> line = sio.getvalue().strip()</span>
+<span class=sd>    >>> print(line[line.index("n"):])</span>
+<span class=sd>    note: hello world!</span>
+
+<span class=sd>    >>> logger("hello world")  # not printed in doctests</span>
+<span class=sd>    >>> logger("hello world", do_print=False)  # not printed anyway</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=n>do_print</span><span class=p>:</span>
+        <span class=n>text</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>__DTN</span><span class=p>()</span><span class=si>}{</span><span class=n>note</span><span class=si>}</span><span class=s2>: </span><span class=si>{</span><span class=n>message</span><span class=si>}</span><span class=s2>"</span>
+        <span class=nb>print</span><span class=p>(</span><span class=n>text</span><span class=p>,</span> <span class=n>flush</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>  <span class=c1># noqa</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.io.console</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

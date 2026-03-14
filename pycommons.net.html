@@ -1,0 +1,323 @@
+<!doctype html><html data-content_root=./ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><meta content="width=device-width,initial-scale=1"name=viewport><title>pycommons.net package — pycommons 0.8.89 documentation</title><link href="/pycommons/_static/pygments.css?v=b86133f3"rel=stylesheet><link href="/pycommons/_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="/pycommons/_static/documentation_options.js?v=4db5eb0a"></script><script src="/pycommons/_static/doctools.js?v=fd6eb6e6"></script><script src="/pycommons/_static/sphinx_highlight.js?v=6ffebe34"></script><script src=_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/pycommons.net.html rel=canonical><link href=genindex.html rel=index title=Index><link href=search.html rel=search title=Search><link title="pycommons.processes package"href=pycommons.processes.html rel=next><link title="pycommons.math package"href=pycommons.math.html rel=prev><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=genindex.html>index</a><li class=right><a title="Python Module Index"href=py-modindex.html>modules</a> |<li class=right><a title="pycommons.processes package"accesskey=N href=pycommons.processes.html>next</a> |<li class=right><a title="pycommons.math package"accesskey=P href=pycommons.math.html>previous</a> |<li class="nav-item nav-item-0"><a href=index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=modules.html>pycommons</a> »<li class="nav-item nav-item-2"><a accesskey=U href=pycommons.html>pycommons package</a> »<li class="nav-item nav-item-this"><a href>pycommons.net package</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><section id=module-pycommons.net><span id=pycommons-net-package></span><h1>pycommons.net package<a title="Link to this heading"class=headerlink href=#module-pycommons.net>¶</a></h1><p>Utilities for networking.<section id=submodules><h2>Submodules<a title="Link to this heading"class=headerlink href=#submodules>¶</a></h2></section><section id=module-pycommons.net.url><span id=pycommons-net-url-module></span><h2>pycommons.net.url module<a title="Link to this heading"class=headerlink href=#module-pycommons.net.url>¶</a></h2><p>A string class representing a URL.<p>Like the class <a class="reference internal"href=pycommons.io.html#pycommons.io.path.Path title=pycommons.io.path.Path><code class="xref py py-class docutils literal notranslate"><span class=pre>Path</span></code></a> in <a class="reference internal"href=pycommons.io.html#module-pycommons.io.path title=pycommons.io.path><code class="xref py py-mod docutils literal notranslate"><span class=pre>pycommons.io.path</span></code></a> does for paths in the file system, the class <a class="reference internal"href=#pycommons.net.url.URL title=pycommons.net.url.URL><code class="xref py py-class docutils literal notranslate"><span class=pre>URL</span></code></a> offers some sort of canonical and very conservative representation of URLs, which, at the same time, is also a string. This makes it convenient pass the instances of this class into functions that otherwise expect strings. It also allows you to write functions that expect strings and URLs as parameter.<div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>u</span> <span class=o>=</span> <span class=n>URL</span><span class=p>(</span><span class=s2>"https://thomasweise.github.io/contact/#address-in-english"</span><span class=p>)</span>
+<span class=gp>>>> </span><span class=n>u</span>
+<span class=go>'https://thomasweise.github.io/contact/#address-in-english'</span>
+<span class=gp>>>> </span><span class=n>u</span><span class=o>.</span><span class=n>scheme</span>
+<span class=go>'https'</span>
+<span class=gp>>>> </span><span class=n>u</span><span class=o>.</span><span class=n>host</span>
+<span class=go>'thomasweise.github.io'</span>
+<span class=gp>>>> </span><span class=n>u</span><span class=o>.</span><span class=n>path</span>
+<span class=go>'/contact/'</span>
+<span class=gp>>>> </span><span class=n>u</span><span class=o>.</span><span class=n>fragment</span>
+<span class=go>'address-in-english'</span>
+</pre></div></div><div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>u</span> <span class=o>=</span> <span class=n>URL</span><span class=p>(</span><span class=s2>"http://thomasweise.github.io/contact/"</span><span class=p>)</span>
+<span class=gp>>>> </span><span class=n>u</span>
+<span class=go>'http://thomasweise.github.io/contact'</span>
+<span class=gp>>>> </span><span class=n>u</span><span class=o>.</span><span class=n>scheme</span>
+<span class=go>'http'</span>
+<span class=gp>>>> </span><span class=n>u</span><span class=o>.</span><span class=n>host</span>
+<span class=go>'thomasweise.github.io'</span>
+<span class=gp>>>> </span><span class=n>u</span><span class=o>.</span><span class=n>path</span>
+<span class=go>'/contact'</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>fragment</span><span class=p>)</span>
+<span class=go>None</span>
+</pre></div></div><dl class="py class"><dt class="sig sig-object py"id=pycommons.net.url.URL><span class=property><span class=k><span class=pre>class</span></span><span class=w> </span></span><span class="sig-prename descclassname"><span class=pre>pycommons.net.url.</span></span><span class="sig-name descname"><span class=pre>URL</span></span><span class=sig-paren>(</span><em class=sig-param><span class=n><span class=pre>value</span></span><span class=p><span class=pre>:</span></span><span class=w> </span><span class=n><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/typing.html#typing.Any><span class=pre>Any</span></a></span></em>, <em class=sig-param><span class=n><span class=pre>base_url</span></span><span class=p><span class=pre>:</span></span><span class=w> </span><span class=n><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/typing.html#typing.Any><span class=pre>Any</span></a><span class=w> </span><span class=p><span class=pre>|</span></span><span class=w> </span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/constants.html#None><span class=pre>None</span></a></span><span class=w> </span><span class=o><span class=pre>=</span></span><span class=w> </span><span class=default_value><span class=pre>None</span></span></em><span class=sig-paren>)</span><a class="reference internal"href=_modules/pycommons/net/url.html#URL><span class=viewcode-link><span class=pre>[source]</span></span></a><a title="Link to this definition"class=headerlink href=#pycommons.net.url.URL>¶</a><dd><p>Bases: <a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/stdtypes.html#str><code class="xref py py-class docutils literal notranslate"><span class=pre>str</span></code></a></p> <p>A normalized and expanded URL.</p> <p>This is a very strict URL parsing routine. The idea is that it will only produce URLs that are safe for use in almost any environment and throw exceptions otherwise.</p> <p>We limit the URLs to very few different types and allowed schemes. Non-ASCII characters are not allowed, and neither are spaces, <cite>‘%’</cite>, <cite>‘*’</cite>, <cite>‘?’</cite>, <cite>‘+’</cite>, <cite>‘&’</cite>, <cite>‘<’</cite>, <cite>‘>’</cite>, <cite>‘,’</cite>, <cite>‘$’</cite>, <cite>‘§’</cite>, <cite>“’”</cite>, <cite>‘”’</cite>, <cite>‘[’</cite>, <cite>‘]’</cite>, <cite>‘{’</cite>, <cite>‘}’</cite>, <cite>‘(’</cite>, <cite>‘)’</cite>, ` nor <cite>‘'</cite> and a few more.</p> <p>We also allow <cite>‘@’</cite> to occur at most once. This means that URLs cannot have any parameters and also that URL-escaping non-ASCII characters is not possible either. We thus limit the URLs to mainly static content pointers.</p> <p>We also only permit simple schemes such as <cite>http</cite>, <cite>https</cite>, <cite>mailto</cite>, and <cite>ssh</cite>.</p> <p>The final URL also cannot contain any <cite>‘/./’</cite> or <cite>‘/../’</cite> or consist of any component that equals <cite>‘..’</cite>. No URL or component must be longer than 255 characters either. It is also not allowed that <cite>‘://’</cite> occurs twice. If the URL is a <cite>mailto</cite> or <cite>ssh</cite> URL, it must provide a username component.</p> <p>If a port is provided, it must be greater than 0 and less than 65536. If a port is specified, a host must be specified as well. Only if a netloc is found, then a port or a host may be specified.</p> <p>The URL <cite>value</cite> may be a relative URL that is turned into an absolute URL using the base URL <cite>base_url</cite>. Of course, then the same restrictions apply to the relative original URL, the base URL, and the final absolute URL.</p> <p>This function tries to detect email addresses and turns them into valid <cite>mailto://</cite> urls. This function gobbles up single trailing <cite>/</cite> characters.</p> <p>An instance of <cite>URL</cite> is also an instance of <a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/stdtypes.html#str><code class="xref py py-class docutils literal notranslate"><span class=pre>str</span></code></a>, so you can use it as string whereever you want. It additionally offers the following attributes:</p> <ul class=simple><li><p><a class="reference internal"href=#pycommons.net.url.URL.scheme title=pycommons.net.url.URL.scheme><code class="xref py py-attr docutils literal notranslate"><span class=pre>scheme</span></code></a>: the URL scheme, e.g., <cite>“http”</cite><li><dl class=simple><dt><a class="reference internal"href=#pycommons.net.url.URL.netloc title=pycommons.net.url.URL.netloc><code class="xref py py-attr docutils literal notranslate"><span class=pre>netloc</span></code></a>: the URL network location, including user (if any),<dd><p>host, and port (if any)</p></dl><li><p><a class="reference internal"href=#pycommons.net.url.URL.host title=pycommons.net.url.URL.host><code class="xref py py-attr docutils literal notranslate"><span class=pre>host</span></code></a>: the host of the URL<li><dl class=simple><dt><a class="reference internal"href=#pycommons.net.url.URL.port title=pycommons.net.url.URL.port><code class="xref py py-attr docutils literal notranslate"><span class=pre>port</span></code></a>: the port of the URL, or <cite>None</cite> if no port is<dd><p>specified</p></dl><li><dl class=simple><dt><a class="reference internal"href=#pycommons.net.url.URL.path title=pycommons.net.url.URL.path><code class="xref py py-attr docutils literal notranslate"><span class=pre>path</span></code></a>: the path part of the URL (without the<dd><p><a class="reference internal"href=#pycommons.net.url.URL.fragment title=pycommons.net.url.URL.fragment><code class="xref py py-attr docutils literal notranslate"><span class=pre>fragment</span></code></a> part, if any), or <cite>None</cite> if no path part is specified</p></dl><li><dl class=simple><dt><a class="reference internal"href=#pycommons.net.url.URL.fragment title=pycommons.net.url.URL.fragment><code class="xref py py-attr docutils literal notranslate"><span class=pre>fragment</span></code></a>: the fragment part of the path, or <cite>None</cite> if the<dd><p>path has no fragment</p></dl></ul> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>u1</span> <span class=o>=</span> <span class=n>URL</span><span class=p>(</span><span class=s2>"mailto:tweise@hfuu.edu.cn"</span><span class=p>)</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u1</span><span class=p>)</span>
+<span class=go>mailto://tweise@hfuu.edu.cn</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u1</span><span class=o>.</span><span class=n>scheme</span><span class=p>)</span>
+<span class=go>mailto</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u1</span><span class=o>.</span><span class=n>netloc</span><span class=p>)</span>
+<span class=go>tweise@hfuu.edu.cn</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u1</span><span class=o>.</span><span class=n>host</span><span class=p>)</span>
+<span class=go>hfuu.edu.cn</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u1</span><span class=o>.</span><span class=n>port</span><span class=p>)</span>
+<span class=go>None</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u1</span><span class=o>.</span><span class=n>path</span><span class=p>)</span>
+<span class=go>None</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u1</span><span class=o>.</span><span class=n>fragment</span><span class=p>)</span>
+<span class=go>None</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>u</span> <span class=o>=</span> <span class=n>URL</span><span class=p>(</span><span class=s2>"tweise@hfuu.edu.cn"</span><span class=p>)</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=p>)</span>
+<span class=go>mailto://tweise@hfuu.edu.cn</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>scheme</span><span class=p>)</span>
+<span class=go>mailto</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>netloc</span><span class=p>)</span>
+<span class=go>tweise@hfuu.edu.cn</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>host</span><span class=p>)</span>
+<span class=go>hfuu.edu.cn</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>port</span><span class=p>)</span>
+<span class=go>None</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>path</span><span class=p>)</span>
+<span class=go>None</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>fragment</span><span class=p>)</span>
+<span class=go>None</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>URL</span><span class=p>(</span><span class=s2>"mailto://tweise@hfuu.edu.cn"</span><span class=p>)</span>
+<span class=go>'mailto://tweise@hfuu.edu.cn'</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>u2</span> <span class=o>=</span> <span class=n>URL</span><span class=p>(</span><span class=s2>"https://example.com/abc"</span><span class=p>)</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u2</span><span class=p>)</span>
+<span class=go>https://example.com/abc</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u2</span><span class=o>.</span><span class=n>scheme</span><span class=p>)</span>
+<span class=go>https</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u2</span><span class=o>.</span><span class=n>netloc</span><span class=p>)</span>
+<span class=go>example.com</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u2</span><span class=o>.</span><span class=n>host</span><span class=p>)</span>
+<span class=go>example.com</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u2</span><span class=o>.</span><span class=n>port</span><span class=p>)</span>
+<span class=go>None</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u2</span><span class=o>.</span><span class=n>path</span><span class=p>)</span>
+<span class=go>/abc</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u2</span><span class=o>.</span><span class=n>fragment</span><span class=p>)</span>
+<span class=go>None</span>
+<span class=gp>>>> </span><span class=n>u1</span><span class=o>.</span><span class=n>host</span> <span class=o>!=</span> <span class=n>u2</span><span class=o>.</span><span class=n>host</span>
+<span class=go>True</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>u</span> <span class=o>=</span> <span class=n>URL</span><span class=p>(</span><span class=s2>"https://example.com/abc/"</span><span class=p>)</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=p>)</span>
+<span class=go>https://example.com/abc</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>scheme</span><span class=p>)</span>
+<span class=go>https</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>netloc</span><span class=p>)</span>
+<span class=go>example.com</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>host</span><span class=p>)</span>
+<span class=go>example.com</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>port</span><span class=p>)</span>
+<span class=go>None</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>path</span><span class=p>)</span>
+<span class=go>/abc</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>fragment</span><span class=p>)</span>
+<span class=go>None</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>u</span> <span class=o>=</span> <span class=n>URL</span><span class=p>(</span><span class=s2>"https://example.com/"</span><span class=p>)</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=p>)</span>
+<span class=go>https://example.com</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>scheme</span><span class=p>)</span>
+<span class=go>https</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>netloc</span><span class=p>)</span>
+<span class=go>example.com</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>host</span><span class=p>)</span>
+<span class=go>example.com</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>port</span><span class=p>)</span>
+<span class=go>None</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>path</span><span class=p>)</span>
+<span class=go>None</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>fragment</span><span class=p>)</span>
+<span class=go>None</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>u</span> <span class=o>=</span> <span class=n>URL</span><span class=p>(</span><span class=s2>"ssh://git@example.com/abc"</span><span class=p>)</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=p>)</span>
+<span class=go>ssh://git@example.com/abc</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>scheme</span><span class=p>)</span>
+<span class=go>ssh</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>netloc</span><span class=p>)</span>
+<span class=go>git@example.com</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>host</span><span class=p>)</span>
+<span class=go>example.com</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>port</span><span class=p>)</span>
+<span class=go>None</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>path</span><span class=p>)</span>
+<span class=go>/abc</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>fragment</span><span class=p>)</span>
+<span class=go>None</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>URL</span><span class=p>(</span><span class=s2>"1.txt"</span><span class=p>,</span> <span class=s2>"http://example.com/thomasWeise"</span><span class=p>)</span>
+<span class=go>'http://example.com/1.txt'</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>URL</span><span class=p>(</span><span class=s2>"1.txt"</span><span class=p>,</span> <span class=s2>"http://example.com/thomasWeise/"</span><span class=p>)</span>
+<span class=go>'http://example.com/thomasWeise/1.txt'</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>URL</span><span class=p>(</span><span class=s2>"../1.txt"</span><span class=p>,</span> <span class=s2>"http://example.com/thomasWeise/"</span><span class=p>)</span>
+<span class=go>'http://example.com/1.txt'</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>URL</span><span class=p>(</span><span class=s2>"https://example.com/1.txt"</span><span class=p>,</span>
+<span class=gp>... </span>    <span class=s2>"http://github.com/thomasWeise/"</span><span class=p>)</span>
+<span class=go>'https://example.com/1.txt'</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>URL</span><span class=p>(</span><span class=s2>"http://example.com:123/1"</span><span class=p>)</span>
+<span class=go>'http://example.com:123/1'</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=n>u</span> <span class=o>=</span> <span class=n>URL</span><span class=p>(</span><span class=s2>"http://example.com:34/index.html#1"</span><span class=p>)</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=p>)</span>
+<span class=go>http://example.com:34/index.html#1</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>scheme</span><span class=p>)</span>
+<span class=go>http</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>netloc</span><span class=p>)</span>
+<span class=go>example.com:34</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>host</span><span class=p>)</span>
+<span class=go>example.com</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>port</span><span class=p>)</span>
+<span class=go>34</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>path</span><span class=p>)</span>
+<span class=go>/index.html</span>
+<span class=gp>>>> </span><span class=nb>print</span><span class=p>(</span><span class=n>u</span><span class=o>.</span><span class=n>fragment</span><span class=p>)</span>
+<span class=go>1</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"tweise@@hfuu.edu.cn"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'tweise@@hfuu.edu.cn' contains the forbidden text '@@'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://example.com/index.html#"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part must not end in '#', but 'http://example.com/index.html#' does.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://example.com/index.html@"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part must not end in '@', but 'http://example.com/index.html@' does.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"https://example.com/abc(/23"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'https://example.com/abc(/23' contains the forbidden text '('.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"https://example.com/abc]/23"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'https://example.com/abc]/23' contains the forbidden text ']'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"https://example.com/abcä/23"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'https://example.com/abcä/23' contains non-ASCII characters.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"https://example.com/abc/./23"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'https://example.com/abc/./23' contains the forbidden text '/./'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"https://example.com/abc/../1.txt"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=nb>str</span><span class=p>(</span><span class=n>ve</span><span class=p>)[:</span><span class=o>-</span><span class=mi>4</span><span class=p>])</span>
+<span class=go>URL part 'https://example.com/abc/../1.txt' contains the forbidden text '/.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=sa>r</span><span class=s2>"https://example.com/abc\./23"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'https://example.com/abc\\./23' contains the forbidden text '\\'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"https://1.2.com/abc/23/../r"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'https://1.2.com/abc/23/../r' contains the forbidden text '/../'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"https://exa mple.com"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'https://exa mple.com' contains the forbidden text ' '.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"ftp://example.com"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=nb>str</span><span class=p>(</span><span class=n>ve</span><span class=p>)[:</span><span class=mi>66</span><span class=p>])</span>
+<span class=go>Invalid scheme 'ftp' of url 'ftp://example.com' under base None, o</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://example.com%32"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=nb>str</span><span class=p>(</span><span class=n>ve</span><span class=p>))</span>
+<span class=go>URL part 'http://example.com%32' contains the forbidden text '%'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"mailto://example.com"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=nb>str</span><span class=p>(</span><span class=n>ve</span><span class=p>)[:</span><span class=mi>66</span><span class=p>])</span>
+<span class=go>'mailto' url 'mailto://example.com' must contain '@' and have user</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"ssh://example.com"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=nb>str</span><span class=p>(</span><span class=n>ve</span><span class=p>)[:</span><span class=mi>65</span><span class=p>])</span>
+<span class=go>'ssh' url 'ssh://example.com' must contain '@' and have username,</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"ftp://example.com*32"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=nb>str</span><span class=p>(</span><span class=n>ve</span><span class=p>))</span>
+<span class=go>URL part 'ftp://example.com*32' contains the forbidden text '*'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://example.com/https://h"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=nb>str</span><span class=p>(</span><span class=n>ve</span><span class=p>)[:</span><span class=mi>74</span><span class=p>])</span>
+<span class=go>URL part 'http://example.com/https://h' contains the forbidden text '://ex</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://user@example.com"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=nb>str</span><span class=p>(</span><span class=n>ve</span><span class=p>)[:</span><span class=mi>66</span><span class=p>])</span>
+<span class=go>'http' url 'http://user@example.com' must not contain '@' and have</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://"</span> <span class=o>+</span> <span class=p>(</span><span class=s2>"a"</span> <span class=o>*</span> <span class=mi>250</span><span class=p>))</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=nb>str</span><span class=p>(</span><span class=n>ve</span><span class=p>)[</span><span class=o>-</span><span class=mi>30</span><span class=p>:])</span>
+<span class=go>aaaaa' has invalid length 257.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://."</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part '.' contains the forbidden text '.'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://.."</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'http://..' contains the forbidden text '..'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://www.example.com/../1"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'http://www.example.com/../1' contains the forbidden text '/../'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://www.example.com/./1"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'http://www.example.com/./1' contains the forbidden text '/./'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://user@example.com/@1"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=nb>str</span><span class=p>(</span><span class=n>ve</span><span class=p>)[:</span><span class=o>-</span><span class=mi>9</span><span class=p>])</span>
+<span class=go>URL part 'http://user@example.com/@1' contains the forbidden text '@exampl</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://:45/1.txt"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL 'http://:45/1.txt' has no host?</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://example.com:-3/@1"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>Port could not be cast to integer value as '-3'</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://example.com:0/@1"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>port=0 is invalid, must be in 1..65535.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://example.com:65536/@1"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>Port out of range 0-65535</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>TypeError</span> <span class=k>as</span> <span class=n>te</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>te</span><span class=p>)</span>
+<span class=go>descriptor '__len__' requires a 'str' object but received a 'int'</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=kc>None</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>TypeError</span> <span class=k>as</span> <span class=n>te</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>te</span><span class=p>)</span>
+<span class=go>descriptor '__len__' requires a 'str' object but received a 'NoneType'</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http::/1.txt"</span><span class=p>,</span> <span class=mi>1</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>TypeError</span> <span class=k>as</span> <span class=n>te</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>te</span><span class=p>)</span>
+<span class=go>descriptor '__len__' requires a 'str' object but received a 'int'</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http::/1.txt?x=1"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'http::/1.txt?x=1' contains the forbidden text '?'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http::/1.txt&x=1"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'http::/1.txt&x=1' contains the forbidden text '&'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http::/1.+txt&x=1"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'http::/1.+txt&x=1' contains the forbidden text '+'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http::/1*.+txt&x=1"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part 'http::/1*.+txt&x=1' contains the forbidden text '*'.</span>
+</pre></div></div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><span class=gp>>>> </span><span class=k>try</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=n>URL</span><span class=p>(</span><span class=s2>"http://example.com#1#2"</span><span class=p>)</span>
+<span class=gp>... </span><span class=k>except</span> <span class=ne>ValueError</span> <span class=k>as</span> <span class=n>ve</span><span class=p>:</span>
+<span class=gp>... </span>    <span class=nb>print</span><span class=p>(</span><span class=n>ve</span><span class=p>)</span>
+<span class=go>URL part '1#2' contains the forbidden text '#'.</span>
+</pre></div></div> <dl class="py attribute"><dt class="sig sig-object py"id=pycommons.net.url.URL.fragment><span class="sig-name descname"><span class=pre>fragment</span></span><span class=property><span class=p><span class=pre>:</span></span><span class=w> </span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/typing.html#typing.Final><span class=pre>Final</span></a><span class=p><span class=pre>[</span></span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/stdtypes.html#str><span class=pre>str</span></a><span class=w> </span><span class=p><span class=pre>|</span></span><span class=w> </span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/constants.html#None><span class=pre>None</span></a><span class=p><span class=pre>]</span></span></span><a title="Link to this definition"class=headerlink href=#pycommons.net.url.URL.fragment>¶</a><dd><p>the path fragment, i.e., the part following a <cite>“#”</cite>, if any (else <cite>None</cite>)</p></dl> <dl class="py attribute"><dt class="sig sig-object py"id=pycommons.net.url.URL.host><span class="sig-name descname"><span class=pre>host</span></span><span class=property><span class=p><span class=pre>:</span></span><span class=w> </span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/typing.html#typing.Final><span class=pre>Final</span></a><span class=p><span class=pre>[</span></span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/stdtypes.html#str><span class=pre>str</span></a><span class=p><span class=pre>]</span></span></span><a title="Link to this definition"class=headerlink href=#pycommons.net.url.URL.host>¶</a><dd><p>the host str</p></dl> <dl class="py attribute"><dt class="sig sig-object py"id=pycommons.net.url.URL.netloc><span class="sig-name descname"><span class=pre>netloc</span></span><span class=property><span class=p><span class=pre>:</span></span><span class=w> </span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/typing.html#typing.Final><span class=pre>Final</span></a><span class=p><span class=pre>[</span></span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/stdtypes.html#str><span class=pre>str</span></a><span class=p><span class=pre>]</span></span></span><a title="Link to this definition"class=headerlink href=#pycommons.net.url.URL.netloc>¶</a><dd><p>the network location, usually of the form <cite>“user@host:port”</cite>, i.e., composed of user name (if present), host, and port (if present)</p></dl> <dl class="py attribute"><dt class="sig sig-object py"id=pycommons.net.url.URL.path><span class="sig-name descname"><span class=pre>path</span></span><span class=property><span class=p><span class=pre>:</span></span><span class=w> </span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/typing.html#typing.Final><span class=pre>Final</span></a><span class=p><span class=pre>[</span></span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/stdtypes.html#str><span class=pre>str</span></a><span class=w> </span><span class=p><span class=pre>|</span></span><span class=w> </span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/constants.html#None><span class=pre>None</span></a><span class=p><span class=pre>]</span></span></span><a title="Link to this definition"class=headerlink href=#pycommons.net.url.URL.path>¶</a><dd><p>the path, if any (else <cite>None</cite>), but without the fragment component</p></dl> <dl class="py attribute"><dt class="sig sig-object py"id=pycommons.net.url.URL.port><span class="sig-name descname"><span class=pre>port</span></span><span class=property><span class=p><span class=pre>:</span></span><span class=w> </span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/typing.html#typing.Final><span class=pre>Final</span></a><span class=p><span class=pre>[</span></span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/functions.html#int><span class=pre>int</span></a><span class=w> </span><span class=p><span class=pre>|</span></span><span class=w> </span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/constants.html#None><span class=pre>None</span></a><span class=p><span class=pre>]</span></span></span><a title="Link to this definition"class=headerlink href=#pycommons.net.url.URL.port>¶</a><dd><p>the port, if any (else <cite>None</cite>)</p></dl> <dl class="py attribute"><dt class="sig sig-object py"id=pycommons.net.url.URL.scheme><span class="sig-name descname"><span class=pre>scheme</span></span><span class=property><span class=p><span class=pre>:</span></span><span class=w> </span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/typing.html#typing.Final><span class=pre>Final</span></a><span class=p><span class=pre>[</span></span><a class="reference external"title="(in Python v3.14)"href=https://docs.python.org/3/library/stdtypes.html#str><span class=pre>str</span></a><span class=p><span class=pre>]</span></span></span><a title="Link to this definition"class=headerlink href=#pycommons.net.url.URL.scheme>¶</a><dd><p>the protocol scheme, e.g., <cite>“https”</cite></p></dl></dl></section></section><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><div><h3><a href=index.html>Table of Contents</a></h3><ul><li><a class="reference internal"href=#>pycommons.net package</a><ul><li><a class="reference internal"href=#submodules>Submodules</a><li><a class="reference internal"href=#module-pycommons.net.url>pycommons.net.url module</a><ul><li><a class="reference internal"href=#pycommons.net.url.URL><code class="docutils literal notranslate"><span class=pre>URL</span></code></a><ul><li><a class="reference internal"href=#pycommons.net.url.URL.fragment><code class="docutils literal notranslate"><span class=pre>URL.fragment</span></code></a><li><a class="reference internal"href=#pycommons.net.url.URL.host><code class="docutils literal notranslate"><span class=pre>URL.host</span></code></a><li><a class="reference internal"href=#pycommons.net.url.URL.netloc><code class="docutils literal notranslate"><span class=pre>URL.netloc</span></code></a><li><a class="reference internal"href=#pycommons.net.url.URL.path><code class="docutils literal notranslate"><span class=pre>URL.path</span></code></a><li><a class="reference internal"href=#pycommons.net.url.URL.port><code class="docutils literal notranslate"><span class=pre>URL.port</span></code></a><li><a class="reference internal"href=#pycommons.net.url.URL.scheme><code class="docutils literal notranslate"><span class=pre>URL.scheme</span></code></a></ul></ul></ul></ul></div><div><h4>Previous topic</h4><p class=topless><a title="previous chapter"href=pycommons.math.html>pycommons.math package</a></div><div><h4>Next topic</h4><p class=topless><a title="next chapter"href=pycommons.processes.html>pycommons.processes package</a></div><div aria-label="source link"role=note><h3>This Page</h3><ul class=this-page-menu><li><a href=_sources/pycommons.net.rst.txt rel=nofollow>Show Source</a></ul></div><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=genindex.html>index</a><li class=right><a title="Python Module Index"href=py-modindex.html>modules</a> |<li class=right><a title="pycommons.processes package"href=pycommons.processes.html>next</a> |<li class=right><a title="pycommons.math package"href=pycommons.math.html>previous</a> |<li class="nav-item nav-item-0"><a href=index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=modules.html>pycommons</a> »<li class="nav-item nav-item-2"><a href=pycommons.html>pycommons package</a> »<li class="nav-item nav-item-this"><a href>pycommons.net package</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

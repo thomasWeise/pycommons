@@ -1,0 +1,330 @@
+<!doctype html><html data-content_root=../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.ds.sequences — pycommons 0.8.89 documentation</title><link href="../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/ds/sequences.html rel=canonical><link href=../../../genindex.html rel=index title=Index><link href=../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.ds.sequences</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.ds.sequences</h1><div class=highlight><pre>
+<span></span><span class=sd>"""Tools for working with sequences."""</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>heapq</span><span class=w> </span><span class=kn>import</span> <span class=n>merge</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Callable</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Generator</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>,</span> <span class=n>Iterator</span><span class=p>,</span> <span class=n>TypeVar</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>type_error</span>
+
+<span class=c1>#: the type of the element of the sequences to process</span>
+<span class=n>T</span> <span class=o>=</span> <span class=n>TypeVar</span><span class=p>(</span><span class=s2>"T"</span><span class=p>)</span>
+
+
+<span class=k>class</span><span class=w> </span><span class=nc>__Reiterator</span><span class=p>(</span><span class=n>Iterable</span><span class=p>[</span><span class=n>T</span><span class=p>]):</span>
+<span class=w>    </span><span class=sd>"""The internal class for re-iteration."""</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>source</span><span class=p>:</span> <span class=n>Iterator</span><span class=p>[</span><span class=n>T</span><span class=p>])</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Create the re-iterator.</span>
+
+<span class=sd>        :param source: the source</span>
+<span class=sd>        """</span>
+        <span class=c1>#: the original source</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__source</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Iterator</span><span class=p>[</span><span class=n>T</span><span class=p>]]</span> <span class=o>=</span> <span class=n>source</span>
+        <span class=c1>#: we store all elements from source for re-iteration</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>__more</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=n>T</span><span class=p>]]</span> <span class=o>=</span> <span class=p>[]</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__iter__</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-></span> <span class=n>Generator</span><span class=p>[</span><span class=n>T</span><span class=p>,</span> <span class=kc>None</span><span class=p>,</span> <span class=kc>None</span><span class=p>]:</span>
+<span class=w>        </span><span class=sd>"""</span>
+<span class=sd>        Generate the sequence of elements.</span>
+
+<span class=sd>        :returns: the generator</span>
+<span class=sd>        """</span>
+        <span class=n>get_length</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[],</span> <span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__more</span><span class=o>.</span><span class=fm>__len__</span>
+        <span class=n>get</span><span class=p>:</span> <span class=n>Callable</span><span class=p>[[</span><span class=nb>int</span><span class=p>],</span> <span class=n>T</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__more</span><span class=o>.</span><span class=fm>__getitem__</span>
+        <span class=n>append</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>[[</span><span class=n>T</span><span class=p>],</span> <span class=kc>None</span><span class=p>]]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__more</span><span class=o>.</span><span class=n>append</span>
+        <span class=n>nexter</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Callable</span><span class=p>[[],</span> <span class=n>T</span><span class=p>]]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>__source</span><span class=o>.</span><span class=fm>__next__</span>
+        <span class=n>pos</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=mi>0</span>  <span class=c1># The next position in __more.</span>
+        <span class=n>skip</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>  <span class=c1># The last element in __more we took from __source.</span>
+        <span class=k>try</span><span class=p>:</span>  <span class=c1># We always get to the StopIteration of __source.</span>
+            <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>  <span class=c1># Until we reached the end of list and end of iter.</span>
+                <span class=n>ll</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>get_length</span><span class=p>()</span>  <span class=c1># Get length (may have changed).</span>
+                <span class=k>while</span> <span class=n>pos</span> <span class=o><</span> <span class=n>ll</span><span class=p>:</span>  <span class=c1># First, return all elements from __more.</span>
+                    <span class=k>if</span> <span class=n>pos</span> <span class=o>!=</span> <span class=n>skip</span><span class=p>:</span>  <span class=c1># Skip = the element we returned last.</span>
+                        <span class=k>yield</span> <span class=n>get</span><span class=p>(</span><span class=n>pos</span><span class=p>)</span>  <span class=c1># Yield the __more list element.</span>
+                    <span class=n>pos</span> <span class=o>+=</span> <span class=mi>1</span>  <span class=c1># Increment position.</span>
+                <span class=n>skip</span> <span class=o>=</span> <span class=n>get_length</span><span class=p>()</span>  <span class=c1># Get the length: May have changed!</span>
+                <span class=k>if</span> <span class=n>skip</span> <span class=o>></span> <span class=n>ll</span><span class=p>:</span>  <span class=c1># Maybe something changed since yield.</span>
+                    <span class=n>skip</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span>  <span class=c1># Invalidate skip, we instead return from list.</span>
+                    <span class=k>continue</span>
+                <span class=n>other</span> <span class=o>=</span> <span class=n>nexter</span><span class=p>()</span>  <span class=c1># Get next actual iteration element.</span>
+                <span class=n>append</span><span class=p>(</span><span class=n>other</span><span class=p>)</span>  <span class=c1># Store the element in the internal list.</span>
+                <span class=k>yield</span> <span class=n>other</span>  <span class=c1># Yield the element</span>
+        <span class=k>except</span> <span class=ne>StopIteration</span><span class=p>:</span>
+            <span class=k>pass</span>
+
+
+<div class=viewcode-block id=reiterable>
+<a class=viewcode-back href=../../../pycommons.ds.html#pycommons.ds.sequences.reiterable>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>reiterable</span><span class=p>(</span><span class=n>source</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=n>T</span><span class=p>]</span> <span class=o>|</span> <span class=n>Iterator</span><span class=p>[</span><span class=n>T</span><span class=p>])</span> <span class=o>-></span> <span class=n>Iterable</span><span class=p>[</span><span class=n>T</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Ensure that an :class:`Iterable` can be iterated over multiple times.</span>
+
+<span class=sd>    This function will solidify an :class:`Iterator` into an</span>
+<span class=sd>    :class:`Iterable`. In Python, :class:`Iterator` is a sub-class of</span>
+<span class=sd>    :class:`Iterable`. This means that if your function accepts instances of</span>
+<span class=sd>    :class:`Iterable` as input, it may expect to be able to iterate over them</span>
+<span class=sd>    multiple times. However, if an :class:`Iterator` is passed in, which also</span>
+<span class=sd>    is an instance of :class:`Iterable` and thus fulfills the function's type</span>
+<span class=sd>    requirement, this is not the case. A typical example of this would be if</span>
+<span class=sd>    a :class:`Generator` is passed in. A :class:`Generator` is an instance of</span>
+<span class=sd>    :class:`Iterator`, which, in turn, is an instance of :class:`Iterable`.</span>
+<span class=sd>    However, you can iterate over a :class:`Generator` only once.</span>
+
+<span class=sd>    For such single-use objects, a new :class:`Iterable` wrapper is created.</span>
+<span class=sd>    This wrapper will iterate over the original sequence, but cache all</span>
+<span class=sd>    elements in an internal :class:`list`. When you iterate over the sequence</span>
+<span class=sd>    again, the elements in the :class:`list` will be used. This means that</span>
+<span class=sd>    all elements of the original sequence will be stored in memory. However,</span>
+<span class=sd>    they are only stored if/when they are actually accessed via the iteration</span>
+<span class=sd>    sequence. If you do not iterate over them completely, they are not all</span>
+<span class=sd>    stored.</span>
+
+<span class=sd>    This form of re-iterabling is useful if you maybe generate items from a</span>
+<span class=sd>    slower sequence or do not plan to use all of them. If you want to use</span>
+<span class=sd>    all elements several times anyway, it may be more efficient to just wrap</span>
+<span class=sd>    the original source into a :class:`tuple`. But if, for example, your</span>
+<span class=sd>    sequence is the result of iterating over a directory tree on the file</span>
+<span class=sd>    system, or maybe if it comes from loading a file, then using</span>
+<span class=sd>    :func:`reiterable` could be useful.</span>
+
+<span class=sd>    This is also true if you actually process the generated sequence in some</span>
+<span class=sd>    way that may fail or terminate early. Then, first loading all data into</span>
+<span class=sd>    a :class:`tuple` may be annoying if your first processed element after</span>
+<span class=sd>    that causes a failure or early termination. The bit of overhead of</span>
+<span class=sd>    :func:`reiterable` may then well be worth your while.</span>
+
+<span class=sd>    Of course, this can only work if the :class:`Iterator` is not otherwise</span>
+<span class=sd>    used after calling this function. If you extract elements from the</span>
+<span class=sd>    :class:`Iterator` by yourself otherwise, maybe via :func:`next`, then</span>
+<span class=sd>    :func:`reiterable` cannot work. However, if you only apply :func:`next`</span>
+<span class=sd>    or other looping paradigms to the :class:`Iterable` returned by</span>
+<span class=sd>    :func:`reiterable`, then you can iterate as often as you want over a</span>
+<span class=sd>    :class:`Generator`, for example.</span>
+
+<span class=sd>    :param source: the data source</span>
+<span class=sd>    :returns: the resulting re-iterable iterator</span>
+<span class=sd>    :raises TypeError: if `source` is neither an :class:`Iterable` nor an</span>
+<span class=sd>        :class:`Iterator`.</span>
+
+<span class=sd>    >>> ri = reiterable(iter(range(4)))</span>
+<span class=sd>    >>> for i in ri:</span>
+<span class=sd>    ...     print(i)</span>
+<span class=sd>    0</span>
+<span class=sd>    1</span>
+<span class=sd>    2</span>
+<span class=sd>    3</span>
+<span class=sd>    >>> for i in ri:</span>
+<span class=sd>    ...     print(i)</span>
+<span class=sd>    0</span>
+<span class=sd>    1</span>
+<span class=sd>    2</span>
+<span class=sd>    3</span>
+
+<span class=sd>    >>> g = (i ** 2 for i in range(5))</span>
+<span class=sd>    >>> r = reiterable(g)</span>
+<span class=sd>    >>> tuple(r)</span>
+<span class=sd>    (0, 1, 4, 9, 16)</span>
+<span class=sd>    >>> tuple(r)</span>
+<span class=sd>    (0, 1, 4, 9, 16)</span>
+<span class=sd>    >>> tuple(r)</span>
+<span class=sd>    (0, 1, 4, 9, 16)</span>
+<span class=sd>    >>> tuple(r)</span>
+<span class=sd>    (0, 1, 4, 9, 16)</span>
+<span class=sd>    >>> tuple(g)</span>
+<span class=sd>    ()</span>
+
+<span class=sd>    >>> g = (i ** 2 for i in range(5))</span>
+<span class=sd>    >>> r = reiterable(g)</span>
+<span class=sd>    >>> i1 = iter(r)</span>
+<span class=sd>    >>> i2 = iter(r)</span>
+<span class=sd>    >>> next(i1)</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> next(i2)</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> next(i2)</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> next(i1)</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> next(i1)</span>
+<span class=sd>    4</span>
+<span class=sd>    >>> next(i1)</span>
+<span class=sd>    9</span>
+<span class=sd>    >>> next(i2)</span>
+<span class=sd>    4</span>
+<span class=sd>    >>> next(i2)</span>
+<span class=sd>    9</span>
+<span class=sd>    >>> i3 = iter(r)</span>
+<span class=sd>    >>> next(i3)</span>
+<span class=sd>    0</span>
+<span class=sd>    >>> next(i3)</span>
+<span class=sd>    1</span>
+<span class=sd>    >>> next(i3)</span>
+<span class=sd>    4</span>
+<span class=sd>    >>> next(i3)</span>
+<span class=sd>    9</span>
+<span class=sd>    >>> next(i3)</span>
+<span class=sd>    16</span>
+<span class=sd>    >>> next(i2)</span>
+<span class=sd>    16</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     next(i2)</span>
+<span class=sd>    ... except StopIteration as si:</span>
+<span class=sd>    ...     print(type(si))</span>
+<span class=sd>    &LTclass 'StopIteration'></span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     next(i3)</span>
+<span class=sd>    ... except StopIteration as si:</span>
+<span class=sd>    ...     print(type(si))</span>
+<span class=sd>    &LTclass 'StopIteration'></span>
+<span class=sd>    >>> next(i1)</span>
+<span class=sd>    16</span>
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     next(i1)</span>
+<span class=sd>    ... except StopIteration as si:</span>
+<span class=sd>    ...     print(type(si))</span>
+<span class=sd>    &LTclass 'StopIteration'></span>
+
+<span class=sd>    >>> a = [1, 2, 3]</span>
+<span class=sd>    >>> reiterable(a) is a</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> a = (1, 2, 3)</span>
+<span class=sd>    >>> reiterable(a) is a</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> a = {1, 2, 3}</span>
+<span class=sd>    >>> reiterable(a) is a</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> a = {1: 1, 2: 2, 3: 3}</span>
+<span class=sd>    >>> reiterable(a) is a</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> k = a.keys()</span>
+<span class=sd>    >>> reiterable(k) is k</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> k = a.values()</span>
+<span class=sd>    >>> reiterable(k) is k</span>
+<span class=sd>    True</span>
+
+<span class=sd>    >>> tuple(reiterable((x for x in range(5))))</span>
+<span class=sd>    (0, 1, 2, 3, 4)</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     reiterable(None)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:60])</span>
+<span class=sd>    source should be an instance of any in {typing.Iterable, typ</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     reiterable(1)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(str(te)[:60])</span>
+<span class=sd>    source should be an instance of any in {typing.Iterable, typ</span>
+
+<span class=sd>    >>> type(merge_sorted_and_return_unique([1, 2, 3,], [2, 2]))</span>
+<span class=sd>    &LTclass 'generator'></span>
+
+<span class=sd>    >>> type(reiterable(merge_sorted_and_return_unique([1, 2, 3,], [2, 2])))</span>
+<span class=sd>    &LTclass 'pycommons.ds.sequences.__Reiterator'></span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>source</span><span class=p>,</span> <span class=n>Iterator</span><span class=p>):</span>
+        <span class=k>return</span> <span class=n>__Reiterator</span><span class=p>(</span><span class=n>source</span><span class=p>)</span>  <span class=c1># solidify iterators into tuples</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>source</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+        <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>source</span><span class=p>,</span> <span class=s2>"source"</span><span class=p>,</span> <span class=p>(</span><span class=n>Iterable</span><span class=p>,</span> <span class=n>Iterator</span><span class=p>))</span>
+    <span class=k>return</span> <span class=n>source</span>  <span class=c1># other iterables can be returned as-is</span></div>
+
+
+
+<div class=viewcode-block id=merge_sorted_and_return_unique>
+<a class=viewcode-back href=../../../pycommons.ds.html#pycommons.ds.sequences.merge_sorted_and_return_unique>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>merge_sorted_and_return_unique</span><span class=p>(</span>
+        <span class=o>*</span><span class=n>seqs</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=n>T</span><span class=p>])</span> <span class=o>-></span> <span class=n>Generator</span><span class=p>[</span><span class=n>T</span><span class=p>,</span> <span class=kc>None</span><span class=p>,</span> <span class=kc>None</span><span class=p>]:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Merge sorted sequences of integers and return only unique values.</span>
+
+<span class=sd>    You can provide multiple sequences, all of which must be sorted.</span>
+<span class=sd>    This function then merges them into a single sorted sequence which</span>
+<span class=sd>    contains each elemenet at most once.</span>
+<span class=sd>    A typical use case would be to combine the result of</span>
+<span class=sd>    :func:`pycommons.math.primes.primes` with some pre-defined values into</span>
+<span class=sd>    a sorted sequence.</span>
+
+<span class=sd>    Notice that the elements of the sequence must support the less-than</span>
+<span class=sd>    operator, i.e., have a `__lt__` dunder method. Otherwise this function</span>
+<span class=sd>    will crash.</span>
+
+<span class=sd>    The returned sequence is guaranteed to provide strictly increasing values.</span>
+
+<span class=sd>    :param seqs: the sequences, i.e., some instances of :class:`Iterable` or</span>
+<span class=sd>        :class:`Iterator`</span>
+<span class=sd>    :returns: a merged sequence of integers</span>
+<span class=sd>    :raises TypeError: if any of the provided iterators or any of their</span>
+<span class=sd>        elements is `None`, or if any of the elements in `seqs`is not an</span>
+<span class=sd>        :class:`Iterable`.</span>
+
+<span class=sd>    >>> list(merge_sorted_and_return_unique([1, 2, 3,], [2, 2]))</span>
+<span class=sd>    [1, 2, 3]</span>
+
+<span class=sd>    >>> from pycommons.math.primes import primes</span>
+<span class=sd>    >>> list(merge_sorted_and_return_unique(primes(14), [1, 10]))</span>
+<span class=sd>    [1, 2, 3, 5, 7, 10, 11, 13]</span>
+
+<span class=sd>    >>> list(merge_sorted_and_return_unique(</span>
+<span class=sd>    ...     primes(14), primes(17), [1, 2, 10, 100]))</span>
+<span class=sd>    [1, 2, 3, 5, 7, 10, 11, 13, 17, 100]</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     for _ in merge_sorted_and_return_unique(1):</span>
+<span class=sd>    ...         pass</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    'int' object is not iterable</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     for j in merge_sorted_and_return_unique([3], 1):</span>
+<span class=sd>    ...         print(j)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    'int' object is not iterable</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     for j in merge_sorted_and_return_unique([None], [None]):</span>
+<span class=sd>    ...         print(j)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    Element must not be None.</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     for j in merge_sorted_and_return_unique([None], [1]):</span>
+<span class=sd>    ...         print(j)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    '<' not supported between instances of 'NoneType' and 'int'</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     for j in merge_sorted_and_return_unique(None, [1]):</span>
+<span class=sd>    ...         print(j)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    'NoneType' object is not iterable</span>
+
+<span class=sd>    >>> try:</span>
+<span class=sd>    ...     for j in merge_sorted_and_return_unique([print, len], [repr]):</span>
+<span class=sd>    ...         print(j)</span>
+<span class=sd>    ... except TypeError as te:</span>
+<span class=sd>    ...     print(te)</span>
+<span class=sd>    '<' not supported between instances of 'builtin_function_or_method' \</span>
+<span class=sd>and 'builtin_function_or_method'</span>
+<span class=sd>    """</span>
+    <span class=n>last</span><span class=p>:</span> <span class=n>T</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=k>for</span> <span class=n>item</span> <span class=ow>in</span> <span class=n>merge</span><span class=p>(</span><span class=o>*</span><span class=n>seqs</span><span class=p>):</span>
+        <span class=k>if</span> <span class=n>item</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>TypeError</span><span class=p>(</span><span class=s2>"Element must not be None."</span><span class=p>)</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>last</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>last</span> <span class=o><</span> <span class=n>item</span><span class=p>):</span>  <span class=c1># type: ignore  # noqa</span>
+            <span class=k>yield</span> <span class=n>item</span>
+        <span class=n>last</span> <span class=o>=</span> <span class=n>item</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.ds.sequences</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>

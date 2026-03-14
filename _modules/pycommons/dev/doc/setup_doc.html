@@ -1,0 +1,208 @@
+<!doctype html><html data-content_root=../../../../ lang=en><meta charset=utf-8><meta content="width=device-width,initial-scale=1.0"name=viewport><title>pycommons.dev.doc.setup_doc — pycommons 0.8.89 documentation</title><link href="../../../../_static/pygments.css?v=b86133f3"rel=stylesheet><link href="../../../../_static/bizstyle.css?v=5283bb3d"rel=stylesheet><script src="../../../../_static/documentation_options.js?v=4db5eb0a"></script><script src="../../../../_static/doctools.js?v=fd6eb6e6"></script><script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script><script src=../../../../_static/bizstyle.js></script><link href=https://thomasweise.github.io/pycommons/_modules/pycommons/dev/doc/setup_doc.html rel=canonical><link href=../../../../genindex.html rel=index title=Index><link href=../../../../search.html rel=search title=Search><meta content="width=device-width,initial-scale=1.0"name=viewport><body><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"accesskey=I href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a accesskey=U href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.doc.setup_doc</a></ul></div><div class=document><div class=documentwrapper><div class=bodywrapper><div class=body role=main><h1>Source code for pycommons.dev.doc.setup_doc</h1><div class=highlight><pre>
+<span></span><span class=sd>"""Set up the documentation builder in a unified way."""</span>
+
+<span class=kn>import</span><span class=w> </span><span class=nn>sys</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>datetime</span><span class=w> </span><span class=kn>import</span> <span class=n>UTC</span><span class=p>,</span> <span class=n>datetime</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>inspect</span><span class=w> </span><span class=kn>import</span> <span class=n>stack</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>typing</span><span class=w> </span><span class=kn>import</span> <span class=n>Any</span><span class=p>,</span> <span class=n>Final</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>,</span> <span class=n>Mapping</span>
+
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.dev.doc.doc_info</span><span class=w> </span><span class=kn>import</span> <span class=n>DocInfo</span><span class=p>,</span> <span class=n>load_doc_info_from_setup_cfg</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.dev.doc.index_rst</span><span class=w> </span><span class=kn>import</span> <span class=n>make_index_rst</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.dev.doc.process_md</span><span class=w> </span><span class=kn>import</span> <span class=p>(</span>
+    <span class=n>process_markdown_for_sphinx</span><span class=p>,</span>
+<span class=p>)</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.console</span><span class=w> </span><span class=kn>import</span> <span class=n>logger</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.io.path</span><span class=w> </span><span class=kn>import</span> <span class=n>Path</span><span class=p>,</span> <span class=n>directory_path</span><span class=p>,</span> <span class=n>line_writer</span>
+<span class=kn>from</span><span class=w> </span><span class=nn>pycommons.types</span><span class=w> </span><span class=kn>import</span> <span class=n>check_int_range</span><span class=p>,</span> <span class=n>type_error</span>
+
+<span class=c1>#: the default intersphinx mappings</span>
+<span class=n>__DEFAULT_INTERSPHINX</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=kc>None</span><span class=p>]]]</span> <span class=o>=</span> <span class=p>{</span>
+    <span class=s2>"latexgit"</span><span class=p>:</span> <span class=p>(</span><span class=s2>"https://thomasweise.github.io/latexgit_py/"</span><span class=p>,</span> <span class=kc>None</span><span class=p>),</span>
+    <span class=s2>"matplotlib"</span><span class=p>:</span> <span class=p>(</span><span class=s2>"https://matplotlib.org/stable/"</span><span class=p>,</span> <span class=kc>None</span><span class=p>),</span>
+    <span class=s2>"moptipy"</span><span class=p>:</span> <span class=p>(</span><span class=s2>"https://thomasweise.github.io/moptipy/"</span><span class=p>,</span> <span class=kc>None</span><span class=p>),</span>
+    <span class=s2>"moptipyapps"</span><span class=p>:</span> <span class=p>(</span><span class=s2>"https://thomasweise.github.io/moptipyapps/"</span><span class=p>,</span> <span class=kc>None</span><span class=p>),</span>
+    <span class=s2>"numpy"</span><span class=p>:</span> <span class=p>(</span><span class=s2>"https://numpy.org/doc/stable/"</span><span class=p>,</span> <span class=kc>None</span><span class=p>),</span>
+    <span class=s2>"psutil"</span><span class=p>:</span> <span class=p>(</span><span class=s2>"https://psutil.readthedocs.io/en/stable/"</span><span class=p>,</span> <span class=kc>None</span><span class=p>),</span>
+    <span class=s2>"pycommons"</span><span class=p>:</span> <span class=p>(</span><span class=s2>"https://thomasweise.github.io/pycommons/"</span><span class=p>,</span> <span class=kc>None</span><span class=p>),</span>
+    <span class=s2>"python"</span><span class=p>:</span> <span class=p>(</span><span class=s2>"https://docs.python.org/3/"</span><span class=p>,</span> <span class=kc>None</span><span class=p>),</span>
+    <span class=s2>"scipy"</span><span class=p>:</span> <span class=p>(</span><span class=s2>"https://docs.scipy.org/doc/scipy/"</span><span class=p>,</span> <span class=kc>None</span><span class=p>),</span>
+    <span class=s2>"sklearn"</span><span class=p>:</span> <span class=p>(</span><span class=s2>"https://scikit-learn.org/stable/"</span><span class=p>,</span> <span class=kc>None</span><span class=p>),</span>
+    <span class=s2>"urllib3"</span><span class=p>:</span> <span class=p>(</span><span class=s2>"https://urllib3.readthedocs.io/en/stable/"</span><span class=p>,</span> <span class=kc>None</span><span class=p>),</span>
+<span class=p>}</span>
+
+
+<div class=viewcode-block id=setup_doc>
+<a class=viewcode-back href=../../../../pycommons.dev.doc.html#pycommons.dev.doc.setup_doc.setup_doc>[docs]</a>
+<span class=k>def</span><span class=w> </span><span class=nf>setup_doc</span><span class=p>(</span><span class=n>doc_dir</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>root_dir</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span>
+              <span class=n>copyright_start_year</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+              <span class=n>dependencies</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+              <span class=n>base_urls</span><span class=p>:</span> <span class=n>Mapping</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+              <span class=n>full_urls</span><span class=p>:</span> <span class=n>Mapping</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+              <span class=n>static_paths</span><span class=p>:</span> <span class=n>Iterable</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>)</span> <span class=o>-></span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""</span>
+<span class=sd>    Set up the documentation building process in a unified way.</span>
+
+<span class=sd>    This function must be called directly from the `conf.py` script. It will</span>
+<span class=sd>    configure the sphinx documentation generation engine using my default</span>
+<span class=sd>    settings. It can automatically link to several standard dependencies,</span>
+<span class=sd>    render the `README.md` file of the project to a format that the myst</span>
+<span class=sd>    parser used by sphinx can understand, fix absolute URLs in the</span>
+<span class=sd>    `README.md` file that point to the documentation URL to relative links,</span>
+<span class=sd>    get the documentation URL, the project title, author, and version from the</span>
+<span class=sd>    root `setup.cfg` file from which it traces to the `README.md` and the</span>
+<span class=sd>    `version.py` file of the project, and also construct an `index.rst` file.</span>
+<span class=sd>    All in all, you will end up with a very unified setup for the</span>
+<span class=sd>    documentation generation. Nothing fancy, but it will work and work the</span>
+<span class=sd>    same in all of my projects without the need to copy and maintain</span>
+<span class=sd>    boilerplate code.</span>
+
+<span class=sd>    :param doc_dir: the folder where the documentation is to be built.</span>
+<span class=sd>    :param root_dir: the root path of the project.</span>
+<span class=sd>    :param copyright_start_year: the copyright start year</span>
+<span class=sd>    :param dependencies: the external libraries to use</span>
+<span class=sd>    :param base_urls: a mapping of basic urls to shortcuts</span>
+<span class=sd>    :param full_urls: a mapping of full urls to abbreviations</span>
+<span class=sd>    :param static_paths: a list of static paths, if there are any</span>
+<span class=sd>    """</span>
+    <span class=n>doc_path</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>directory_path</span><span class=p>(</span><span class=n>doc_dir</span><span class=p>)</span>
+    <span class=n>root_path</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>directory_path</span><span class=p>(</span><span class=n>root_dir</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Beginning to set up sphinx for document folder </span><span class=si>{</span><span class=n>doc_path</span><span class=si>!r}</span><span class=s2> "</span>
+           <span class=sa>f</span><span class=s2>"and root folder </span><span class=si>{</span><span class=n>root_path</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>doc_info</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>DocInfo</span><span class=p>]</span> <span class=o>=</span> <span class=n>load_doc_info_from_setup_cfg</span><span class=p>(</span>
+        <span class=n>root_path</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=s2>"setup.cfg"</span><span class=p>))</span>
+
+    <span class=c1># the global variables</span>
+    <span class=n>global_vars</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=n>Any</span><span class=p>]]</span> <span class=o>=</span> <span class=n>stack</span><span class=p>()[</span><span class=mi>1</span><span class=p>]</span><span class=o>.</span><span class=n>frame</span><span class=o>.</span><span class=n>f_globals</span>
+
+    <span class=c1># create the copyright information</span>
+    <span class=n>current_year</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span> <span class=o>=</span> <span class=n>datetime</span><span class=o>.</span><span class=n>now</span><span class=p>(</span><span class=n>UTC</span><span class=p>)</span><span class=o>.</span><span class=n>year</span>
+    <span class=n>thecopyright</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=nb>str</span><span class=p>(</span><span class=n>current_year</span><span class=p>)</span> \
+        <span class=k>if</span> <span class=p>(</span><span class=n>copyright_start_year</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>check_int_range</span><span class=p>(</span>
+            <span class=n>copyright_start_year</span><span class=p>,</span> <span class=s2>"copyright_start_year"</span><span class=p>,</span> <span class=mi>1980</span><span class=p>,</span>
+            <span class=n>current_year</span><span class=p>)</span> <span class=o>==</span> <span class=n>current_year</span><span class=p>)</span> \
+        <span class=k>else</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>copyright_start_year</span><span class=si>}</span><span class=s2>-</span><span class=si>{</span><span class=n>current_year</span><span class=si>}</span><span class=s2>"</span>
+    <span class=n>thecopyright</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>thecopyright</span><span class=si>}</span><span class=s2>, </span><span class=si>{</span><span class=n>doc_info</span><span class=o>.</span><span class=n>author</span><span class=si>}</span><span class=s2>"</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Printing copyright information </span><span class=si>{</span><span class=n>thecopyright</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"copyright"</span><span class=p>]</span> <span class=o>=</span> <span class=n>thecopyright</span>
+
+    <span class=n>use_deps</span><span class=p>:</span> <span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=kc>None</span><span class=p>]]</span> <span class=o>=</span> <span class=p>{</span>
+        <span class=s2>"python"</span><span class=p>:</span> <span class=n>__DEFAULT_INTERSPHINX</span><span class=p>[</span><span class=s2>"python"</span><span class=p>]}</span>
+    <span class=k>if</span> <span class=n>dependencies</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>dependencies</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>):</span>
+            <span class=k>raise</span> <span class=n>type_error</span><span class=p>(</span><span class=n>dependencies</span><span class=p>,</span> <span class=s2>"dependencies"</span><span class=p>,</span> <span class=n>Iterable</span><span class=p>)</span>
+
+        <span class=c1># Location of dependency documentation for cross-referencing.</span>
+        <span class=k>for</span> <span class=n>x</span> <span class=ow>in</span> <span class=n>dependencies</span><span class=p>:</span>
+            <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>x</span><span class=p>,</span> <span class=nb>tuple</span><span class=p>):</span>
+                <span class=n>use_deps</span><span class=p>[</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>x</span><span class=p>[</span><span class=mi>0</span><span class=p>])]</span> <span class=o>=</span> <span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>x</span><span class=p>[</span><span class=mi>1</span><span class=p>]),</span> <span class=kc>None</span><span class=p>)</span>
+            <span class=k>else</span><span class=p>:</span>
+                <span class=n>xx</span> <span class=o>=</span> <span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=n>x</span><span class=p>)</span>
+                <span class=k>if</span> <span class=n>xx</span> <span class=ow>in</span> <span class=n>__DEFAULT_INTERSPHINX</span><span class=p>:</span>
+                    <span class=n>use_deps</span><span class=p>[</span><span class=n>xx</span><span class=p>]</span> <span class=o>=</span> <span class=n>__DEFAULT_INTERSPHINX</span><span class=p>[</span><span class=n>xx</span><span class=p>]</span>
+                <span class=k>else</span><span class=p>:</span>
+                    <span class=k>raise</span> <span class=ne>ValueError</span><span class=p>(</span>
+                        <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>x</span><span class=si>!r}</span><span class=s2> is not among the known dependencies"</span>
+                        <span class=sa>f</span><span class=s2>" </span><span class=si>{</span><span class=nb>sorted</span><span class=p>(</span><span class=n>__DEFAULT_INTERSPHINX</span><span class=o>.</span><span class=n>keys</span><span class=p>())</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"intersphinx_mapping"</span><span class=p>]</span> <span class=o>=</span> <span class=n>use_deps</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Setting dependency mappings to </span><span class=si>{</span><span class=n>use_deps</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+
+    <span class=c1># set the base url</span>
+    <span class=n>use_url</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>doc_info</span><span class=o>.</span><span class=n>doc_url</span><span class=si>}</span><span class=s2>"</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Using base url </span><span class=si>{</span><span class=n>use_url</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"html_baseurl"</span><span class=p>]</span> <span class=o>=</span> <span class=n>use_url</span>
+
+    <span class=c1># set up the default urls</span>
+    <span class=k>if</span> <span class=n>base_urls</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>base_urls</span> <span class=o>=</span> <span class=p>{</span><span class=n>doc_info</span><span class=o>.</span><span class=n>doc_url</span><span class=p>:</span> <span class=s2>"./"</span><span class=p>}</span>
+    <span class=k>elif</span> <span class=n>doc_info</span><span class=o>.</span><span class=n>doc_url</span> <span class=ow>not</span> <span class=ow>in</span> <span class=n>base_urls</span><span class=p>:</span>
+        <span class=n>base_urls</span> <span class=o>=</span> <span class=nb>dict</span><span class=p>(</span><span class=n>base_urls</span><span class=p>)</span>
+        <span class=n>base_urls</span><span class=p>[</span><span class=n>doc_info</span><span class=o>.</span><span class=n>doc_url</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"./"</span>
+
+    <span class=n>readme_out</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>doc_path</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=s2>"README.md"</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Now processing </span><span class=si>{</span><span class=n>doc_info</span><span class=o>.</span><span class=n>readme_md_file</span><span class=si>!r}</span><span class=s2> to </span><span class=si>{</span><span class=n>readme_out</span><span class=si>!r}</span><span class=s2> "</span>
+           <span class=sa>f</span><span class=s2>"with replacers </span><span class=si>{</span><span class=n>base_urls</span><span class=si>}</span><span class=s2> and </span><span class=si>{</span><span class=n>full_urls</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>with</span> <span class=p>(</span><span class=n>doc_info</span><span class=o>.</span><span class=n>readme_md_file</span><span class=o>.</span><span class=n>open_for_read</span><span class=p>()</span> <span class=k>as</span> <span class=n>rd</span><span class=p>,</span>
+          <span class=n>readme_out</span><span class=o>.</span><span class=n>open_for_write</span><span class=p>()</span> <span class=k>as</span> <span class=n>wd</span><span class=p>):</span>
+        <span class=n>process_markdown_for_sphinx</span><span class=p>(</span><span class=n>rd</span><span class=p>,</span> <span class=n>line_writer</span><span class=p>(</span><span class=n>wd</span><span class=p>),</span> <span class=n>base_urls</span><span class=p>,</span> <span class=n>full_urls</span><span class=p>)</span>
+
+    <span class=n>index_rst_file</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=n>Path</span><span class=p>]</span> <span class=o>=</span> <span class=n>doc_path</span><span class=o>.</span><span class=n>resolve_inside</span><span class=p>(</span><span class=s2>"index.rst"</span><span class=p>)</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Now writing index.rst file </span><span class=si>{</span><span class=n>index_rst_file</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=k>with</span> <span class=n>index_rst_file</span><span class=o>.</span><span class=n>open_for_write</span><span class=p>()</span> <span class=k>as</span> <span class=n>wd</span><span class=p>:</span>
+        <span class=n>make_index_rst</span><span class=p>(</span><span class=n>doc_info</span><span class=p>,</span> <span class=n>line_writer</span><span class=p>(</span><span class=n>wd</span><span class=p>))</span>
+
+    <span class=c1># enable myst header anchors</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"myst_heading_anchors"</span><span class=p>]</span> <span class=o>=</span> <span class=mi>6</span>
+
+    <span class=c1># project information</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"project"</span><span class=p>]</span> <span class=o>=</span> <span class=n>doc_info</span><span class=o>.</span><span class=n>project</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"author"</span><span class=p>]</span> <span class=o>=</span> <span class=n>doc_info</span><span class=o>.</span><span class=n>author</span>
+
+    <span class=c1># tell sphinx to go kaboom on errors</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"nitpicky"</span><span class=p>]</span> <span class=o>=</span> <span class=kc>True</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"myst_all_links_external"</span><span class=p>]</span> <span class=o>=</span> <span class=kc>True</span>
+
+    <span class=c1># The full version, including alpha/beta/rc tags.</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"release"</span><span class=p>]</span> <span class=o>=</span> <span class=n>doc_info</span><span class=o>.</span><span class=n>version</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"version"</span><span class=p>]</span> <span class=o>=</span> <span class=n>doc_info</span><span class=o>.</span><span class=n>version</span>
+
+    <span class=c1># The Sphinx extension modules that we use.</span>
+    <span class=n>extensions</span><span class=p>:</span> <span class=n>Final</span><span class=p>[</span><span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=p>[</span>
+        <span class=s2>"myst_parser"</span><span class=p>,</span>  <span class=c1># for processing README.md</span>
+        <span class=s2>"sphinx.ext.autodoc"</span><span class=p>,</span>  <span class=c1># to convert docstrings to documentation</span>
+        <span class=s2>"sphinx.ext.doctest"</span><span class=p>,</span>  <span class=c1># do the doc tests again</span>
+        <span class=s2>"sphinx.ext.intersphinx"</span><span class=p>,</span>  <span class=c1># to link to numpy et al.</span>
+        <span class=s2>"sphinx_autodoc_typehints"</span><span class=p>,</span>  <span class=c1># to infer types from hints</span>
+        <span class=s2>"sphinx.ext.viewcode"</span><span class=p>,</span>  <span class=c1># add rendered source code</span>
+    <span class=p>]</span>
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Using extensions </span><span class=si>{</span><span class=n>extensions</span><span class=si>}</span><span class=s2>."</span><span class=p>)</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"extensions"</span><span class=p>]</span> <span class=o>=</span> <span class=n>extensions</span>
+
+    <span class=k>if</span> <span class=s2>"sphinx.ext.autodoc"</span> <span class=ow>in</span> <span class=n>extensions</span><span class=p>:</span>  <span class=c1># Only relevant in this case.</span>
+        <span class=c1># Sometimes, we get a strange error that "typing.Union" is not found.</span>
+        <span class=c1># ------------------------------------------------</span>
+        <span class=c1># ---- &LTunknown>:1: WARNING:</span>
+        <span class=c1># ---- py:data reference target not found: typing.Union [ref.data]</span>
+        <span class=c1># ------------------------------------------------</span>
+        <span class=c1># This fixes it. We mark typing.Union as "known missing" targets.</span>
+        <span class=c1># see https://www.sphinx-doc.org/en/master/usage/configuration.html</span>
+        <span class=n>global_vars</span><span class=p>[</span><span class=s2>"nitpick_ignore"</span><span class=p>]</span> <span class=o>=</span> <span class=p>{</span>
+            <span class=p>(</span><span class=s2>"py:data"</span><span class=p>,</span> <span class=s2>"typing.Union"</span><span class=p>),</span>
+            <span class=p>(</span><span class=s2>"ref.data"</span><span class=p>,</span> <span class=s2>"typing.Union"</span><span class=p>),</span>
+        <span class=p>}</span>
+
+    <span class=c1># inherit docstrings in autodoc</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"autodoc_inherit_docstrings"</span><span class=p>]</span> <span class=o>=</span> <span class=kc>True</span>
+
+    <span class=c1># add default values after comma</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"typehints_defaults"</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"comma"</span>
+
+    <span class=c1># the sources to be processed</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"source_suffix"</span><span class=p>]</span> <span class=o>=</span> <span class=p>[</span><span class=s2>".rst"</span><span class=p>,</span> <span class=s2>".md"</span><span class=p>]</span>
+
+    <span class=c1># Code syntax highlighting style:</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"pygments_style"</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"default"</span>
+
+    <span class=c1># The language is English.</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"language"</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"en"</span>
+
+    <span class=c1># The theme to use for HTML and HTML Help pages.</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"html_theme"</span><span class=p>]</span> <span class=o>=</span> <span class=s2>"bizstyle"</span>
+    <span class=c1># The potential static paths</span>
+    <span class=k>if</span> <span class=n>static_paths</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>global_vars</span><span class=p>[</span><span class=s2>"html_static_path"</span><span class=p>]</span> <span class=o>=</span> <span class=nb>sorted</span><span class=p>(</span><span class=nb>map</span><span class=p>(</span><span class=nb>str</span><span class=o>.</span><span class=n>strip</span><span class=p>,</span> <span class=n>static_paths</span><span class=p>))</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"html_show_sphinx"</span><span class=p>]</span> <span class=o>=</span> <span class=kc>False</span>
+
+    <span class=c1># Some python options</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"python_display_short_literal_types"</span><span class=p>]</span> <span class=o>=</span> <span class=kc>True</span>
+    <span class=n>global_vars</span><span class=p>[</span><span class=s2>"python_use_unqualified_type_names"</span><span class=p>]</span> <span class=o>=</span> <span class=kc>True</span>
+
+    <span class=c1># get the path to the root directory of this project</span>
+    <span class=k>if</span> <span class=p>(</span><span class=nb>list</span><span class=o>.</span><span class=fm>__len__</span><span class=p>(</span><span class=n>sys</span><span class=o>.</span><span class=n>path</span><span class=p>)</span> <span class=o><=</span> <span class=mi>0</span><span class=p>)</span> <span class=ow>or</span> <span class=p>(</span><span class=n>sys</span><span class=o>.</span><span class=n>path</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span> <span class=o>!=</span> <span class=n>root_path</span><span class=p>):</span>
+        <span class=n>sys</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>insert</span><span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=n>root_path</span><span class=p>)</span>
+
+    <span class=n>logger</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Finished setting up sphinx for document folder </span><span class=si>{</span><span class=n>doc_path</span><span class=si>!r}</span><span class=s2> "</span>
+           <span class=sa>f</span><span class=s2>"and root folder </span><span class=si>{</span><span class=n>root_path</span><span class=si>!r}</span><span class=s2>."</span><span class=p>)</span></div>
+
+</pre></div><div class=clearer></div></div></div></div><div aria-label=Main class=sphinxsidebar role=navigation><div class=sphinxsidebarwrapper><search id=searchbox role=search style=display:none> <h3 id=searchlabel>Quick search</h3> <div class=searchformwrapper><form action=../../../../search.html class=search><input aria-labelledby=searchlabel autocapitalize=off autocomplete=off autocorrect=off name=q spellcheck=false><input type=submit value=Go></form></div> </search><script>document.getElementById(`searchbox`).style.display=`block`;</script></div></div><div class=clearer></div></div><div aria-label=Related class=related role=navigation><h3>Navigation</h3><ul><li class=right style=margin-right:10px><a title="General Index"href=../../../../genindex.html>index</a><li class=right><a title="Python Module Index"href=../../../../py-modindex.html>modules</a> |<li class="nav-item nav-item-0"><a href=../../../../index.html>pycommons 0.8.89 documentation</a> »<li class="nav-item nav-item-1"><a href=../../../index.html>Module code</a> »<li class="nav-item nav-item-this"><a href>pycommons.dev.doc.setup_doc</a></ul></div><div class=footer role=contentinfo>© Copyright 2023-2026, Thomas Weise.</div>
