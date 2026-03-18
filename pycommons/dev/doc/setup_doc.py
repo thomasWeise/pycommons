@@ -167,6 +167,18 @@ def setup_doc(doc_dir: str, root_dir: str,
         global_vars["nitpick_ignore"] = {
             ("py:data", "typing.Union"),
             ("ref.data", "typing.Union"),
+            # This is against spurious errors with lambdas.
+            ("py:class", "<function <lambda>>})"),
+        }
+        global_vars["nitpick_ignore_regex"] = {
+            # This is against spurious issues with functions that have an
+            # underscore in the name, like
+            # <unknown>:1: WARNING: py:class reference target not found:
+            # <function _lb_geometric> [ref.class]
+            ("py:class", r"\/\/.*"),
+            # This is against issues with URLs in strings, e.g.,
+            # <unknown>:1: WARNING: py:class reference target not found: //
+            ("py:class", r"\<function __.*\>"),
         }
 
     # inherit docstrings in autodoc
