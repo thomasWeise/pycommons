@@ -63,7 +63,7 @@ vulture == 2.14
 # generates the html files with the documentation. It therefore uses the
 # docstrings and the type hints.
 sphinx == 9.1.0
-sphinx-autodoc-typehints == 3.9.8
+sphinx-autodoc-typehints == 3.7.0
 
 # myst-parser is needed for including README.md into the documentation
 myst-parser == 5.0.0
