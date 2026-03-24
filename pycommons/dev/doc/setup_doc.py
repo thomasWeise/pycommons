@@ -16,17 +16,17 @@ from pycommons.types import check_int_range, type_error
 
 #: the default intersphinx mappings
 __DEFAULT_INTERSPHINX: Final[dict[str, tuple[str, None]]] = {
-    "latexgit": ("https://thomasweise.github.io/latexgit_py/", None),
-    "matplotlib": ("https://matplotlib.org/stable/", None),
-    "moptipy": ("https://thomasweise.github.io/moptipy/", None),
-    "moptipyapps": ("https://thomasweise.github.io/moptipyapps/", None),
-    "numpy": ("https://numpy.org/doc/stable/", None),
-    "psutil": ("https://psutil.readthedocs.io/en/stable/", None),
-    "pycommons": ("https://thomasweise.github.io/pycommons/", None),
-    "python": ("https://docs.python.org/3/", None),
-    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
-    "sklearn": ("https://scikit-learn.org/stable/", None),
-    "urllib3": ("https://urllib3.readthedocs.io/en/stable/", None),
+    "latexgit": ("https://thomasweise.github.io/latexgit_py", None),
+    "matplotlib": ("https://matplotlib.org/stable", None),
+    "moptipy": ("https://thomasweise.github.io/moptipy", None),
+    "moptipyapps": ("https://thomasweise.github.io/moptipyapps", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
+    "psutil": ("https://psutil.readthedocs.io", None),
+    "pycommons": ("https://thomasweise.github.io/pycommons", None),
+    "python": ("https://docs.python.org/3", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy", None),
+    "sklearn": ("https://scikit-learn.org/stable", None),
+    "urllib3": ("https://urllib3.readthedocs.io/en/stable", None),
 }
 
 
