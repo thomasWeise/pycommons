@@ -21,14 +21,14 @@
 
 # urllib3 and certifi are used to check the URLs in the [dev] extras variant
 # of our package. They are used to check URL in markdown files.
-urllib3 == 2.6.3
-certifi == 2026.2.25
+urllib3 == 2.7.0
+certifi == 2026.4.22
 
 # these static analysis tools are also needed for the [dev] extras variant
 # only
 autoflake == 2.3.3
 bandit == 1.9.4
-coverage == 7.13.5
+coverage == 7.14.0
 dlint == 0.16.0
 dodgy == 0.2.1
 flake8 == 7.3.0
@@ -44,18 +44,18 @@ flake8-length == 0.3.1
 flake8-mutable == 1.2.0
 flake8-pie == 0.16.0
 flake8-printf-formatting == 1.1.2
-flake8-pyi == 25.5.0
+flake8-pyi == 26.5.0
 flake8-pytest-style == 2.2.0
 flake8-use-fstring == 1.4
-mypy == 1.19.1
+mypy == 2.1.0
 pycodestyle == 2.14.0
 pydocstyle == 6.3.0
 pyflakes == 3.4.0
 pylint == 4.0.5
 pyroma == 5.0.1
-ruff == 0.15.7
+ruff == 0.15.12
 tryceratops == 2.4.1
-unimport == 1.3.1
+unimport == 0.11.1
 vulture == 2.16
 
 # sphinx is needed for generating the documentation. Together with its
@@ -63,7 +63,7 @@ vulture == 2.16
 # generates the html files with the documentation. It therefore uses the
 # docstrings and the type hints.
 sphinx == 9.1.0
-sphinx-autodoc-typehints == 3.9.11
+sphinx-autodoc-typehints == 3.10.2
 
 # myst-parser is needed for including README.md into the documentation
 myst-parser == 5.0.0
@@ -90,10 +90,10 @@ markdown == 3.10.2
 # setuptools, testresources, twine, virtualenv, and wheel are needed for
 # generating the installable pip package in the [dev] variant.
 setuptools == 82.0.1
-testresources == 2.0.2
+testresources == 2.1.2
 twine == 6.2.0
-virtualenv == 21.2.0
-wheel == 0.46.3
+virtualenv == 21.3.2
+wheel == 0.47.0
 
 # psutil is used for getting information about the system configuration.
 psutil == 7.2.2

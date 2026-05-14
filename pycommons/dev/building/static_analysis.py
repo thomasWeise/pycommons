@@ -108,7 +108,7 @@ __EXAMPLES_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
      "--line-length", "79", "--preview", "."),
 )
 
-#: a list of analysis to be applied to the examples directory
+#: a list of analysis to be applied to the documentation source directory
 __DOC_SOURCE: Final[tuple[tuple[str, ...], ...]] = __EXAMPLES_ANALYSES
 
 
