@@ -45,6 +45,7 @@ __BASE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("pydocstyle", ".", "--convention=pep257"),
     ("vulture", ".", "--exclude", __EXCLUDES, "--min-confidence", "61"),
     ("dodgy", "."),
+    ("pyrefly", "check", "."),
 )
 
 #: the rule sets we use for ruff

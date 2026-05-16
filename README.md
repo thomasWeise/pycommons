@@ -96,6 +96,7 @@ Let's say your package's name is `mypackage`, then you can do:
   + [`pydocstyle`](https://pypi.org/project/pydocstyle), for checking the format of the docstrings,
   + [`pyflakes`](https://pypi.org/project/pyflakes), for detecting some errors in the code,
   + [`pylint`](https://pypi.org/project/pylint), another static analysis tool,
+  + [`pyrefly`](https://pyrefly.org), a fast type checker,
   + [`pyroma`](https://pypi.org/project/pyroma), for checking whether the code complies with various best practices,
   + [`ruff`](https://pypi.org/project/ruff), a static analysis tool checking a wide range of coding conventions,
   + [`tryceratops`](https://pypi.org/project/tryceratops), for checking against exception handling anti-patterns,

@@ -220,3 +220,8 @@ dist
 .pytype
 
 PYCOMMONS_NO_RECURSIVE_TESTS
+
+pyrefly
+pyrefly/
+*.pyrefly
+*.pyrefly/

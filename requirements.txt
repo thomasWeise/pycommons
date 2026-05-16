@@ -52,6 +52,7 @@ pycodestyle == 2.14.0
 pydocstyle == 6.3.0
 pyflakes == 3.4.0
 pylint == 4.0.5
+pyrefly == 1.0.0
 pyroma == 5.0.1
 ruff == 0.15.12
 tryceratops == 2.4.1
