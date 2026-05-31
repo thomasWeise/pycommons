@@ -174,8 +174,7 @@ class Parser[T]:
         logger(text)
 
     def __internal_parse(self, paths: Iterable[Path], log_progress: bool,
-                         is_root: bool) \
-            -> Generator[T, None, None]:
+                         is_root: bool) -> Generator[T, None, None]:
         """
         Perform the internal parsing work.
 

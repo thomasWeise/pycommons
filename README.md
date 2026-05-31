@@ -87,7 +87,7 @@ Let's say your package's name is `mypackage`, then you can do:
   + [`flake8-length`](https://pypi.org/project/flake8-length), which performs line length validation,
   + [`flake8-mutable`](https://pypi.org/project/flake8-mutable), which checks for mutable default arguments,
   + [`flake8-pie`](https://pypi.org/project/flake8-pie), which searches for miscellaneous errors,
-  + [`flake8-printf-formatting`](https://pypi.org/project/flake8-printf-formatting), which detects outdated printf-style formatting,
+  + [`flake8-printf-formatting`](https://pypi.org/project/flake8-printf-formatting), which detects outdated `printf`-style formatting,
   + [`flake8-pyi`](https://pypi.org/project/flake8-pyi) for linting type-hinting stub files,
   + [`flake8-pytest-style`](https://pypi.org/project/flake8-pytest-style), for checking common style issues or inconsistencies with pytest-based tests,
   + [`flake8-use-fstring`](https://pypi.org/project/flake8-use-fstring), for checking the correct use of f-strings,

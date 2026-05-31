@@ -1175,11 +1175,6 @@ def directory_path(pathstr: str) -> "Path":
     return fi
 
 
-#: the ends-with check
-__ENDSWITH: Final[Callable[[str, str], bool]] = cast(
-    "Callable[[str, str], bool]", str.endswith)
-
-
 def line_writer(output: TextIO | TextIOBase) -> Callable[[str], None]:
     r"""
     Create a line-writing :class:`typing.Callable` from an output stream.
@@ -1304,11 +1299,12 @@ def line_writer(output: TextIO | TextIOBase) -> Callable[[str], None]:
     if not isinstance(output, TextIOBase):
         raise type_error(output, "output", TextIOBase)
 
-    def __call(s: str, __w: Callable[[str], Any] = output.write) -> None:
-        b: Final[bool] = __ENDSWITH(s, "\n")
-        __w(s)
+    def __call(s: str, w: Callable[[str], Any] = output.write,
+               ew: Callable[[str, str], bool] = str.endswith) -> None:
+        b: Final[bool] = ew(s, "\n")  # Force error if s is not a string
+        w(s)
         if not b:
-            __w("\n")
+            w("\n")
 
     return cast("Callable[[str], None]", __call)
 
@@ -1347,8 +1343,9 @@ def __line_iterator(lines: Iterable[str]) -> Generator[str, None, None]:
     ...     print(te)
     descriptor 'endswith' for 'str' objects doesn't apply to a 'int' object
     """
+    ew: Final[Callable[[str, str], bool]] = str.endswith
     for line in lines:
-        b: bool = __ENDSWITH(line, "\n")
+        b: bool = ew(line, "\n")
         yield line
         if not b:
             yield "\n"
