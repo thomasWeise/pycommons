@@ -226,6 +226,25 @@ def reiterable(source: Iterable[T] | Iterator[T]) -> Iterable[T]:
 
     >>> type(reiterable(merge_sorted_and_return_unique([1, 2, 3,], [2, 2])))
     <class 'pycommons.ds.sequences.__Reiterator'>
+
+    >>> def myfunc():
+    ...     if hasattr(myfunc, "a"):
+    ...         s = getattr(myfunc, "a")
+    ...     else:
+    ...         s = 0
+    ...     for i in range(s, s + 3):
+    ...         yield i
+    ...     setattr(myfunc, "a", s + 3)
+    >>> ri = reiterable(myfunc())
+    >>> tuple(ri)
+    (0, 1, 2)
+    >>> tuple(ri)
+    (0, 1, 2)
+    >>> ri = reiterable(myfunc())
+    >>> tuple(ri)
+    (3, 4, 5)
+    >>> tuple(ri)
+    (3, 4, 5)
     """
     if isinstance(source, Iterator):
         return __Reiterator(source)  # solidify iterators into tuples
