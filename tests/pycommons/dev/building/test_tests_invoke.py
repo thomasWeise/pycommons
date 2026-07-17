@@ -9,6 +9,20 @@ from pycommons.processes.python import PYTHON_ENV, PYTHON_INTERPRETER
 from pycommons.processes.shell import STREAM_FORWARD, Command
 
 
+def __move(source: str, dest: str) -> None:
+    """
+    Move a source file to the destination.
+
+    :param source: the source file
+    :param dest: the destination file
+    """
+    try:
+        rename(source, dest)
+    except OSError:
+        copyfile(source, dest)
+        remove(source)
+
+
 def test_tests_from_command_line() -> None:
     """Test running the tests."""
     nrt: str = "PYCOMMONS_NO_RECURSIVE_TESTS"
@@ -32,18 +46,14 @@ def test_tests_from_command_line() -> None:
         has_coverage = coverage.is_file()
         if has_coverage:
             with temp_file() as ctn:
-                try:
-                    rename(coverage, ctn)
-                except OSError:
-                    copyfile(coverage, ctn)
-                    remove(coverage)
+                __move(coverage, ctn)
                 cmd.execute()
                 if coverage.is_file():
                     Command(["coverage", "combine", "-a", ctn],
                             env=PYTHON_ENV, stderr=STREAM_FORWARD,
                             stdout=STREAM_FORWARD, working_dir=root_dir)
                 else:
-                    rename(ctn, coverage)
+                    __move(ctn, coverage)
         else:
             cmd.execute()
     finally:
