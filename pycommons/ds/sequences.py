@@ -35,7 +35,7 @@ class __Reiterator(Iterable[T]):
         nexter: Final[Callable[[], T]] = self.__source.__next__
         pos: int = 0  # The next position in __more.
         skip: int = -1  # The last element in __more we took from __source.
-        try:  # We always get to the StopIteration of __source.
+        try:  # noqa: PLW0717  # We always get to StopIteration of __source.
             while True:  # Until we reached the end of list and end of iter.
                 ll: int = get_length()  # Get length (may have changed).
                 while pos < ll:  # First, return all elements from __more.
@@ -333,7 +333,7 @@ def merge_sorted_and_return_unique(
 and 'builtin_function_or_method'
     """
     last: T | None = None
-    for item in merge(*seqs):
+    for item in merge(*seqs):  # type: ignore
         if item is None:
             raise TypeError("Element must not be None.")
         if (last is None) or (last < item):  # type: ignore  # noqa

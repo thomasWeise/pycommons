@@ -1,6 +1,7 @@
 """Test running the tests from the command line."""
 
 from os import environ, remove, rename
+from shutil import copyfile
 
 from pycommons.io.path import Path
 from pycommons.io.temp import temp_file
@@ -31,7 +32,11 @@ def test_tests_from_command_line() -> None:
         has_coverage = coverage.is_file()
         if has_coverage:
             with temp_file() as ctn:
-                rename(coverage, ctn)
+                try:
+                    rename(coverage, ctn)
+                except OSError:
+                    copyfile(coverage, ctn)
+                    remove(coverage)
                 cmd.execute()
                 if coverage.is_file():
                     Command(["coverage", "combine", "-a", ctn],

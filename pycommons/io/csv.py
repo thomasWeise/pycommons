@@ -1968,7 +1968,7 @@ class CsvWriter[T]:
     ...       {"a": 4, "d": 12, "b": 3}, {}]
 
     >>> for p in W.write(dd):
-    ...     print(p[:-8] if "version" in p else p)
+    ...     print(p[:p.index(", version")] if ", version" in p else p)
     # This is a header comment.
     # We have two of it.
     a;b;c;d
@@ -1979,7 +1979,7 @@ class CsvWriter[T]:
     # This is a footer comment.
     #
     # This CSV output has been created using the versatile CSV API of \
-pycommons.io.csv, version
+pycommons.io.csv
     # You can find pycommons at https://thomasweise.github.io/pycommons.
 
     >>> class W2(CsvWriter):
