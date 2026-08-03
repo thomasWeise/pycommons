@@ -1252,6 +1252,118 @@ def try_float_int_div(a: int | float, b: int) -> int | float:
     return __try_int(a / b)
 
 
+def try_div(a: int | float, b: int | float) -> int | float:
+    """
+    Try to divide two numbers at best precision.
+
+    First, we will check if we can convert the second number to a integer
+    without loss of precision via :func:`try_int`. If yes, then
+    we go for the maximum-precision integer division via
+    :func:`try_float_int_div`.
+    If no, then we do the normal floating point division and try to convert
+    the result to an integer if that can be done without loss of precision.
+
+    :param a: the first number
+    :param b: the second number
+    :return: `a/b`, but always finite
+
+    :raises ValueError: if either one of the arguments or the final result
+        would not be finite
+
+    >>> try_div(1e180, 1e60)
+    1.0000000000000001e+120
+    >>> try_div(1e60, 1e-60)
+    1e+120
+    >>> try_div(1e14, 1e-1)
+    1000000000000000
+    >>> try_div(1e14, -1e-1)
+    -1000000000000000
+    >>> try_div(-1e14, 1e-1)
+    -1000000000000000
+    >>> try_div(-1e14, -1e-1)
+    1000000000000000
+    >>> try_div(1e15, 1e-1)
+    1e+16
+    >>> try_div(1e15, -1e-1)
+    -1e+16
+    >>> try_div(-1e15, 1e-1)
+    -1e+16
+    >>> try_div(-1e15, -1e-1)
+    1e+16
+    >>> try_div(1e15, 1e-15)
+    9.999999999999999e+29
+
+    >>> print(type(try_div(10, 2)))
+    <class 'int'>
+    >>> print(type(try_div(10, 3)))
+    <class 'float'>
+    >>> print(type(try_div(10, 0.5)))
+    <class 'int'>
+
+    >>> from math import inf, nan
+    >>> try:
+    ...     try_div(1.0, 0)
+    ... except ZeroDivisionError as zde:
+    ...     print("by zero" in str(zde))
+    True
+
+    >>> try:
+    ...     try_div(1.0, -0.0)
+    ... except ZeroDivisionError as zde:
+    ...     print("by zero" in str(zde))
+    True
+
+    >>> try:
+    ...     try_div(inf, 0)
+    ... except ValueError as ve:
+    ...     print(ve)
+    Value must be finite, but is inf.
+
+    >>> try:
+    ...     try_div(-inf, 0)
+    ... except ValueError as ve:
+    ...     print(ve)
+    Value must be finite, but is -inf.
+
+    >>> try:
+    ...     try_div(nan, 0)
+    ... except ValueError as ve:
+    ...     print(ve)
+    Value must be finite, but is nan.
+
+    >>> try:
+    ...     try_div(1, inf)
+    ... except ValueError as ve:
+    ...     print(ve)
+    Value must be finite, but is inf.
+
+    >>> try:
+    ...     try_div(1, -inf)
+    ... except ValueError as ve:
+    ...     print(ve)
+    Value must be finite, but is -inf.
+
+    >>> try:
+    ...     try_div(1, nan)
+    ... except ValueError as ve:
+    ...     print(ve)
+    Value must be finite, but is nan.
+
+    >>> try:
+    ...     try_div(1e300, 1e-60)
+    ... except ValueError as ve:
+    ...     print(ve)
+    Result must be finite, but is 1e+300/1e-60=inf.
+    """
+    ib: Final[int | float] = try_int(b)
+    if isinstance(ib, int):
+        return try_float_int_div(a, ib)
+    val: Final[float] = a / ib
+    if not isfinite(val):
+        raise ValueError(f"Result must be finite, but is {a}/{b}={val}.")
+    return __try_int(val)
+
+
 #: the maximum value of a root that can be computed with floats exactly
 __MAX_I_ROOT: Final[int] = __DBL_INT_LIMIT_P_I * __DBL_INT_LIMIT_P_I
 
