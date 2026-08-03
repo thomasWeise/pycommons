@@ -86,8 +86,8 @@ Let's say your package's name is `mypackage`, then you can do:
   + [`flake8-eradicate`](https://pypi.org/project/flake8-eradicate), for searching for dead code,
   + [`flake8-length`](https://pypi.org/project/flake8-length), which performs line length validation,
   + [`flake8-mutable`](https://pypi.org/project/flake8-mutable), which checks for mutable default arguments,
-  + [`flake8-pie`](https://pypi.org/project/flake8-pie), which searches for miscellaneous errors,
-  + [`flake8-printf-formatting`](https://pypi.org/project/flake8-printf-formatting), which detects outdated `printf`-style formatting,
+  + Deactivated because incompatibility with Python 3.14: [`flake8-pie`](https://pypi.org/project/flake8-pie), which searches for miscellaneous errors,
+  + Deactivated because incompatibility with Python 3.14: [`flake8-printf-formatting`](https://pypi.org/project/flake8-printf-formatting), which detects outdated `printf`-style formatting,
   + [`flake8-pyi`](https://pypi.org/project/flake8-pyi) for linting type-hinting stub files,
   + [`flake8-pytest-style`](https://pypi.org/project/flake8-pytest-style), for checking common style issues or inconsistencies with pytest-based tests,
   + [`flake8-use-fstring`](https://pypi.org/project/flake8-use-fstring), for checking the correct use of f-strings,
@@ -100,7 +100,7 @@ Let's say your package's name is `mypackage`, then you can do:
   + [`pyroma`](https://pypi.org/project/pyroma), for checking whether the code complies with various best practices,
   + [`ruff`](https://pypi.org/project/ruff), a static analysis tool checking a wide range of coding conventions,
   + [`tryceratops`](https://pypi.org/project/tryceratops), for checking against exception handling anti-patterns,
-  + [`unimport`](https://pypi.org/project/unimport), for checking against unused import statements, and
+  + Deactivated because incompatibility with Python 3.14: [`unimport`](https://pypi.org/project/unimport), for checking against unused import statements, and
   + [`vulture`](https://pypi.org/project/vulture), for finding dead code.
 - `python3 -m pycommons.dev.building.make_documentation --package mypackage` will build the documentation and documentation website.
   It will use [Sphinx](https://www.sphinx-doc.org) for this and automatically links also to external Python libraries if need be.

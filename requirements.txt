@@ -42,8 +42,8 @@ flake8-docstrings == 1.7.0
 flake8-eradicate == 1.5.0
 flake8-length == 0.3.1
 flake8-mutable == 1.2.0
-flake8-pie == 0.16.0
-flake8-printf-formatting == 1.1.2
+# flake8-pie == 0.16.0
+# flake8-printf-formatting == 1.1.2
 flake8-pyi == 26.5.0
 flake8-pytest-style == 2.2.0
 flake8-use-fstring == 1.4
@@ -56,7 +56,7 @@ pyrefly == 1.1.1
 pyroma == 5.0.1
 ruff == 0.15.22
 tryceratops == 2.4.1
-unimport == 0.11.1
+# unimport == 0.11.1
 vulture == 2.16
 
 # sphinx is needed for generating the documentation. Together with its

@@ -79,11 +79,11 @@ __PACKAGE_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
      "--explicit-package-bases"),
     ("bandit", "-r", ".", "-s", "B311"),
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
-    ("unimport", "."),
     ("pycodestyle", "."),
     ("ruff", "check", "--target-version", __RUF_TARGET_VERSION, __RUFF_RULES,
      __RUFF_IGNORE, "--line-length", "79", "--preview", "."),
 )
+# does not work on Python 3.14: ("unimport", "."),
 
 #: a list of analysis to be applied to the test directory
 __TESTS_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
@@ -91,23 +91,23 @@ __TESTS_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("mypy", ".", "--no-strict-optional", "--check-untyped-defs"),
     ("bandit", "-r", ".", "-s", "B311,B101"),
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
-    ("unimport", "."),
     ("pycodestyle", "."),
     ("ruff", "check", "--target-version", __RUF_TARGET_VERSION,
      __RUFF_RULES, f"{__RUFF_IGNORE},INP001", "--preview", "."),
 )
+# does not work on Python 3.14: ("unimport", "."),
 
 #: a list of analysis to be applied to the examples directory
 __EXAMPLES_ANALYSES: Final[tuple[tuple[str, ...], ...]] = (
     ("pylint", ".", __PYLINT_IGNORE),
     ("bandit", "-r", ".", "-s", "B311"),
     ("tryceratops", ".", "-i", "TRY003", "-i", "TRY101"),
-    ("unimport", "."),
     ("pycodestyle", "--ignore=E731,W503", "."),
     ("ruff", "check", "--target-version", __RUF_TARGET_VERSION,
      __RUFF_RULES.replace(",T20", ""), f"{__RUFF_IGNORE},INP001,T201",
      "--line-length", "79", "--preview", "."),
 )
+# does not work on Python 3.14: ("unimport", "."),
 
 #: a list of analysis to be applied to the documentation source directory
 __DOC_SOURCE: Final[tuple[tuple[str, ...], ...]] = __EXAMPLES_ANALYSES

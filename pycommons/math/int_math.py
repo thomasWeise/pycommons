@@ -746,20 +746,20 @@ def try_int_div(a: int, b: int) -> int | float:
     >>> try:
     ...     try_int_div(0, 0)
     ... except ZeroDivisionError as zde:
-    ...     print(zde)
-    integer division or modulo by zero
+    ...     print("by zero" in str(zde))
+    True
 
     >>> try:
     ...     try_int_div(1, 0)
     ... except ZeroDivisionError as zde:
-    ...     print(zde)
-    integer division or modulo by zero
+    ...     print("by zero" in str(zde))
+    True
 
     >>> try:
     ...     try_int_div(-1, 0)
     ... except ZeroDivisionError as zde:
-    ...     print(zde)
-    integer division or modulo by zero
+    ...     print("by zero" in str(zde))
+    True
 
     >>> try_int_div(153, 17)
     9
@@ -1205,8 +1205,8 @@ def try_float_int_div(a: int | float, b: int) -> int | float:
     >>> try:
     ...     try_float_int_div(1.0, 0)
     ... except ZeroDivisionError as zde:
-    ...     print(zde)
-    integer division or modulo by zero
+    ...     print("by zero" in str(zde))
+    True
 
     >>> try:
     ...     try_float_int_div(inf, 0)
@@ -2136,23 +2136,23 @@ def ceil_div(a: int, b: int) -> int:
     0
     >>> try:
     ...     ceil_div(1, 0)
-    ... except ZeroDivisionError as ze:
-    ...     print(ze)
-    integer division or modulo by zero
+    ... except ZeroDivisionError as zde:
+    ...     print("by zero" in str(zde))
+    True
     >>> try:
     ...     ceil_div(-1, 0)
-    ... except ZeroDivisionError as ze:
-    ...     print(ze)
-    integer division or modulo by zero
+    ... except ZeroDivisionError as zde:
+    ...     print("by zero" in str(zde))
+    True
     >>> try:
     ...     ceil_div(1, -0)
-    ... except ZeroDivisionError as ze:
-    ...     print(ze)
-    integer division or modulo by zero
+    ... except ZeroDivisionError as zde:
+    ...     print("by zero" in str(zde))
+    True
     >>> try:
     ...     ceil_div(-1, -0)
-    ... except ZeroDivisionError as ze:
-    ...     print(ze)
-    integer division or modulo by zero
+    ... except ZeroDivisionError as zde:
+    ...     print("by zero" in str(zde))
+    True
     """
     return -((-a) // b)
