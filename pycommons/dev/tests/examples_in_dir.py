@@ -20,6 +20,21 @@ def check_examples_in_dir(directory: str, recurse: bool = True) -> int:
     :raises ValueError: if executing the examples fails or if no examples were
         found
 
+    >>> from contextlib import redirect_stdout
+    >>> from io import StringIO
+    >>> ex_dir = Path(__file__).up(4).resolve_inside("examples")
+    >>> with redirect_stdout(StringIO()):
+    ...     check_examples_in_dir(ex_dir)
+
+    >>> from pycommons.io.temp import temp_dir
+    >>> with temp_dir() as td:
+    ...     f = td.resolve_inside("test.py")
+    ...     f.write_all_str(ex_dir.resolve_inside(
+    ...         "compile_and_run_dummy.py").read_all_str())
+    ...     print(check_examples_in_dir(td))
+    test.py
+    1
+
     >>> try:
     ...     check_examples_in_dir(None, True)
     ... except TypeError as te:

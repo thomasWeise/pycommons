@@ -29,7 +29,7 @@ def compile_and_run(code: str, source: str) -> None:
     >>> ed = Path(__file__).up(4).resolve_inside("examples")
     >>> ef = ed.resolve_inside("compile_and_run_dummy.py")
     >>> compile_and_run(ef.read_all_str(), ef)
-    /examples/compile_and_run_dummy.py
+    compile_and_run_dummy.py
 
     >>> wd = getcwd()
     >>> try:
