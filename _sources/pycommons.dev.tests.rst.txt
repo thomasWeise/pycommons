@@ -1,0 +1,42 @@
+pycommons.dev.tests package
+===========================
+
+.. automodule:: pycommons.dev.tests
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Submodules
+----------
+
+pycommons.dev.tests.compile\_and\_run module
+--------------------------------------------
+
+.. automodule:: pycommons.dev.tests.compile_and_run
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.dev.tests.examples\_in\_dir module
+--------------------------------------------
+
+.. automodule:: pycommons.dev.tests.examples_in_dir
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.dev.tests.examples\_in\_md module
+-------------------------------------------
+
+.. automodule:: pycommons.dev.tests.examples_in_md
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.dev.tests.links\_in\_md module
+----------------------------------------
+
+.. automodule:: pycommons.dev.tests.links_in_md
+   :members:
+   :show-inheritance:
+   :undoc-members:
