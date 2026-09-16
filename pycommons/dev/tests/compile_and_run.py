@@ -188,8 +188,7 @@ def compile_and_run(code: str, source: str) -> None:
             try:
                 if isinstance(source, Path) and source.is_file():
                     args["__file__"] = use_source
-                exec(compiled,  # pylint: disable = W0122 # noqa # nosec
-                     globals=args)
+                exec(compiled, args)  # pylint: disable = W0122 # noqa # nosec
             except BaseException as be:  # noqa
                 raise ValueError(
                     f"Error when executing {use_source!r}.") from be
