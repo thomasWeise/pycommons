@@ -4,7 +4,7 @@ from os import chdir, getcwd
 from typing import Final
 
 from pycommons.io.console import logger
-from pycommons.io.path import directory_path
+from pycommons.io.path import Path, directory_path
 from pycommons.io.temp import temp_dir
 
 
@@ -25,6 +25,11 @@ def compile_and_run(code: str, source: str) -> None:
     :raises TypeError: if `code` or `source` are not strings
     :raises ValueError: if any parameter has an invalid value
         or if the code execution fails
+
+    >>> ed = Path(__file__).up(4).resolve_inside("examples")
+    >>> ef = ed.resolve_inside("compile_and_run_dummy.py")
+    >>> compile_and_run(ef.read_all_str(), ef)
+    /examples/compile_and_run_dummy.py
 
     >>> wd = getcwd()
     >>> try:
@@ -179,8 +184,12 @@ def compile_and_run(code: str, source: str) -> None:
                 raise ValueError(
                     f"Error when compiling {use_source!r}.") from be
             logger(f"Successfully compiled, now executing {use_source!r}.")
+            args: dict[str, str] = {}
             try:
-                exec(compiled, {})  # pylint: disable = W0122 # noqa # nosec
+                if isinstance(source, Path) and source.is_file():
+                    args["__file__"] = use_source
+                exec(compiled,  # pylint: disable = W0122 # noqa # nosec
+                     globals=args)
             except BaseException as be:  # noqa
                 raise ValueError(
                     f"Error when executing {use_source!r}.") from be
