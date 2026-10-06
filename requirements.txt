@@ -21,20 +21,20 @@
 
 # urllib3 and certifi are used to check the URLs in the [dev] extras variant
 # of our package. They are used to check URL in markdown files.
-urllib3 == 2.7.0
-certifi == 2026.6.17
+urllib3 == 2.8.0
+certifi == 2026.7.22
 
 # these static analysis tools are also needed for the [dev] extras variant
 # only
-autoflake == 2.3.3
+autoflake == 2.4.0
 bandit == 1.9.4
-coverage == 7.15.2
+coverage == 7.16.2
 dlint == 0.16.0
 dodgy == 0.2.1
-flake8 == 7.3.0
+flake8 == 7.4.1
 flake8-2020 == 1.8.1
 flake8-absolute-import == 1.0.0.3
-flake8-bugbear == 25.11.29
+flake8-bugbear == 26.9.30
 flake8-builtins == 3.1.0
 flake8-commas == 4.0.0
 flake8-comprehensions == 3.17.0
@@ -47,14 +47,14 @@ flake8-mutable == 1.2.0
 flake8-pyi == 26.5.0
 flake8-pytest-style == 2.2.0
 flake8-use-fstring == 1.4
-mypy == 2.3.0
-pycodestyle == 2.14.0
+mypy == 2.4.0
+pycodestyle == 2.15.0
 pydocstyle == 6.3.0
-pyflakes == 3.4.0
-pylint == 4.0.6
-pyrefly == 1.1.1
+pyflakes == 4.0.2
+pylint == 4.1.2
+pyrefly == 1.3.2
 pyroma == 5.0.1
-ruff == 0.15.22
+ruff == 0.16.10
 tryceratops == 2.4.1
 # unimport == 0.11.1
 vulture == 2.16
@@ -64,7 +64,7 @@ vulture == 2.16
 # generates the html files with the documentation. It therefore uses the
 # docstrings and the type hints.
 sphinx == 9.1.0
-sphinx-autodoc-typehints == 3.12.1
+sphinx-autodoc-typehints == 3.13.8
 
 # myst-parser is needed for including README.md into the documentation
 myst-parser == 5.1.0
@@ -86,15 +86,15 @@ pytest == 9.1.1
 pytest-timeout == 2.4.0
 
 # for converting the additional markdown files to HTML in the [dev] variant
-markdown == 3.10.2
+markdown == 3.11
 
 # setuptools, testresources, twine, virtualenv, and wheel are needed for
 # generating the installable pip package in the [dev] variant.
-setuptools == 83.0.0
+setuptools == 84.0.0
 testresources == 2.1.2
-twine == 6.2.0
-virtualenv == 21.6.1
-wheel == 0.47.0
+twine == 7.0.0
+virtualenv == 21.14.5
+wheel == 0.48.0
 
 # psutil is used for getting information about the system configuration.
 psutil == 7.2.2
