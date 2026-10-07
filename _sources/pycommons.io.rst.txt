@@ -1,0 +1,58 @@
+pycommons.io package
+====================
+
+.. automodule:: pycommons.io
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Submodules
+----------
+
+pycommons.io.arguments module
+-----------------------------
+
+.. automodule:: pycommons.io.arguments
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.io.console module
+---------------------------
+
+.. automodule:: pycommons.io.console
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.io.csv module
+-----------------------
+
+.. automodule:: pycommons.io.csv
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.io.parser module
+--------------------------
+
+.. automodule:: pycommons.io.parser
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.io.path module
+------------------------
+
+.. automodule:: pycommons.io.path
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.io.temp module
+------------------------
+
+.. automodule:: pycommons.io.temp
+   :members:
+   :show-inheritance:
+   :undoc-members:

@@ -1,0 +1,40 @@
+pycommons package
+=================
+
+.. automodule:: pycommons
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   pycommons.dev
+   pycommons.ds
+   pycommons.io
+   pycommons.math
+   pycommons.net
+   pycommons.processes
+   pycommons.strings
+
+Submodules
+----------
+
+pycommons.types module
+----------------------
+
+.. automodule:: pycommons.types
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pycommons.version module
+------------------------
+
+.. automodule:: pycommons.version
+   :members:
+   :show-inheritance:
+   :undoc-members:
