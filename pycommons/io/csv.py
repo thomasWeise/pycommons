@@ -36,7 +36,7 @@ from typing import (
     cast,
 )
 
-from pycommons.ds.sequences import reiterable
+from pycommons.ds.sequences import reiterable, unpack_reiterable
 from pycommons.strings.chars import NEWLINE, WHITESPACE_OR_NEWLINE
 from pycommons.types import check_int_range, type_error
 from pycommons.version import __version__ as pycommons_version
@@ -1099,7 +1099,7 @@ def csv_write(
         raise type_error(footer_bottom_comments,
                          "footer_bottom_comments", Iterable, call=True)
 
-    data = reiterable(data)  # make sure we can iterate over the data twice
+    data = reiterable(data, True)  # we can iterate over the data twice
     setting: Final[S] = setup(data)
     forbidden: Final[list[str]] = sorted(forbidden_marker)
 
@@ -1125,6 +1125,7 @@ def csv_write(
     yield separator.join(collected)
 
     # now do the single rows
+    data = unpack_reiterable(data)  # only need to go over the data once more
     for element in data:
         if element is None:
             raise type_error(element, "data element", object)
@@ -1953,12 +1954,12 @@ class CsvWriter[T]:
     ...     def __init__(self, data: Iterable[dict[str, int]],
     ...                  scope: str | None = None) -> None:
     ...         super().__init__(data, scope)
-    ...         self.rows = sorted({dkey for datarow in data
-    ...                                 for dkey in datarow})
+    ...         self.cols = sorted({dkey for datarow in data
+    ...                                  for dkey in datarow})
     ...     def get_column_titles(self) -> Iterable[str]:
-    ...         return self.rows
+    ...         return self.cols
     ...     def get_row(self, row: dict[str, int]) -> Iterable[str]:
-    ...         return map(str, (row.get(key, "") for key in self.rows))
+    ...         return map(str, (row.get(key, "") for key in self.cols))
     ...     def get_header_comments(self) -> list[str]:
     ...         return ["This is a header comment.", " We have two of it. "]
     ...     def get_footer_comments(self) -> list[str]:
@@ -1982,21 +1983,52 @@ class CsvWriter[T]:
 pycommons.io.csv
     # You can find pycommons at https://thomasweise.github.io/pycommons.
 
+    >>> for p in W.write(dd):
+    ...     print(p[:p.index(", version")] if ", version" in p else p)
+    # This is a header comment.
+    # We have two of it.
+    a;b;c;d
+    1;;2
+    ;6;8
+    4;3;;12
+    ;
+    # This is a footer comment.
+    #
+    # This CSV output has been created using the versatile CSV API of \
+pycommons.io.csv
+    # You can find pycommons at https://thomasweise.github.io/pycommons.
+
+    Now we do the same test, but use the iterator over the data only.
+    >>> for p in W.write(iter(dd)):
+    ...     print(p[:p.index(", version")] if ", version" in p else p)
+    # This is a header comment.
+    # We have two of it.
+    a;b;c;d
+    1;;2
+    ;6;8
+    4;3;;12
+    ;
+    # This is a footer comment.
+    #
+    # This CSV output has been created using the versatile CSV API of \
+pycommons.io.csv
+    # You can find pycommons at https://thomasweise.github.io/pycommons.
+
     >>> class W2(CsvWriter):
     ...     def __init__(self, data: Iterable[dict[str, int]],
     ...                  scope: str | None = None) -> None:
     ...         super().__init__(data, scope)
-    ...         self.rows = sorted({dkey for datarow in data
-    ...                             for dkey in datarow})
+    ...         self.cols = ("a", "b", "c", "d")
+    ...         next(iter(data))
     ...     def get_column_titles(self) -> Iterable[str]:
-    ...         return self.rows if self.scope is None else [
-    ...             f"{self.scope}.{r}" for r in self.rows]
+    ...         return self.cols if self.scope is None else [
+    ...             f"{self.scope}.{r}" for r in self.cols]
     ...     def get_row(self, row: dict[str, int]) -> Iterable[str]:
-    ...         return map(str, (row.get(key, "") for key in self.rows))
+    ...         return map(str, (row.get(key, "") for key in self.cols))
     ...     def get_footer_bottom_comments(self) -> Iterable[str] | None:
     ...         return ["Bla!"]
 
-    >>> for p in W2.write(dd, separator="@", comment_start="B"):
+    >>> for p in W2.write(iter(dd), separator="@", comment_start="B"):
     ...     print(p)
     a@b@c@d
     1@@2
@@ -2005,7 +2037,8 @@ pycommons.io.csv
     @
     B Bla!
 
-    >>> for p in W2.write(dd, scope="k", separator="@", comment_start="B"):
+    >>> for p in W2.write(iter(dd), scope="k", separator="@",
+    ...                   comment_start="B"):
     ...     print(p)
     k.a@k.b@k.c@k.d
     1@@2
