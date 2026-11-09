@@ -126,7 +126,7 @@ def _get_text_encoding(filename: str) -> str:
     return UTF8
 
 
-class Path(str):
+class Path(str):  # noqa: SLOT000,FURB189
     """
     An immutable representation of a canonical path.
 

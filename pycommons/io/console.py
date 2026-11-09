@@ -1,11 +1,11 @@
 """The `logger` routine for writing a log string to stdout."""
-import datetime
+import datetime as dt
 from typing import Callable, Final
 
 from pycommons.processes.caller import is_doc_test
 
 #: the "now" function
-__DTN: Final[Callable[[], datetime.datetime]] = datetime.datetime.now
+__DTN: Final[Callable[[], dt.datetime]] = dt.datetime.now
 
 
 def logger(message: str, note: str = "",
@@ -26,14 +26,14 @@ def logger(message: str, note: str = "",
     >>> from io import StringIO
     >>> from contextlib import redirect_stdout
     >>> sio = StringIO()
-    >>> dt1 = datetime.datetime.now()
+    >>> dt1 = dt.datetime.now()
     >>> with redirect_stdout(sio):
     ...     logger("hello world!", do_print=True)
     >>> line = sio.getvalue().strip()
     >>> print(line[line.index(" ", line.index(" ") + 1) + 1:])
     hello world!
-    >>> dt2 = datetime.datetime.now()
-    >>> dtx = datetime.datetime.strptime(line[:26], "%Y-%m-%d %H:%M:%S.%f")
+    >>> dt2 = dt.datetime.now()
+    >>> dtx = dt.datetime.strptime(line[:26], "%Y-%m-%d %H:%M:%S.%f")
     >>> dt1 <= dtx <= dt2
     True
 

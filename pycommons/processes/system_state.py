@@ -8,7 +8,7 @@ problems.
 """
 
 
-import datetime
+import datetime as dt
 from argparse import ArgumentParser
 from contextlib import AbstractContextManager, nullcontext, suppress
 from time import sleep
@@ -32,7 +32,7 @@ from pycommons.strings.string_tools import replace_str
 from pycommons.types import check_int_range, type_error
 
 #: the "now" function
-__DTN: Final[Callable[[], datetime.datetime]] = datetime.datetime.now
+__DTN: Final[Callable[[], dt.datetime]] = dt.datetime.now
 
 #: the characters to replace with the `SCOPE_SEPARATOR`
 __REPL: Final[tuple[str, ...]] = tuple(

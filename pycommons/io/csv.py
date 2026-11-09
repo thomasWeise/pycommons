@@ -1773,9 +1773,8 @@ def csv_select_scope_or_none(
                 if not skip_final_key(use_key):
                     list.__setitem__(selection, i, (k, use_key, v))
                     continue
-            elif include_scope and (k == scope):
-                if not skip_final_key(k):
-                    continue
+            elif include_scope and (k == scope) and (not skip_final_key(k)):
+                continue
             list.__delitem__(selection, i)
 
     if list.__len__(selection) <= 0:

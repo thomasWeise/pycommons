@@ -156,7 +156,7 @@ _ALLOWED_SCHEMES: Final[set] = {"http", "https"}.union(
     _REQUIRE_USER_NAME_SCHEMES)
 
 
-class URL(str):  # noqa: SLOT000
+class URL(str):  # noqa: SLOT000,FURB189
     r"""
     A normalized and expanded URL.
 
