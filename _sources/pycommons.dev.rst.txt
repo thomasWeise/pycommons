@@ -1,0 +1,28 @@
+pycommons.dev package
+=====================
+
+.. automodule:: pycommons.dev
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   pycommons.dev.building
+   pycommons.dev.doc
+   pycommons.dev.tests
+
+Submodules
+----------
+
+pycommons.dev.url\_replacer module
+----------------------------------
+
+.. automodule:: pycommons.dev.url_replacer
+   :members:
+   :show-inheritance:
+   :undoc-members:
